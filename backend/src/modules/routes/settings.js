@@ -1207,3 +1207,60 @@ router.put(
     }
   }
 );
+
+// GET /api/settings/gsc-key - Check if GSC service account key is configured (returns masked status only)
+router.get("/gsc-key", auth, allowRoles("admin", "user", "seo_manager"), async (_req, res) => {
+  try {
+    const doc = await Setting.findOne({ key: "gscServiceAccountKey" }).lean();
+    const hasKey = !!(doc?.value && String(doc.value).length > 10);
+    let email = "";
+    if (hasKey) {
+      try {
+        const parsed = typeof doc.value === "string" ? JSON.parse(doc.value) : doc.value;
+        email = parsed?.client_email || "";
+      } catch {}
+    }
+    res.json({ configured: hasKey, clientEmail: email });
+  } catch (e) {
+    res.status(500).json({ error: e?.message || "failed" });
+  }
+});
+
+// POST /api/settings/gsc-key - Save GSC service account JSON key
+router.post("/gsc-key", auth, allowRoles("admin", "user"), async (req, res) => {
+  try {
+    const { serviceAccountKey } = req.body;
+    if (!serviceAccountKey || !String(serviceAccountKey).trim()) {
+      return res.status(400).json({ error: "serviceAccountKey is required" });
+    }
+    // Validate it parses as JSON with required fields
+    let parsed;
+    try {
+      parsed = typeof serviceAccountKey === "string" ? JSON.parse(serviceAccountKey) : serviceAccountKey;
+    } catch {
+      return res.status(400).json({ error: "Invalid JSON — paste the full service account key file contents" });
+    }
+    if (!parsed.client_email || !parsed.private_key) {
+      return res.status(400).json({ error: "JSON must contain client_email and private_key fields" });
+    }
+    const valueToStore = typeof serviceAccountKey === "string" ? serviceAccountKey : JSON.stringify(serviceAccountKey);
+    await Setting.findOneAndUpdate(
+      { key: "gscServiceAccountKey" },
+      { $set: { value: valueToStore } },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, clientEmail: parsed.client_email });
+  } catch (e) {
+    res.status(500).json({ error: e?.message || "failed" });
+  }
+});
+
+// DELETE /api/settings/gsc-key - Remove GSC service account key
+router.delete("/gsc-key", auth, allowRoles("admin", "user"), async (_req, res) => {
+  try {
+    await Setting.deleteOne({ key: "gscServiceAccountKey" });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e?.message || "failed" });
+  }
+});
