@@ -104,6 +104,9 @@ const ProductSchema = new mongoose.Schema(
       anchor: { type: String, default: "" },
       type: { type: String, enum: ["dofollow", "nofollow", "sponsored", "ugc"], default: "dofollow" },
       status: { type: String, enum: ["active", "broken", "pending"], default: "pending" },
+      aiSuggested: { type: Boolean, default: false },
+      notes: { type: String, default: "" },
+      domainAuthority: { type: String, default: "" },
       addedAt: { type: Date, default: Date.now },
     }],
     // Google Search Console integration

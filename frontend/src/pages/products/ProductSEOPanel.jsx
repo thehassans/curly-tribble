@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { apiPost, apiPatch } from '../../api'
+import { apiPost, apiPatch, apiGet } from '../../api'
 
 const SITE_URL = 'https://buysial.com'
 const TABS = ['General SEO', 'Country SEO', 'Backlinks', 'Google Search Console', '✨ AI SEO']
@@ -30,6 +30,7 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
   const [aiSeoLoading, setAiSeoLoading] = useState(false)
   const [aiSeoMsg, setAiSeoMsg] = useState('')
   const [aiSeoPreview, setAiSeoPreview] = useState(null)
+  const [gscKeyStatus, setGscKeyStatus] = useState(null) // { configured: bool, clientEmail: string }
 
   const seo = form.seo || {}
   const countrySeo = form.countrySeo || {}
@@ -42,6 +43,11 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
       setGscData({ siteUrl: SITE_URL })
     }
   }, []) // eslint-disable-line
+
+  // Check if GSC JSON key is configured in Settings
+  useEffect(() => {
+    apiGet('/api/settings/gsc-key').then(r => setGscKeyStatus(r)).catch(() => {})
+  }, [])
 
   function setSeo(patch) {
     setForm(f => ({ ...f, seo: { ...(f.seo || {}), ...patch } }))
@@ -100,6 +106,8 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
           type: b.type || 'dofollow',
           status: b.status || 'pending',
           aiSuggested: true,
+          notes: b.notes || '',
+          domainAuthority: b.domainAuthority || '',
           addedAt: new Date().toISOString(),
         })) : []),
       ],
@@ -533,7 +541,10 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
                         </td>
                         <td style={{ padding: '10px 10px', whiteSpace: 'nowrap' }}>
                           {bl.aiSuggested
-                            ? <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700 }}>✨ AI</span>
+                            ? <div>
+                                <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#dbeafe', color: '#1d4ed8', fontWeight: 700 }}>✨ AI</span>
+                                {bl.notes && <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 3, maxWidth: 160, whiteSpace: 'normal', lineHeight: 1.4 }}>{bl.notes}</div>}
+                              </div>
                             : <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 4, background: '#f3f4f6', color: '#6b7280', fontWeight: 700 }}>Manual</span>
                           }
                         </td>
@@ -590,6 +601,22 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
               </div>
             </div>
 
+            {/* GSC Key Status Banner */}
+            {gscKeyStatus !== null && (
+              <div style={{
+                padding: '10px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600,
+                display: 'flex', alignItems: 'center', gap: 8,
+                background: gscKeyStatus.configured ? '#dcfce7' : '#fef9c3',
+                color: gscKeyStatus.configured ? '#166534' : '#854d0e',
+                border: `1px solid ${gscKeyStatus.configured ? '#bbf7d0' : '#fde68a'}`,
+              }}>
+                <span style={{ fontSize: 16 }}>{gscKeyStatus.configured ? '🔑' : '⚠️'}</span>
+                {gscKeyStatus.configured
+                  ? <>GSC Service Account: <strong style={{ fontFamily: 'monospace', fontWeight: 700 }}>{gscKeyStatus.clientEmail}</strong> — API key active ✓</>
+                  : <>GSC API key not configured. Go to <strong>Admin → Settings → API Setup</strong> and paste your service account JSON.</>}
+              </div>
+            )}
+
             {/* Indexing Status */}
             <div style={{ padding: 16, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--panel-2)', display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
@@ -597,7 +624,7 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
                 background: STATUS_COLOR[gscData.indexingStatus || 'not_requested'],
                 flexShrink: 0
               }} />
-              <div>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: 14 }}>
                   Indexing Status: <span style={{ color: STATUS_COLOR[gscData.indexingStatus || 'not_requested'] }}>
                     {(gscData.indexingStatus || 'not_requested').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
@@ -609,7 +636,12 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
                   </div>
                 )}
                 {gscData.lastError && (
-                  <div style={{ fontSize: 12, color: '#dc2626', marginTop: 2 }}>{gscData.lastError}</div>
+                  <div style={{ fontSize: 12, color: '#dc2626', marginTop: 2 }}>Error: {gscData.lastError}</div>
+                )}
+                {!productId && (
+                  <div style={{ fontSize: 12, color: '#b45309', marginTop: 4, fontWeight: 600 }}>
+                    ⚠️ Save the product first — then come back here to request indexing.
+                  </div>
                 )}
               </div>
             </div>
@@ -618,18 +650,19 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
             <button
               type="button"
               onClick={requestIndex}
-              disabled={gscLoading}
+              disabled={gscLoading || !productId}
               style={{
                 padding: '12px 24px', borderRadius: 10,
-                background: 'linear-gradient(135deg,#4285f4,#34a853)',
-                color: '#fff', border: 'none', fontWeight: 700, fontSize: 14,
-                cursor: gscLoading ? 'not-allowed' : 'pointer',
+                background: !productId ? '#d1d5db' : 'linear-gradient(135deg,#4285f4,#34a853)',
+                color: !productId ? '#9ca3af' : '#fff', border: 'none', fontWeight: 700, fontSize: 14,
+                cursor: (gscLoading || !productId) ? 'not-allowed' : 'pointer',
                 opacity: gscLoading ? 0.7 : 1,
                 display: 'flex', alignItems: 'center', gap: 8, width: 'fit-content'
               }}
+              title={!productId ? 'Save the product first to enable indexing' : 'Submit URL to Google Indexing API'}
             >
               <span style={{ fontSize: 18 }}>🔍</span>
-              {gscLoading ? 'Submitting…' : 'Request Google Indexing'}
+              {gscLoading ? 'Submitting…' : !productId ? 'Save Product First' : 'Request Google Indexing'}
             </button>
 
             {gscMsg && (

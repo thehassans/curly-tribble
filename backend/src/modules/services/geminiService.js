@@ -179,52 +179,77 @@ class GeminiService {
 
   async generateProductSEO(productName, category, description = '', availableCountries = [], baseUrl = 'https://buysial.com') {
     const countriesList = availableCountries.length > 0 ? availableCountries.join(', ') : 'UAE, KSA, UK, US';
-    const prompt = `You are an elite SEO specialist and e-commerce growth expert with deep knowledge of Google's ranking algorithms, E-E-A-T, and international SEO.
+    const prompt = `You are a world-class e-commerce SEO strategist specialising in fast-ranking (2-8 weeks) Google results for online stores. Your strategies are based on Google's E-E-A-T, BERT, and Shopping Graph algorithms.
 
-Generate a complete, production-ready SEO package for this product:
-Product Name: ${productName}
-Category: ${category}
-Description: ${description || 'Not provided'}
-Target Markets: ${countriesList}
-Website: ${baseUrl}
+PRODUCT DETAILS:
+- Name: ${productName}
+- Category: ${category}
+- Description: ${description || 'Premium product'}
+- Target Markets: ${countriesList}
+- Store URL: ${baseUrl}
 
-Return ONLY a single valid JSON object (no markdown fences, no explanation) with these exact keys:
+STRATEGY: Optimise for FAST RANKINGS (2-8 weeks) using:
+1. Long-tail keywords (3-5 words) with low competition but clear buying intent
+2. Geo-targeted keywords ("buy X in Dubai", "best X UAE delivery")
+3. Question-based keywords for featured snippets ("best X for Y", "where to buy X")
+4. Transactional modifiers: buy, order, cheap, best, review, discount, free shipping
+5. Competitor gap keywords: under-served variations with commercial intent
+
+Return ONLY a valid JSON object (no markdown, no explanation):
 
 {
-  "seoTitle": "Primary keyword first, product name, brand signal — MUST be 50-60 chars, max 60",
-  "slug": "primary-keyword-product-name-lowercase-hyphens",
-  "seoDescription": "Start with primary keyword, include benefit, CTA (Shop/Discover/Get), 145-158 chars",
-  "seoKeywords": "head keyword, long-tail 1, long-tail 2, modifier + keyword, location + keyword, intent keyword, brand + keyword, 8-12 total comma-separated",
-  "ogTitle": "Social-optimised title, slightly more emotional/clickbait than seoTitle",
-  "ogDescription": "Social sharing description — curiosity-gap, 100-130 chars",
+  "seoTitle": "50-60 chars max — primary long-tail keyword first, then product name, optionally brand",
+  "slug": "3-5-word-hyphenated-primary-keyword-slug",
+  "seoDescription": "145-158 chars — lead with primary keyword, state top benefit, include buying signal (Shop Now / Order Today / Free Delivery), end with trust signal",
+  "seoKeywords": "12-15 comma-separated keywords: 3 short-head (1-2 words), 5 medium-tail (3 words), 4 long-tail buying-intent (4+ words), 3 geo-targeted (city/country + keyword)",
+  "ogTitle": "Emotionally compelling social title — benefit-first, 55-70 chars",
+  "ogDescription": "Social sharing hook — open curiosity loop, mention key benefit, 100-125 chars",
   "canonicalUrl": "${baseUrl}/products/SLUG_HERE",
   "countrySeo": {
     "CountryName": {
-      "metaTitle": "Localised title for this specific market, 50-60 chars",
-      "metaDescription": "Market-specific description with local buying intent signals, 145-158 chars",
-      "keywords": "local market specific keywords",
-      "hreflang": "ISO639-ISO3166 e.g. en-AE or ar-AE"
+      "metaTitle": "50-60 chars — localised long-tail keyword + product, e.g. 'Buy [Product] in [City] | Free Delivery'",
+      "metaDescription": "145-158 chars — buying intent for this market, mention local delivery/price advantage",
+      "keywords": "8-10 geo-targeted keywords for this specific market in English",
+      "hreflang": "en-AE / en-SA / en-GB / en-US / en-QA / en-KW / en-OM / en-BH"
     }
   },
   "backlinks": [
-    { "url": "REAL_AUTHORITY_SITE_1/specific-article-path", "anchor": "primary keyword anchor text", "type": "dofollow", "status": "pending", "domainAuthority": "high", "notes": "why this site is relevant" },
-    { "url": "REAL_AUTHORITY_SITE_2/category-review-page", "anchor": "brand + keyword anchor", "type": "dofollow", "status": "pending", "domainAuthority": "high", "notes": "why this site is relevant" },
-    { "url": "REAL_AUTHORITY_SITE_3/article", "anchor": "long-tail keyword anchor", "type": "dofollow", "status": "pending", "domainAuthority": "medium", "notes": "why this site is relevant" },
-    { "url": "REAL_QA_OR_FORUM_SITE/thread-about-product", "anchor": "question-based anchor", "type": "nofollow", "status": "pending", "domainAuthority": "high", "notes": "community link building" },
-    { "url": "REAL_NEWS_OR_DIRECTORY_SITE/listing", "anchor": "brand name or naked URL", "type": "nofollow", "status": "pending", "domainAuthority": "medium", "notes": "citation and brand mention" }
+    { "url": "https://REAL_DOMAIN.com/KNOWN_SECTION_PATH", "anchor": "long-tail keyword anchor", "type": "dofollow", "status": "pending", "domainAuthority": "high", "notes": "Outreach target: explain exactly what content to pitch to this site" },
+    { "url": "https://REAL_DOMAIN.com/KNOWN_SECTION_PATH", "anchor": "brand + keyword", "type": "dofollow", "status": "pending", "domainAuthority": "high", "notes": "Outreach target: content pitch idea" },
+    { "url": "https://REAL_DOMAIN.com/KNOWN_SECTION_PATH", "anchor": "product category keyword", "type": "dofollow", "status": "pending", "domainAuthority": "medium", "notes": "Outreach target: content pitch idea" },
+    { "url": "https://reddit.com/r/RELEVANT_SUBREDDIT", "anchor": "question-based anchor", "type": "nofollow", "status": "pending", "domainAuthority": "high", "notes": "Community engagement: post helpful answer with product mention" },
+    { "url": "https://www.trustpilot.com/review/buysial.com", "anchor": "buysial.com reviews", "type": "nofollow", "status": "pending", "domainAuthority": "high", "notes": "Review platform: encourage customer reviews to build brand authority" }
   ],
   "siteUrl": "${baseUrl}"
 }
 
-SEO Rules:
-- seoTitle: Put primary search keyword first. Include product name. End with brand if space allows. No fluff.
-- slug: 3-6 words max, primary keyword first, no stop words, no numbers unless essential
-- seoDescription: First word MUST be a keyword. Include exactly one CTA verb. Hit 150-158 chars.
-- seoKeywords: Mix short-head (2 words), medium-tail (3 words), long-tail (4+ words). Include price/buy intent keywords.
-- countrySeo: Generate an entry for EVERY country in [${countriesList}]. ALL fields (metaTitle, metaDescription, keywords) must be in ENGLISH for every country including Arabic markets (UAE, KSA, Saudi Arabia, Qatar, Bahrain, Kuwait, Oman). Use localised buying-intent signals in English (e.g. "in Dubai", "in Saudi Arabia", "UAE delivery"). Hreflang codes: en-AE for UAE, en-SA for KSA/Saudi Arabia, en-GB for UK, en-US for US, en-QA for Qatar, en-BH for Bahrain, en-KW for Kuwait, en-OM for Oman.
-- canonicalUrl: Replace SLUG_HERE with the actual slug you generated
-- backlinks: CRITICAL — use REAL, well-known, existing websites that are topically relevant to "${category}" and "${productName}". Examples of real sites by niche: Beauty/Skincare → allure.com, byrdie.com, healthline.com/beauty, cosmopolitan.com; Tech → techradar.com, cnet.com, rtings.com, tomsguide.com; Fashion → vogue.com, whowhatwear.com, harpersbazaar.com; Home → houzz.com, apartmenttherapy.com, bhg.com; Food → foodnetwork.com, seriouseats.com; Fitness → menshealth.com, womenshealthmag.com, livestrong.com; General Q&A → reddit.com, quora.com; General directories → trustpilot.com, g2.com. For UAE/KSA markets also include: khaleejtimes.com, gulfnews.com, arabianbusiness.com. Generate REAL domain names with plausible article paths, not placeholder text like "authority-blog.com". Each backlink must have a "notes" field explaining why that specific site and URL path is relevant to this product.
-- siteUrl: Always "${baseUrl}"`;
+STRICT RULES — follow every rule or the output is wrong:
+
+SEO TITLE: Primary long-tail BUYING keyword must be first word(s). Example: "Japan Sakura Cream UAE – Luminous Skin | Buysial". Never start with brand name. Max 60 chars.
+
+SLUG: 3-5 words, primary keyword first, all lowercase, hyphens only. No brand name in slug unless part of keyword.
+
+META DESCRIPTION: Count characters carefully. Must be 145-158 chars. First clause = primary keyword + benefit. Second clause = CTA ("Order now", "Shop today", "Free delivery UAE"). Third clause = trust signal ("Genuine product", "Fast shipping").
+
+KEYWORDS: Include these 4 types — (A) short competitive: "japan sakura cream", "face cream UAE" — (B) buying-intent long-tail: "buy japan sakura cream online UAE", "best face moisturizer for dry skin KSA" — (C) question keywords: "which sakura cream is best for glowing skin", "where to buy authentic japan skincare in Dubai" — (D) geo-targeted: "japan sakura cream dubai", "sakura face cream riyadh delivery".
+
+COUNTRY SEO: Generate entry for EVERY country in [${countriesList}]. ALL text in ENGLISH. Each country's metaTitle must include the country/city name and a buying intent word. Hreflang: en-AE (UAE), en-SA (KSA/Saudi Arabia), en-GB (UK), en-US (US), en-QA (Qatar), en-BH (Bahrain), en-KW (Kuwait), en-OM (Oman).
+
+CANONICAL URL: Replace SLUG_HERE with the actual generated slug.
+
+BACKLINKS — THIS IS AN OUTREACH TARGET LIST, NOT FAKE LINKS:
+Use ONLY real, well-known domains that exist. Use ONLY their known section/category URLs — do NOT invent specific article paths or fake IDs.
+Niche examples:
+- Beauty/Skincare: allure.com/beauty, byrdie.com/skin, healthline.com/beauty, cosmopolitan.com/beauty, self.com/beauty, vogue.com/beauty
+- Fashion/Style: whowhatwear.com, harpersbazaar.com/beauty
+- Tech: techradar.com/reviews, cnet.com/reviews, tomsguide.com/reviews  
+- Home/Lifestyle: houzz.com/ideabooks, apartmenttherapy.com
+- Health/Fitness: menshealth.com/nutrition, womenshealthmag.com
+- Q&A/Community: reddit.com/r/SkincareAddiction, reddit.com/r/AsianBeauty, quora.com/topic/Skin-Care
+- UAE/KSA Authority: gulfnews.com/lifestyle, khaleejtimes.com/lifestyle, arabianbusiness.com
+- Review/Directory: trustpilot.com/review/buysial.com, google.com/maps (Google Business)
+Use the section/category URL as the target — the "notes" field explains what content to pitch/create for that site.
+Generate 5 backlinks, first 3 dofollow from niche authorities, last 2 nofollow from communities/directories.`;
 
     const text = await this.generateContent(prompt);
     try {
