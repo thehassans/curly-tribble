@@ -404,7 +404,19 @@ app.get("/robots.txt", (req, res) => {
     return res.send(
       `User-agent: *\n` +
         `Allow: /\n` +
-        `Disallow: /api/\n` +
+        `Allow: /api/products/public/\n` +
+        `Allow: /api/settings/branding\n` +
+        `Allow: /api/settings/country-seo\n` +
+        `Allow: /api/settings/currency\n` +
+        `Allow: /api/settings/seo\n` +
+        `Allow: /api/settings/theme\n` +
+        `Allow: /api/settings/website\n` +
+        `Allow: /api/categories\n` +
+        `Disallow: /api/auth/\n` +
+        `Disallow: /api/orders/\n` +
+        `Disallow: /api/users/\n` +
+        `Disallow: /api/notifications/\n` +
+        `Disallow: /api/admin/\n` +
         `Disallow: /user/\n` +
         `Disallow: /manager/\n` +
         `Disallow: /agent/\n` +
@@ -413,10 +425,30 @@ app.get("/robots.txt", (req, res) => {
         `Disallow: /investor/\n` +
         `Disallow: /commissioner/\n` +
         `Disallow: /confirmer/\n` +
-        `Sitemap: ${baseUrl}/sitemap.xml\n`
+        `Sitemap: ${baseUrl}/sitemap_index.xml\n`
     );
   } catch {
     return res.status(200).send("User-agent: *\nAllow: /\n");
+  }
+});
+
+app.get("/sitemap_index.xml", (req, res) => {
+  try {
+    const baseUrl = getPublicBaseUrl(req);
+    const now = new Date().toISOString();
+    const xml =
+      `<?xml version="1.0" encoding="UTF-8"?>\n` +
+      `<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n` +
+      `  <sitemap>\n` +
+      `    <loc>${xmlEscape(baseUrl)}/sitemap.xml</loc>\n` +
+      `    <lastmod>${now}</lastmod>\n` +
+      `  </sitemap>\n` +
+      `</sitemapindex>\n`;
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    return res.status(200).send(xml);
+  } catch {
+    return res.status(500).send("<?xml version=\"1.0\"?><sitemapindex/>");
   }
 });
 
