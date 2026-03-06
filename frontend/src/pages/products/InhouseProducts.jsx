@@ -13,6 +13,7 @@ import {
   mediaUrl,
 } from '../../api'
 import { getCurrencyConfig, convert as fxConvert } from '../../util/currency'
+import ProductSEOPanel from './ProductSEOPanel'
 
 // Convert ISO 3166-1 alpha-2 country code to emoji flag
 function codeToFlag(code) {
@@ -117,6 +118,11 @@ export default function InhouseProducts() {
     variants: {},
     images: [],
     video: null,
+    // SEO
+    seo: { seoTitle: '', seoDescription: '', seoKeywords: '', slug: '', canonicalUrl: '', noIndex: false, ogTitle: '', ogDescription: '' },
+    countrySeo: {},
+    backlinks: [],
+    gscData: { siteUrl: '', indexingStatus: 'not_requested', lastError: '' },
   })
   const [imagePreviews, setImagePreviews] = useState([])
   const [videoPreview, setVideoPreview] = useState(null)
@@ -925,6 +931,21 @@ export default function InhouseProducts() {
     fd.append('isLimitedStock', String(!!form.isLimitedStock))
     for (const f of form.images || []) fd.append('images', f)
     if (form.video) fd.append('video', form.video)
+    // SEO fields
+    try {
+      const seo = form.seo || {}
+      if (seo.seoTitle) fd.append('seoTitle', seo.seoTitle)
+      if (seo.seoDescription) fd.append('seoDescription', seo.seoDescription)
+      if (seo.seoKeywords) fd.append('seoKeywords', seo.seoKeywords)
+      if (seo.slug) fd.append('slug', seo.slug)
+      if (seo.canonicalUrl) fd.append('canonicalUrl', seo.canonicalUrl)
+      fd.append('noIndex', String(!!seo.noIndex))
+      if (seo.ogTitle) fd.append('ogTitle', seo.ogTitle)
+      if (seo.ogDescription) fd.append('ogDescription', seo.ogDescription)
+      if (form.countrySeo && Object.keys(form.countrySeo).length) fd.append('countrySeo', JSON.stringify(form.countrySeo))
+      if (Array.isArray(form.backlinks) && form.backlinks.length) fd.append('backlinks', JSON.stringify(form.backlinks))
+      if (form.gscData) fd.append('gscData', JSON.stringify(form.gscData))
+    } catch {}
     try {
       const v = form.variants && typeof form.variants === 'object' ? form.variants : {}
       fd.append('variants', JSON.stringify(v))
@@ -996,6 +1017,10 @@ export default function InhouseProducts() {
       variants: {},
       images: [],
       video: null,
+      seo: { seoTitle: '', seoDescription: '', seoKeywords: '', slug: '', canonicalUrl: '', noIndex: false, ogTitle: '', ogDescription: '' },
+      countrySeo: {},
+      backlinks: [],
+      gscData: { siteUrl: '', indexingStatus: 'not_requested', lastError: '' },
     })
     setImagePreviews([])
     setVideoPreview(null)
@@ -1118,6 +1143,20 @@ export default function InhouseProducts() {
       stockKuwait: p.stockByCountry?.Kuwait || 0,
       stockQatar: p.stockByCountry?.Qatar || 0,
       images: [],
+      // SEO fields
+      seo: {
+        seoTitle: p.seoTitle || '',
+        seoDescription: p.seoDescription || '',
+        seoKeywords: p.seoKeywords || '',
+        slug: p.slug || '',
+        canonicalUrl: p.canonicalUrl || '',
+        noIndex: !!p.noIndex,
+        ogTitle: p.ogTitle || '',
+        ogDescription: p.ogDescription || '',
+      },
+      countrySeo: p.countrySeo || {},
+      backlinks: Array.isArray(p.backlinks) ? p.backlinks : [],
+      gscData: p.gscData || { siteUrl: '', indexingStatus: 'not_requested', lastError: '' },
     })
     setEditPreviews([])
   }
@@ -1181,6 +1220,21 @@ export default function InhouseProducts() {
           const seq = imgs.map((_, i) => ({ type: 'image', position: i, index: i }))
           fd.append('mediaSequence', JSON.stringify(seq))
         }
+      } catch {}
+      // SEO fields
+      try {
+        const seo = editForm.seo || {}
+        if (seo.seoTitle != null) fd.append('seoTitle', seo.seoTitle)
+        if (seo.seoDescription != null) fd.append('seoDescription', seo.seoDescription)
+        if (seo.seoKeywords != null) fd.append('seoKeywords', seo.seoKeywords)
+        if (seo.slug != null) fd.append('slug', seo.slug)
+        if (seo.canonicalUrl != null) fd.append('canonicalUrl', seo.canonicalUrl)
+        fd.append('noIndex', String(!!seo.noIndex))
+        if (seo.ogTitle) fd.append('ogTitle', seo.ogTitle)
+        if (seo.ogDescription) fd.append('ogDescription', seo.ogDescription)
+        if (editForm.countrySeo) fd.append('countrySeo', JSON.stringify(editForm.countrySeo))
+        if (Array.isArray(editForm.backlinks)) fd.append('backlinks', JSON.stringify(editForm.backlinks))
+        if (editForm.gscData) fd.append('gscData', JSON.stringify(editForm.gscData))
       } catch {}
       await apiUploadPatch(`/api/products/${editing._id}`, fd)
       setEditing(null)
@@ -2649,6 +2703,15 @@ export default function InhouseProducts() {
             </div>
           )}
 
+          {/* SEO & Google Search Console Panel */}
+          <ProductSEOPanel
+            form={form}
+            setForm={setForm}
+            countryOpts={COUNTRY_OPTS}
+            productId={null}
+            isMobile={isMobile}
+          />
+
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, paddingBottom: 40 }}>
             <button
               type="button"
@@ -4067,6 +4130,15 @@ export default function InhouseProducts() {
                   </div>
                 </div>
               </div>
+              {/* SEO & Google Search Console Panel (Edit Mode) */}
+              <ProductSEOPanel
+                form={editForm}
+                setForm={setEditForm}
+                countryOpts={COUNTRY_OPTS}
+                productId={editing?._id}
+                isMobile={isMobile}
+              />
+
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <button
                   className="btn secondary"

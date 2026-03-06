@@ -1410,6 +1410,36 @@ router.patch('/:id', auth, allowRoles('admin','user','manager'), upload.any(), a
   if (req.body?.isFeatured != null) prod.isFeatured = (req.body.isFeatured === true || String(req.body.isFeatured).toLowerCase() === 'true')
   if (req.body?.isTrending != null) prod.isTrending = (req.body.isTrending === true || String(req.body.isTrending).toLowerCase() === 'true')
   if (req.body?.isRecommended != null) prod.isRecommended = (req.body.isRecommended === true || String(req.body.isRecommended).toLowerCase() === 'true')
+  // SEO fields
+  if (req.body?.seoTitle != null) prod.seoTitle = String(req.body.seoTitle || '')
+  if (req.body?.seoDescription != null) prod.seoDescription = String(req.body.seoDescription || '')
+  if (req.body?.seoKeywords != null) prod.seoKeywords = String(req.body.seoKeywords || '')
+  if (req.body?.metaTitle != null) prod.metaTitle = String(req.body.metaTitle || '')
+  if (req.body?.metaDescription != null) prod.metaDescription = String(req.body.metaDescription || '')
+  if (req.body?.slug != null) prod.slug = String(req.body.slug || '').toLowerCase().replace(/[^a-z0-9-]/g, '-')
+  if (req.body?.canonicalUrl != null) prod.canonicalUrl = String(req.body.canonicalUrl || '')
+  if (req.body?.noIndex != null) prod.noIndex = (req.body.noIndex === true || String(req.body.noIndex).toLowerCase() === 'true')
+  if (req.body?.countrySeo != null) {
+    try {
+      let cs = req.body.countrySeo
+      if (typeof cs === 'string') cs = JSON.parse(cs)
+      if (cs && typeof cs === 'object') prod.countrySeo = cs
+    } catch (e) { console.error('Failed to parse countrySeo', e) }
+  }
+  if (req.body?.backlinks != null) {
+    try {
+      let bl = req.body.backlinks
+      if (typeof bl === 'string') bl = JSON.parse(bl)
+      if (Array.isArray(bl)) prod.backlinks = bl
+    } catch (e) { console.error('Failed to parse backlinks', e) }
+  }
+  if (req.body?.gscData != null) {
+    try {
+      let gsc = req.body.gscData
+      if (typeof gsc === 'string') gsc = JSON.parse(gsc)
+      if (gsc && typeof gsc === 'object') prod.gscData = { ...(prod.gscData?.toObject?.() || prod.gscData || {}), ...gsc }
+    } catch (e) { console.error('Failed to parse gscData', e) }
+  }
   // Update availableCountries if provided
   if (req.body?.availableCountries != null){
     try{
@@ -1595,6 +1625,61 @@ router.post('/:id/images/ai', auth, allowRoles('admin','user','manager'), async 
   }catch(err){
     console.error('AI image gen error:', err)
     return res.status(500).json({ message: err?.message || 'Failed to generate images' })
+  }
+})
+
+// Request Google Search Console URL indexing for a product
+router.post('/:id/seo/request-index', auth, allowRoles('admin','user','manager','seo_manager'), async (req, res) => {
+  try {
+    const { id } = req.params
+    const prod = await Product.findById(id)
+    if (!prod) return res.status(404).json({ message: 'Product not found' })
+
+    // Permission check
+    if (req.user.role !== 'admin' && req.user.role !== 'seo_manager') {
+      let ownerId = req.user.id
+      if (req.user.role === 'manager') {
+        const mgr = await User.findById(req.user.id).select('managerPermissions createdBy')
+        if (!mgr || !mgr.managerPermissions?.canManageProducts) return res.status(403).json({ message: 'Not allowed' })
+        ownerId = String(mgr.createdBy || req.user.id)
+      }
+      if (String(prod.createdBy) !== String(ownerId)) return res.status(403).json({ message: 'Not allowed' })
+    }
+
+    const baseUrl = String(req.body?.siteUrl || prod.gscData?.siteUrl || process.env.PUBLIC_BASE_URL || '').replace(/\/$/, '')
+    const slug = prod.slug || String(prod.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const productUrl = baseUrl ? `${baseUrl}/products/${slug}` : null
+
+    // Try GSC Indexing API via service account stored in Settings
+    try {
+      const { default: Setting } = await import('../models/Setting.js')
+      const gscKeySetting = await Setting.findOne({ key: 'gscServiceAccountKey' }).lean()
+      if (gscKeySetting?.value && productUrl) {
+        const { GoogleAuth } = await import('google-auth-library')
+        const credentials = typeof gscKeySetting.value === 'string' ? JSON.parse(gscKeySetting.value) : gscKeySetting.value
+        const gauth = new GoogleAuth({ credentials, scopes: ['https://www.googleapis.com/auth/indexing'] })
+        const client = await gauth.getClient()
+        const resp = await client.request({
+          url: 'https://indexing.googleapis.com/v3/urlNotifications:publish',
+          method: 'POST',
+          data: { url: productUrl, type: 'URL_UPDATED' },
+        })
+        prod.gscData = { ...(prod.gscData?.toObject?.() || prod.gscData || {}), siteUrl: baseUrl, lastIndexRequestAt: new Date(), indexingStatus: 'submitted', lastError: '' }
+        await prod.save()
+        return res.json({ success: true, message: 'URL submitted to Google Indexing API', productUrl, apiResponse: resp.data })
+      }
+    } catch (gscErr) {
+      console.warn('GSC API error:', gscErr?.message)
+      prod.gscData = { ...(prod.gscData?.toObject?.() || prod.gscData || {}), lastIndexRequestAt: new Date(), indexingStatus: 'error', lastError: gscErr?.message || 'GSC API error' }
+      await prod.save()
+      return res.json({ success: false, message: 'GSC API error: ' + (gscErr?.message || 'Unknown'), productUrl, manualUrl: productUrl ? `https://search.google.com/search-console/inspect?resource_id=${encodeURIComponent(baseUrl)}&id=${encodeURIComponent(productUrl)}` : null })
+    }
+
+    // No credentials configured — return instructions for manual submission
+    return res.json({ success: false, noCredentials: true, message: 'GSC service account key not configured in Settings. Submit the URL manually.', productUrl, manualUrl: 'https://search.google.com/search-console' })
+  } catch (err) {
+    console.error('GSC request-index error:', err)
+    res.status(500).json({ message: err?.message || 'Failed to request indexing' })
   }
 })
 

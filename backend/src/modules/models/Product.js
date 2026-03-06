@@ -96,6 +96,23 @@ const ProductSchema = new mongoose.Schema(
     slug: { type: String, default: "" },
     canonicalUrl: { type: String, default: "" },
     noIndex: { type: Boolean, default: false },
+    // Country-wise SEO overrides (e.g. { UAE: { metaTitle, metaDescription, keywords, hreflang } })
+    countrySeo: { type: mongoose.Schema.Types.Mixed, default: {} },
+    // Backlinks tracking
+    backlinks: [{
+      url: { type: String, default: "" },
+      anchor: { type: String, default: "" },
+      type: { type: String, enum: ["dofollow", "nofollow", "sponsored", "ugc"], default: "dofollow" },
+      status: { type: String, enum: ["active", "broken", "pending"], default: "pending" },
+      addedAt: { type: Date, default: Date.now },
+    }],
+    // Google Search Console integration
+    gscData: {
+      siteUrl: { type: String, default: "" },
+      lastIndexRequestAt: { type: Date },
+      indexingStatus: { type: String, enum: ["not_requested", "submitted", "indexed", "error"], default: "not_requested" },
+      lastError: { type: String, default: "" },
+    },
     // Premium E-commerce Features
     sellByBuysial: { type: Boolean, default: false },
     isBestSelling: { type: Boolean, default: false },
