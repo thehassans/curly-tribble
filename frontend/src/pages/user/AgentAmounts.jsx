@@ -140,17 +140,23 @@ export default function AgentAmounts() {
   }
 
   const filteredAgents = useMemo(() => {
-    if (!debouncedSearch) return agents
-    const term = debouncedSearch.toLowerCase()
-    return agents.filter(
-      (a) =>
-        String(a.name || '')
-          .toLowerCase()
-          .includes(term) ||
-        String(a.phone || '')
-          .toLowerCase()
-          .includes(term)
-    )
+    let list = agents
+    if (debouncedSearch) {
+      const term = debouncedSearch.toLowerCase()
+      list = list.filter(
+        (a) =>
+          String(a.name || '').toLowerCase().includes(term) ||
+          String(a.phone || '').toLowerCase().includes(term)
+      )
+    }
+    // Only show agents with remaining balance OR upcoming commission
+    list = list.filter((a) => {
+      const paidBase = Number(a.sentBasePKR || a.sentPKR || 0)
+      const bal = Math.max(0, Number(a.deliveredCommissionPKR || 0) - paidBase - Number(a.pendingPKR || 0))
+      const upcoming = Number(a.upcomingCommissionPKR || 0)
+      return bal > 0 || upcoming > 0
+    })
+    return list
   }, [agents, debouncedSearch])
 
   const totals = useMemo(() => {
@@ -266,24 +272,6 @@ export default function AgentAmounts() {
           gap: 16,
         }}
       >
-        <div className="stat-card stagger-item gradient-green" style={{ animationDelay: '0.15s' }}>
-          <div
-            style={{
-              fontSize: 13,
-              opacity: 0.95,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              marginBottom: '8px',
-            }}
-          >
-            Delivered Commission
-          </div>
-          <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: '-1px' }}>
-            PKR {num(totals.deliveredCommission)}
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6 }}>From delivered orders</div>
-        </div>
         <div className="stat-card stagger-item gradient-blue" style={{ animationDelay: '0.2s' }}>
           <div
             style={{
@@ -301,24 +289,6 @@ export default function AgentAmounts() {
             PKR {num(totals.upcomingCommission)}
           </div>
           <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6 }}>From pending orders</div>
-        </div>
-        <div className="stat-card stagger-item gradient-purple" style={{ animationDelay: '0.25s' }}>
-          <div
-            style={{
-              fontSize: 13,
-              opacity: 0.95,
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              marginBottom: '8px',
-            }}
-          >
-            Total Sent
-          </div>
-          <div style={{ fontSize: 32, fontWeight: 900, letterSpacing: '-1px' }}>
-            PKR {num(totals.sent)}
-          </div>
-          <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6 }}>Already paid out</div>
         </div>
         <div
           className="stat-card stagger-item gradient-orange"
@@ -435,40 +405,10 @@ export default function AgentAmounts() {
                     padding: '10px 12px',
                     textAlign: 'right',
                     borderRight: '1px solid var(--border)',
-                    color: '#06b6d4',
-                  }}
-                >
-                  Delivered Value (AED)
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    textAlign: 'right',
-                    borderRight: '1px solid var(--border)',
-                    color: '#10b981',
-                  }}
-                >
-                  Delivered Comm.
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    textAlign: 'right',
-                    borderRight: '1px solid var(--border)',
                     color: '#3b82f6',
                   }}
                 >
                   Upcoming Comm.
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    textAlign: 'right',
-                    borderRight: '1px solid var(--border)',
-                    color: '#8b5cf6',
-                  }}
-                >
-                  Sent
                 </th>
                 <th
                   style={{
@@ -506,46 +446,7 @@ export default function AgentAmounts() {
                           background: 'var(--panel-2)',
                           borderRadius: 4,
                           animation: 'pulse 1.2s ease-in-out infinite',
-                        }}
-                      />
-                    </td>
-                    <td style={{ padding: '10px 12px', borderRight: '1px solid var(--border)' }}>
-                      <div
-                        style={{
-                          height: 14,
-                          background: 'var(--panel-2)',
-                          borderRadius: 6,
-                          animation: 'pulse 1.2s ease-in-out infinite',
-                        }}
-                      />
-                    </td>
-                    <td style={{ padding: '10px 12px', borderRight: '1px solid var(--border)' }}>
-                      <div
-                        style={{
-                          height: 14,
-                          background: 'var(--panel-2)',
-                          borderRadius: 6,
-                          animation: 'pulse 1.2s ease-in-out infinite',
-                        }}
-                      />
-                    </td>
-                    <td style={{ padding: '10px 12px', borderRight: '1px solid var(--border)' }}>
-                      <div
-                        style={{
-                          height: 14,
-                          background: 'var(--panel-2)',
-                          borderRadius: 6,
-                          animation: 'pulse 1.2s ease-in-out infinite',
-                        }}
-                      />
-                    </td>
-                    <td style={{ padding: '10px 12px', borderRight: '1px solid var(--border)' }}>
-                      <div
-                        style={{
-                          height: 14,
-                          background: 'var(--panel-2)',
-                          borderRadius: 6,
-                          animation: 'pulse 1.2s ease-in-out infinite',
+                          marginTop: 4,
                         }}
                       />
                     </td>
@@ -594,7 +495,7 @@ export default function AgentAmounts() {
               ) : filteredAgents.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={6}
                     style={{ padding: '20px 12px', opacity: 0.7, textAlign: 'center' }}
                   >
                     {searchTerm
@@ -655,49 +556,9 @@ export default function AgentAmounts() {
                           borderRight: '1px solid var(--border)',
                         }}
                       >
-                        <span style={{ color: '#06b6d4', fontWeight: 800 }}>
-                          AED {num(a.deliveredOrderValueAED || a.totalOrderValueAED || 0)}
-                        </span>
-                      </td>
-                      <td
-                        style={{
-                          padding: '10px 12px',
-                          textAlign: 'right',
-                          borderRight: '1px solid var(--border)',
-                        }}
-                      >
-                        <span style={{ color: '#10b981', fontWeight: 800 }}>
-                          PKR {num(a.deliveredCommissionPKR)}
-                        </span>
-                      </td>
-                      <td
-                        style={{
-                          padding: '10px 12px',
-                          textAlign: 'right',
-                          borderRight: '1px solid var(--border)',
-                        }}
-                      >
                         <span style={{ color: '#3b82f6', fontWeight: 800 }}>
                           PKR {num(a.upcomingCommissionPKR)}
                         </span>
-                      </td>
-                      <td
-                        style={{
-                          padding: '10px 12px',
-                          textAlign: 'right',
-                          borderRight: '1px solid var(--border)',
-                        }}
-                      >
-                        <div>
-                          <span style={{ color: '#8b5cf6', fontWeight: 800 }}>
-                            PKR {num(a.sentPKR)}
-                          </span>
-                          {a.sentAvgRate > 0 && (
-                            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                              @ {a.sentAvgRate.toFixed(1)}% avg
-                            </div>
-                          )}
-                        </div>
                       </td>
                       <td
                         style={{
@@ -926,10 +787,6 @@ export default function AgentAmounts() {
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ opacity: 0.7 }}>Phone:</span>
                 <strong>{payModal.agent.phone}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ opacity: 0.7 }}>Delivered Commission:</span>
-                <strong>PKR {num(payModal.deliveredCommissionPKR)}</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                 <span style={{ opacity: 0.7 }}>Available Balance:</span>
