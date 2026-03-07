@@ -2200,7 +2200,8 @@ router.get(
           deliveredCommissionPKR,
           upcomingCommissionPKR,
           sentPKR: rStats.sent,
-          sentAvgRate: rStats.sentAvgRate, // Average commission rate for sent payments
+          sentBasePKR: rStats.sentBase,
+          sentAvgRate: rStats.sentAvgRate,
           pendingPKR: rStats.pending,
         };
       });
@@ -2227,15 +2228,17 @@ router.get(
         }
       }
 
+      const agent = await User.findById(id).select('firstName lastName phone').lean();
       const history = await AgentRemit.find({
         agent: id,
-        status: "sent", // Only show sent payments
+        status: "sent",
       })
         .sort({ createdAt: -1 })
         .populate("approver", "firstName lastName email")
         .lean();
 
-      return res.json({ history });
+      const agentName = agent ? `${agent.firstName || ''} ${agent.lastName || ''}`.trim() : '';
+      return res.json({ history, agentName });
     } catch (err) {
       return res.status(500).json({ message: "Failed to fetch history" });
     }

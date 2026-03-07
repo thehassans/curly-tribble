@@ -3,6 +3,7 @@ import { apiGet, apiPost, API_BASE } from '../../api'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '../../ui/Toast.jsx'
 import Modal from '../../components/Modal.jsx'
+import { io } from 'socket.io-client'
 
 export default function AgentAmounts() {
   const navigate = useNavigate()
@@ -16,9 +17,6 @@ export default function AgentAmounts() {
   const [payModal, setPayModal] = useState(null)
   const [commissionRate, setCommissionRate] = useState(null)
   const [calculatedAmount, setCalculatedAmount] = useState(0)
-  const [historyModal, setHistoryModal] = useState(null)
-  const [historyData, setHistoryData] = useState([])
-  const [loadingHistory, setLoadingHistory] = useState(false)
 
   // Load agents asynchronously to prevent blocking page render
   useEffect(() => {
@@ -66,19 +64,27 @@ export default function AgentAmounts() {
     return Math.round(aed * pkr * (rate / 100))
   }
 
-  async function fetchHistory(agent) {
-    setHistoryModal(agent)
-    setLoadingHistory(true)
+  // Socket: auto-refresh when orders change (e.g. order marked as delivered)
+  useEffect(() => {
+    let socket
     try {
-      const r = await apiGet(`/api/finance/agents/${agent.id}/commission-history`)
-      setHistoryData(Array.isArray(r?.history) ? r.history : [])
-    } catch (e) {
-      toast.show(e?.message || 'Failed to load history', 'error')
-      setHistoryData([])
-    } finally {
-      setLoadingHistory(false)
+      const token = localStorage.getItem('token') || ''
+      socket = io(API_BASE || undefined, {
+        path: '/socket.io',
+        transports: ['polling'],
+        upgrade: false,
+        withCredentials: true,
+        auth: { token },
+      })
+      socket.on('orders.changed', () => {
+        try { fetchAgents() } catch {}
+      })
+    } catch {}
+    return () => {
+      try { socket && socket.off('orders.changed') } catch {}
+      try { socket && socket.disconnect() } catch {}
     }
-  }
+  }, [])
 
   async function fetchAgents() {
     setLoading(true)
@@ -127,6 +133,10 @@ export default function AgentAmounts() {
     } finally {
       setPayingAgent(null)
     }
+  }
+
+  function goToHistory(agent) {
+    navigate(`/user/agent-history/${agent.id}`)
   }
 
   const filteredAgents = useMemo(() => {
@@ -594,9 +604,11 @@ export default function AgentAmounts() {
                 </tr>
               ) : (
                 filteredAgents.map((a, idx) => {
+                  // Use sentBasePKR (12%-equivalent portion paid) for balance to avoid inflation by bonus rates
+                  const paidBase = Number(a.sentBasePKR || a.sentPKR || 0)
                   const rawBalance =
                     Number(a.deliveredCommissionPKR || 0) -
-                    Number(a.sentPKR || 0) -
+                    paidBase -
                     Number(a.pendingPKR || 0)
                   const balance = Math.max(0, rawBalance)
                   return (
@@ -773,7 +785,7 @@ export default function AgentAmounts() {
                               textTransform: 'uppercase',
                               letterSpacing: '0.5px',
                             }}
-                            onClick={() => fetchHistory(a)}
+                            onClick={() => goToHistory(a)}
                           >
                             History
                           </button>
@@ -947,106 +959,6 @@ export default function AgentAmounts() {
         )}
       </Modal>
 
-      {/* History Modal */}
-      <Modal
-        title={`Commission History: ${historyModal?.name || ''}`}
-        open={!!historyModal}
-        onClose={() => {
-          setHistoryModal(null)
-          setHistoryData([])
-        }}
-        footer={
-          <button className="btn secondary" onClick={() => setHistoryModal(null)}>
-            Close
-          </button>
-        }
-      >
-        <div style={{ minHeight: 200 }}>
-          {loadingHistory ? (
-            <div className="helper" style={{ textAlign: 'center', padding: 20 }}>
-              Loading history...
-            </div>
-          ) : historyData.length === 0 ? (
-            <div className="helper" style={{ textAlign: 'center', padding: 20 }}>
-              No payment history found.
-            </div>
-          ) : (
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: 14,
-              }}
-            >
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                  <th style={{ textAlign: 'left', padding: 8, color: 'var(--text-muted)' }}>
-                    Date
-                  </th>
-                  <th style={{ textAlign: 'right', padding: 8, color: 'var(--text-muted)' }}>
-                    Amount
-                  </th>
-                  <th style={{ textAlign: 'center', padding: 8, color: 'var(--text-muted)' }}>
-                    Rate
-                  </th>
-                  <th style={{ textAlign: 'left', padding: 8, color: 'var(--text-muted)' }}>
-                    Paid By
-                  </th>
-                  <th style={{ textAlign: 'right', padding: 8, color: 'var(--text-muted)' }}>
-                    Receipt
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {historyData.map((h) => (
-                  <tr key={h._id} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: 8 }}>
-                      {new Date(h.createdAt).toLocaleDateString()}{' '}
-                      <span className="helper" style={{ fontSize: 11 }}>
-                        {new Date(h.createdAt).toLocaleTimeString()}
-                      </span>
-                    </td>
-                    <td
-                      style={{ padding: 8, textAlign: 'right', fontWeight: 600, color: '#10b981' }}
-                    >
-                      {h.currency} {num(h.amount)}
-                    </td>
-                    <td
-                      style={{ padding: 8, textAlign: 'center', fontWeight: 600, color: '#8b5cf6' }}
-                    >
-                      {h.commissionRate ? `${h.commissionRate}%` : '-'}
-                    </td>
-                    <td style={{ padding: 8 }}>
-                      {h.approver
-                        ? `${h.approver.firstName || ''} ${h.approver.lastName || ''}`
-                        : 'System'}
-                    </td>
-                    <td style={{ padding: 8, textAlign: 'right' }}>
-                      {h.receiptPdf ? (
-                        <a
-                          href={`${API_BASE}/${h.receiptPdf}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            color: '#3b82f6',
-                            textDecoration: 'none',
-                            fontSize: 12,
-                            fontWeight: 500,
-                          }}
-                        >
-                          Download PDF
-                        </a>
-                      ) : (
-                        <span style={{ color: 'var(--text-muted)', fontSize: 12 }}>-</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </Modal>
     </div>
   )
 }

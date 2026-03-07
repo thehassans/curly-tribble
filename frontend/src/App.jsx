@@ -96,6 +96,7 @@ const ProfitLoss = lazy(() => import('./pages/user/ProfitLoss.jsx'))
 const UserFinances = lazy(() => import('./pages/user/Finances.jsx'))
 const UserManagerFinances = lazy(() => import('./pages/user/ManagerFinances.jsx'))
 const AgentAmounts = lazy(() => import('./pages/user/AgentAmounts.jsx'))
+const AgentHistory = lazy(() => import('./pages/user/AgentHistory.jsx'))
 const CommissionerAmounts = lazy(() => import('./pages/user/CommissionerAmounts.jsx'))
 const Confirmers = lazy(() => import('./pages/user/Confirmers.jsx'))
 const DriverAmounts = lazy(() => import('./pages/user/DriverAmounts.jsx'))
@@ -808,6 +809,7 @@ export default function App() {
               <Route path="transactions" element={<Transactions />} />
               <Route path="manager-finances" element={<UserManagerFinances />} />
               <Route path="agent-amounts" element={<AgentAmounts />} />
+              <Route path="agent-history/:agentId" element={<AgentHistory />} />
               <Route path="commissioner-amounts" element={<CommissionerAmounts />} />
               <Route path="confirmers" element={<Confirmers />} />
               <Route path="driver-amounts" element={<DriverAmounts />} />
