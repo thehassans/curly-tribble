@@ -1421,31 +1421,51 @@ export default function WhatsAppInbox() {
               }
             }
           }catch{}
-          // If this is our own freshly sent voice, replace the optimistic temp bubble instead of appending
+          // If this is our own freshly sent message, try to match it to a temp bubble
           try {
             const fromMe = !!message?.key?.fromMe
             const content = unwrapMessage(message?.message)
             const isVoice = !!content?.audioMessage
-            if (fromMe && isVoice) {
-              // Find the latest optimistic temp voice bubble
-              for (let i = next.length - 1; i >= 0; i--) {
+            const textContent = content?.extendedTextMessage?.text || content?.conversation
+            
+            let matched = false
+            if (fromMe) {
+              // Look backwards for a matching optimistic bubble
+              for (let i = next.length - 1; i >= 0 && i >= next.length - 15; i--) {
                 const m = next[i]
-                if (m?.key?.id && String(m.key.id).startsWith('temp:voice:')) {
-                  const localUrl = m?.message?.audioMessage?.localUrl
-                  const merged = { ...message }
-                  try {
-                    if (localUrl) {
-                      const audioMsg = merged.message && merged.message.audioMessage
-                        ? merged.message.audioMessage
-                        : (merged.message.audioMessage = {})
-                      audioMsg.localUrl = localUrl
-                    }
-                  } catch {}
-                  next[i] = merged
-                  break
+                const isTemp = m?.key?.id && String(m.key.id).startsWith('temp:')
+                
+                if (isTemp) {
+                  const mContent = unwrapMessage(m?.message)
+                  const mText = mContent?.extendedTextMessage?.text || mContent?.conversation
+                  
+                  // Match voice
+                  if (isVoice && String(m.key.id).startsWith('temp:voice:')) {
+                    const localUrl = m?.message?.audioMessage?.localUrl
+                    const merged = { ...message }
+                    try {
+                      if (localUrl) {
+                        const audioMsg = merged.message && merged.message.audioMessage
+                          ? merged.message.audioMessage
+                          : (merged.message.audioMessage = {})
+                        audioMsg.localUrl = localUrl
+                      }
+                    } catch {}
+                    next[i] = merged
+                    matched = true
+                    break
+                  }
+                  
+                  // Match exact text sent recently
+                  if (!isVoice && textContent && textContent === mText) {
+                    next[i] = { ...message } // Swap the temp bubble with the real one
+                    matched = true
+                    break
+                  }
                 }
               }
-            } else {
+            }
+            if (!matched) {
               next.push(message)
             }
           } catch {
@@ -2828,9 +2848,9 @@ export default function WhatsAppInbox() {
     if (!isMe) return null
     const st = (status === 'seen' ? 'read' : status) || 'sent'
     const GREY = '#8696a0'
-    const BLUE = '#53bdeb'  // exact WhatsApp blue tick colour
+    const BLUE = '#53bdeb'
 
-    // Sending: show clock icon
+    // Sending: clock icon
     if (st === 'sending') {
       return (
         <span style={{ marginLeft: 3, display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
@@ -2846,8 +2866,8 @@ export default function WhatsAppInbox() {
     if (st === 'sent') {
       return (
         <span style={{ marginLeft: 3, display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
-          <svg width="18" height="11" viewBox="0 0 18 11" fill="none" aria-label="Sent">
-            <path d="M1.5 5.5L5.5 9.5L16.5 1.5" stroke={GREY} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+          <svg width="16" height="11" viewBox="0 0 16 11" fill="none" aria-label="Sent">
+            <path d="M1 5.8l3.8 3.8 10.2-9.2" stroke={GREY} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         </span>
       )
@@ -2857,11 +2877,11 @@ export default function WhatsAppInbox() {
     const color = st === 'read' ? BLUE : GREY
     return (
       <span style={{ marginLeft: 3, display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle' }}>
-        <svg width="18" height="11" viewBox="0 0 18 11" fill="none" aria-label={st === 'read' ? 'Read' : 'Delivered'}>
-          {/* Back check (the left one, offset left) */}
-          <path d="M1 5.5L5 9.5L11.5 1.5" stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-          {/* Front check (the right one) */}
-          <path d="M5 5.5L9 9.5L17 1.5" stroke={color} strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        <svg width="16" height="11" viewBox="0 0 16 11" fill="none" aria-label={st === 'read' ? 'Read' : 'Delivered'}>
+          {/* Back check */}
+          <path d="M1 5.8l3.8 3.8 2-1.8m4.5-4.5L15 0.4" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+          {/* Front check */}
+          <path d="M5.5 5.8l3.8 3.8 10.2-9.2" stroke={color} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </span>
     )
@@ -3382,6 +3402,14 @@ export default function WhatsAppInbox() {
                   const samePrev = !!(prev && !!prev?.key?.id && !!m?.key?.id && !!prev?.key?.fromMe === !!isMe && prevTsMs && Math.abs(tsMs - prevTsMs) <= 5 * 60 * 1000)
                   const sameNext = !!(next && !!next?.key?.id && !!m?.key?.id && !!next?.key?.fromMe === !!isMe && nextTsMs && Math.abs(nextTsMs - tsMs) <= 5 * 60 * 1000)
                   const uniqueKey = `${m?.key?.id || 'k'}-${m?.messageTimestamp || 't'}-${idx}`
+                  
+                  // Big Emoji Check
+                  let isJustEmoji = false
+                  const txt = content?.conversation || content?.extendedTextMessage?.text || ''
+                  if (txt) {
+                    const emojiRegex = /^[\u2000-\u3300\uFE0F\uD83C-\uD83E\uDC00-\uDFFF\s]{1,10}$/
+                    isJustEmoji = emojiRegex.test(txt) && txt.trim().length > 0 && Array.from(txt.trim().replace(/\s/g, '')).length <= 3
+                  }
                   return (
                     <React.Fragment key={uniqueKey}>
                       {(!prevDayKey || prevDayKey !== dayKey) && (
@@ -3433,9 +3461,9 @@ export default function WhatsAppInbox() {
                         )}
                         {/* Content */}
                         {content?.conversation ? (
-                          <span style={{ whiteSpace: 'pre-wrap' }}>{content.conversation}</span>
+                          <span className={isJustEmoji ? 'wa-emoji-only' : ''} style={{ whiteSpace: 'pre-wrap' }}>{content.conversation}</span>
                         ) : content?.extendedTextMessage ? (
-                          <span style={{ whiteSpace: 'pre-wrap' }}>{content.extendedTextMessage.text}</span>
+                          <span className={isJustEmoji ? 'wa-emoji-only' : ''} style={{ whiteSpace: 'pre-wrap' }}>{content.extendedTextMessage.text}</span>
                         ) : content?.imageMessage ? (
                           <ImageBubble jid={activeJid} msg={m} content={content} ensureMediaUrl={ensureMediaUrl} />
                         ) : content?.videoMessage ? (
