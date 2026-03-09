@@ -2666,40 +2666,58 @@ export default function WhatsAppInbox() {
     }
 
     return (
-      <div
-        ref={containerRef}
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '36px 1fr auto',
-          alignItems: 'center',
-          gap: 8,
-          width: 'clamp(220px, 60vw, 420px)',
-        }}
-      >
+      <div className="wa-audio-bubble" ref={containerRef}>
+        {/* Mic avatar (shows while not playing) */}
+        <div className="wa-audio-thumb" aria-hidden>
+          {playing
+            ? <svg width="14" height="14" viewBox="0 0 24 24" fill="#00a884"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path fill="none" stroke="#00a884" strokeWidth="2" strokeLinecap="round" d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+            : <svg width="14" height="14" viewBox="0 0 24 24" fill="#667781"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path fill="none" stroke="#667781" strokeWidth="2" strokeLinecap="round" d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+          }
+        </div>
+        {/* Play/Pause button */}
         <button
-          className="btn secondary"
+          className="wa-audio-play"
           onClick={toggle}
           aria-label={playing ? 'Pause voice message' : 'Play voice message'}
-          title={playing ? 'Pause' : 'Play'}
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 999,
-            display: 'grid',
-            placeItems: 'center',
-          }}
         >
-          {playing ? <PauseIcon /> : <PlayIcon />}
+          {playing
+            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            : <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}><polygon points="5,3 19,12 5,21"/></svg>
+          }
         </button>
-        <div onClick={toggle} onMouseDown={seek} onTouchStart={onSeekTouch} style={{ cursor: 'pointer' }}>
-          <canvas ref={canvasRef} />
-        </div>
-        <div style={{ fontSize: 12, opacity: 0.8, minWidth: 44, textAlign: 'right' }}>
-          {duration
-            ? secondsToMMSS(
-                Math.max(0, Math.floor((duration || 0) - (currTime || 0)))
-              )
-            : ''}
+        {/* Waveform + duration */}
+        <div className="wa-audio-waveform-wrap">
+          <div
+            className="wa-audio-waveform"
+            onClick={seek}
+            onTouchStart={onSeekTouch}
+            style={{ cursor: 'pointer' }}
+          >
+            {peaks.length > 0
+              ? peaks.map((p, i) => {
+                  const pct = Math.floor(peaks.length * progress)
+                  const h = Math.max(4, Math.round(p * 26))
+                  return (
+                    <div
+                      key={i}
+                      className={`wa-audio-waveform-bar${i <= pct ? ' played' : ''}`}
+                      style={{ height: h }}
+                    />
+                  )
+                })
+              : Array.from({ length: 40 }).map((_, i) => (
+                  <div key={i} className="wa-audio-waveform-bar" style={{ height: 6 }} />
+                ))
+            }
+          </div>
+          <div className="wa-audio-dur">
+            {duration
+              ? secondsToMMSS(Math.max(0, Math.floor(duration - currTime)))
+              : (content?.audioMessage?.seconds
+                  ? secondsToMMSS(content.audioMessage.seconds)
+                  : '0:00')
+            }
+          </div>
         </div>
       </div>
     )
