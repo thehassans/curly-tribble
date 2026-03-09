@@ -3422,7 +3422,7 @@ export default function WhatsAppInbox() {
                         <div className="wa-date-sep">{dateSepLabel(tsMs)}</div>
                       )}
                       <div
-                        id={m?.key?.id}
+                        data-msgid={m?.key?.id}
                         className={`wa-message-bubble ${isMe ? 'me' : 'them'}${samePrev ? ' continued' : ''}${sameNext ? ' no-tail' : ''}`}
                         style={{ marginTop: samePrev ? 1 : 6 }}
                         onContextMenu={e => { e.preventDefault(); e.stopPropagation(); setReactingTo(m?.key?.id || null) }}
@@ -3442,7 +3442,11 @@ export default function WhatsAppInbox() {
                               el.style.transition = 'none'
                             }
                             if (dx > 45 && Math.abs(dy) < 30 && !handled) { 
-                              handled = true; clearTimeout(timer); try { startReply(m) } catch {} cleanup() 
+                              handled = true; clearTimeout(timer); 
+                              try { startReply(m) } catch {} 
+                              // Instead of cleanup() immediately, just let the bubble snap back
+                              el.style.transform = ''
+                              el.style.transition = 'transform 0.2s ease-out'
                             }
                             else if (Math.abs(dy) > 30) { clearTimeout(timer); cleanup() }
                           }
@@ -3466,15 +3470,19 @@ export default function WhatsAppInbox() {
                             const text = q?.preview || q?.text || q?.conversation || q?.extendedTextMessage?.text || '[Quoted]'
                             return (
                               <div className="wa-quote" onClick={() => {
-                                if (q.id) {
-                                  const el = document.getElementById(q.id)
-                                  if (el) {
-                                    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                                    el.style.animation = 'none'
-                                    void el.offsetWidth
-                                    el.style.animation = 'wa-highlight-flash 1.5s ease-out'
+                                try {
+                                  if (q.id) {
+                                    // Use data-msgid attribute because wamid IDs contain chars invalid in CSS selectors
+                                    const escaped = q.id.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+                                    const el = document.querySelector(`[data-msgid="${escaped}"]`)
+                                    if (el) {
+                                      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                                      el.style.animation = 'none'
+                                      void el.offsetWidth
+                                      el.style.animation = 'wa-highlight-flash 1.5s ease-out'
+                                    }
                                   }
-                                }
+                                } catch {}
                               }} style={{ cursor: q.id ? 'pointer' : 'default' }}>
                                 {author ? <div className="wa-quote-author">{author}</div> : null}
                                 <div className="wa-quote-text">{text}</div>
