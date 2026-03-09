@@ -62,16 +62,16 @@ export default function MobileBottomNav({ onCartClick }) {
       label: 'Home', 
       path: '/',
       icon: (active) => (
-        <div className="relative w-8 h-8 flex items-center justify-center">
+        <div className="relative w-7 h-7 flex items-center justify-center">
           {active && (
             <span className="absolute inset-0 rounded-full bg-orange-500/30 blur-md" />
           )}
           <div
-            className={`relative w-8 h-8 rounded-full flex items-center justify-center bg-white ${
+            className={`relative w-7 h-7 rounded-full flex items-center justify-center bg-white ${
               active ? 'shadow-[0_0_18px_rgba(249,115,22,0.45)]' : 'opacity-90'
             }`}
           >
-            <img src="/BSBackgroundremoved.png" alt="BuySial" className="w-6 h-6 object-contain" />
+            <img src="/BSBackgroundremoved.png" alt="BuySial" className="w-5 h-5 object-contain" />
           </div>
         </div>
       )
