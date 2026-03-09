@@ -954,7 +954,11 @@ export default function WhatsAppInbox() {
   // Real-time updates with WebSockets (create once)
   useEffect(() => {
     const token = localStorage.getItem('token') || ''
-    const socket = io(API_BASE || undefined, {
+    let sockUrl = undefined
+    try {
+      if (API_BASE && /^https?:\/\//i.test(API_BASE)) sockUrl = new URL(API_BASE).origin
+    } catch {}
+    const socket = io(sockUrl, {
       path: '/socket.io',
       transports: ['websocket', 'polling'],
       withCredentials: true,
@@ -2340,8 +2344,8 @@ export default function WhatsAppInbox() {
     try {
       if (!mediaMetaCacheRef.current.has(key)) {
         try {
-          const info = await apiGet(
-            `/api/wa/media/meta?jid=${encodeURIComponent(jid)}&id=${encodeURIComponent(id)}`
+          const info = await scheduleMediaFetch(key + ':meta', () =>
+            apiGet(`/api/wa/media/meta?jid=${encodeURIComponent(jid)}&id=${encodeURIComponent(id)}`)
           )
           mediaMetaCacheRef.current.set(key, info || { hasMedia: false })
         } catch (err) {
