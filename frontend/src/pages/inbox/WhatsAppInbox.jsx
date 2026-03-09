@@ -1246,7 +1246,7 @@ export default function WhatsAppInbox() {
     }
     const p = (async () => {
       try {
-        const r = await apiGet(`/api/wa/messages?jid=${encodeURIComponent(jid)}&limit=50`)
+        const r = await apiGet(`/api/wa/messages?jid=${encodeURIComponent(jid)}&limit=50`, { skipCache: true })
         const items = Array.isArray(r) ? r : r?.items || []
         // Merge statuses with existing messages to avoid downgrading ticks on refresh
         setMessages((prev) => {
@@ -3632,10 +3632,10 @@ export default function WhatsAppInbox() {
               { label: 'Video', fg: '#ea4335', icon: <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>, act: () => { setShowAttach(false); try { const i = videoInputRef.current||document.getElementById('wa-video-input'); if(i){i.value='';i.click()} } catch {} } },
               { label: 'Document', fg: '#007af5', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg>, act: () => { setShowAttach(false); try { const i = docInputRef.current||document.getElementById('wa-doc-input'); if(i){i.value='';i.click()} } catch {} } },
               { label: 'Audio', fg: '#ffb020', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>, act: () => { setShowAttach(false); try { const i = audioInputRef.current||document.getElementById('wa-audio-input'); if(i){i.value='';i.click()} } catch {} } },
-              { label: 'Location', fg: '#00a884', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg>, act: () => { setShowAttach(false); } },
-              { label: 'Contact', fg: '#8696a0', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>, act: () => { setShowAttach(false); } },
-              { label: 'Catalog', fg: '#8696a0', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4v2h16V4zm1 10v-2l-1-5H4l-1 5v2h1v6h10v-6h4v6h2v-6h1zm-9 4H6v-4h6v4z"/></svg>, act: () => { setShowAttach(false); } },
-              { label: 'Poll', fg: '#ffb020', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-2h2v2zm0-4H7v-2h2v2zm0-4H7V7h2v2zm8 8h-6v-2h6v2zm0-4h-6v-2h6v2zm0-4h-6V7h6v2z"/></svg>, act: () => { setShowAttach(false); } },
+              { label: 'Location', fg: '#00a884', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 010-5 2.5 2.5 0 010 5z"/></svg>, act: () => { setShowAttach(false); alert('No permission to agents') } },
+              { label: 'Contact', fg: '#8696a0', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>, act: () => { setShowAttach(false); alert('No permission to agents') } },
+              { label: 'Catalog', fg: '#8696a0', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4v2h16V4zm1 10v-2l-1-5H4l-1 5v2h1v6h10v-6h4v6h2v-6h1zm-9 4H6v-4h6v4z"/></svg>, act: () => { setShowAttach(false); alert('No permission to agents') } },
+              { label: 'Poll', fg: '#ffb020', icon: <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-2h2v2zm0-4H7v-2h2v2zm0-4H7V7h2v2zm8 8h-6v-2h6v2zm0-4h-6v-2h6v2zm0-4h-6V7h6v2z"/></svg>, act: () => { setShowAttach(false); alert('No permission to agents') } },
             ].map(({ label, fg, icon, act }) => (
               <button key={label} className="wa-attach-item" onClick={act}>
                 <div className="wa-attach-icon" style={{ background: '#233138', color: fg }}>{icon}</div>
