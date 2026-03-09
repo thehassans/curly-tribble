@@ -232,7 +232,7 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
             </svg>
           </button>
           <Link to="/" className="logo">
-            <img src="/BuySial2.png" alt="BuySial" className="logo-img" />
+            <img src="/BSBackgroundremoved.png" alt="BuySial" className="logo-img" />
           </Link>
         </div>
 
@@ -425,7 +425,7 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
           <div className="mobile-menu-overlay" onClick={toggleMobileMenu}></div>
           <div className="mobile-menu-content">
             <div className="mobile-menu-header">
-              <img src="/BuySial2.png" alt="BuySial" className="mobile-logo" />
+              <img src="/BSBackgroundremoved.png" alt="BuySial" className="mobile-logo" />
               <button className="mobile-menu-close" onClick={toggleMobileMenu}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -500,7 +500,7 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         .ecommerce-header {
           background: white;
           border-bottom: 1px solid #e5e7eb;

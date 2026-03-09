@@ -444,7 +444,7 @@ export default function Home(){
                 </div>
               </div>
             </div>
-            <style jsx>{`
+            <style>{`
               .homeHeadlineMarqueeViewport {
                 overflow: hidden;
                 white-space: nowrap;

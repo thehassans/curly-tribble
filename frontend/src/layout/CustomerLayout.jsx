@@ -252,7 +252,7 @@ export default function CustomerLayout() {
         <header className="customer-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 32 }}>
             <img
-              src={branding.headerLogo ? `${API_BASE}${branding.headerLogo}` : `${import.meta.env.BASE_URL}BuySial2.png`}
+              src={branding.headerLogo ? `${API_BASE}${branding.headerLogo}` : `${import.meta.env.BASE_URL}BSBackgroundremoved.png`}
               alt="Logo"
               style={{ height: 36, width: 'auto' }}
             />

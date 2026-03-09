@@ -690,7 +690,7 @@ export default function ShoppingCart({ isOpen, onClose }) {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .cart-overlay {
           position: fixed;
           inset: 0;

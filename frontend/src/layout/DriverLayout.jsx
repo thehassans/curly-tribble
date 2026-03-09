@@ -350,7 +350,7 @@ export default function DriverLayout() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
               {(() => {
-                const fallback = `${import.meta.env.BASE_URL}BuySial2.png`
+                const fallback = `${import.meta.env.BASE_URL}BSBackgroundremoved.png`
                 const src = me.headerLogo ? `${API_BASE}${me.headerLogo}` : fallback
                 return (
                   <img

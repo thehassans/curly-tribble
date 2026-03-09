@@ -485,7 +485,7 @@ const ProductCardMini = memo(function ProductCardMini({ product, selectedCountry
         ) : null}
       </div>
 
-      <style jsx>{`
+      <style>{`
         .product-card-taobao {
           background: white;
           border-radius: 0;

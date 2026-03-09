@@ -1018,7 +1018,7 @@ export default function ProductCatalog() {
         <ShoppingCart isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
         <MobileBottomNav onCartClick={() => setIsCartOpen(true)} />
         
-        <style jsx>{`
+        <style>{`
           .skeleton-image {
             background-size: 200% 100%;
             animation: shimmer 1.5s infinite;
@@ -1415,7 +1415,7 @@ export default function ProductCatalog() {
                           />
                         ))}
                       </div>
-                      <style jsx>{`
+                      <style>{`
                         .taobao-grid {
                           display: grid;
                           grid-template-columns: repeat(2, 1fr);

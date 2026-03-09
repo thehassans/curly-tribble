@@ -206,6 +206,7 @@ const Support = lazy(() => import('./pages/support/Support.jsx'))
 
 // E-commerce (public-facing - critical path, consider preloading)
 const ProductCatalog = lazy(() => import('./pages/ecommerce/ProductCatalog.jsx'))
+const BrandPage = lazy(() => import('./pages/ecommerce/BrandPage.jsx'))
 const ProductDetail = lazy(() => import('./pages/ecommerce/ProductDetail.jsx'))
 const CartPage = lazy(() => import('./pages/ecommerce/CartPage.jsx'))
 const Checkout = lazy(() => import('./pages/store/Checkout.jsx'))
@@ -561,6 +562,7 @@ export default function App() {
 
             {/* Public ecommerce routes */}
             <Route path="/catalog" element={<ProductCatalog />} />
+            <Route path="/brand/:slug" element={<BrandPage />} />
             <Route path="/product/:id" element={<ProductDetail />} />
             <Route path="/products/:slug" element={<ProductDetail />} />
             <Route path="/cart" element={<CartPage />} />

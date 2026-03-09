@@ -615,7 +615,7 @@ export default function AgentLayout() {
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
               {(() => {
-                const fallback = `${import.meta.env.BASE_URL}BuySial2.png`
+                const fallback = `${import.meta.env.BASE_URL}BSBackgroundremoved.png`
                 const src = branding.headerLogo ? `${API_BASE}${branding.headerLogo}` : fallback
                 return (
                   <img

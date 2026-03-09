@@ -238,7 +238,7 @@ export default function PremiumHeroBanner() {
         </>
       ) : null}
 
-      <style jsx>{`
+      <style>{`
         .premium-hero-banner {
           position: relative;
           width: 100%;

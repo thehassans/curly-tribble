@@ -576,7 +576,7 @@ export default function PrintLabel() {
           <div style={{ flex: '1 1 0', display: 'flex', alignItems: 'center' }}>
             <img
               alt="BuySial"
-              src={`${import.meta.env.BASE_URL}BuySial2.png`}
+              src={`${import.meta.env.BASE_URL}BSBackgroundremoved.png`}
               style={{ height: 50, objectFit: 'contain' }}
             />
           </div>

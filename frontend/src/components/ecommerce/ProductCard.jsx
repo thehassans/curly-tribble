@@ -336,7 +336,7 @@ export default function ProductCard({ product, onAddToCart, selectedCountry = 'S
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .product-card-ultra {
           position: relative;
           background: #ffffff;

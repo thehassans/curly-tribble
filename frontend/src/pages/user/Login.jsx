@@ -110,7 +110,7 @@ export default function UserLogin() {
     }
   }
 
-  const fallbackLogo = `${import.meta.env.BASE_URL}BuySial2.png`
+  const fallbackLogo = `${import.meta.env.BASE_URL}BSBackgroundremoved.png`
   const logoSrc = branding.loginLogo ? `${API_BASE}${branding.loginLogo}` : fallbackLogo
 
   const healthBad = (() => {
