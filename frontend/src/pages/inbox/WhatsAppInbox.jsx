@@ -142,6 +142,565 @@ const DEMO_MESSAGES = [
   },
 ]
 
+
+// --- EXTRACTED BY SCRIPT ---
+const BLUE = '#53bdeb';
+const GREY = '#8696a0';
+const __waveformCache = new Map();
+let __globalAudio = null;
+let __ringCtx = null;
+  function AllIcon() {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path
+          d="M4 6h16M4 12h16M4 18h16"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      </svg>
+    )
+  }
+  function LocationBubble({ content }) {
+    try {
+      const loc = content?.locationMessage || {}
+      const lat = Number(loc.degreesLatitude)
+      const lon = Number(loc.degreesLongitude)
+      const name = loc.name || loc.address || 'Location'
+      const q = `${lat},${lon}`
+      const url = `https://www.google.com/maps?q=${encodeURIComponent(q)}`
+      return (
+        <div className="wa-location">
+          <div className="wa-location-title">{name}</div>
+          <div className="wa-location-geo">{Number.isFinite(lat) && Number.isFinite(lon) ? `${lat.toFixed(5)}, ${lon.toFixed(5)}` : ''}</div>
+          <a href={url} target="_blank" rel="noreferrer" className="btn secondary" style={{ marginTop: 6 }}>
+            Open in Google Maps
+          </a>
+        </div>
+      )
+    } catch {
+      return <div style={{ opacity: 0.8 }}>[Location]</div>
+    }
+  }
+  function UnreadIcon() {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+        <circle cx="12" cy="12" r="5" />
+      </svg>
+    )
+  }
+  function ReadIcon() {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path
+          d="M20 6 9 17l-5-5"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M22 8 11 19l-3-3"
+          stroke="currentColor"
+          strokeWidth="2.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    )
+  }
+  function VideoBubble({ jid, msg, content, ensureMediaUrl }) {
+    const [url, setUrl] = useState(null)
+    const [playing, setPlaying] = useState(false)
+    const caption = content?.videoMessage?.caption || ''
+    const showCaption = caption && !/\.(mp4|mkv|webm|mov|avi)$/i.test(caption)
+    useEffect(() => {
+      let alive = true
+      const load = async () => {
+        const u = await ensureMediaUrl(jid, msg?.key?.id)
+        if (alive) setUrl(u)
+      }
+      load()
+      return () => { alive = false }
+    }, [jid, msg?.key?.id])
+    return (
+      <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', width: 280, minHeight: 180, background: '#111' }}>
+        {url ? (
+          playing ? (
+            <video
+              src={url}
+              controls
+              autoPlay
+              preload="auto"
+              style={{ display: 'block', width: '100%', maxHeight: 300, borderRadius: 8, background: '#000' }}
+            />
+          ) : (
+            <div
+              style={{ position: 'relative', cursor: 'pointer', borderRadius: 8, overflow: 'hidden' }}
+              onClick={() => setPlaying(true)}
+            >
+              <video
+                src={url}
+                preload="metadata"
+                style={{ display: 'block', width: '100%', maxHeight: 300, borderRadius: 8, background: '#111' }}
+              />
+              {/* Play overlay */}
+              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)' }}>
+                <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><polygon points="5,3 19,12 5,21"/></svg>
+                </div>
+              </div>
+            </div>
+          )
+        ) : (
+          <div style={{ width: 200, height: 140, background: '#222', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5"><polygon points="5,3 19,12 5,21"/></svg>
+          </div>
+        )}
+        {showCaption && (
+          <div style={{ padding: '4px 6px 2px', fontSize: 13.5, color: 'var(--wa-in-text)', lineHeight: 1.4 }}>{caption}</div>
+        )}
+      </div>
+    )
+  }
+  function secondsToMMSS(s) {
+    const m = Math.floor(s / 60)
+      .toString()
+      .padStart(2, '0')
+    const sec = (s % 60).toString().padStart(2, '0')
+    return `${m}:${sec}`
+  }
+  function getRingCtx() {
+    try {
+      // Do not create an AudioContext until the user has interacted (autoplay policy)
+      if (!userInteractedRef.current) return null
+      if (__ringCtx && typeof __ringCtx.state === 'string')
+        return __ringCtx
+      const Ctx = window.AudioContext || window.webkitAudioContext
+      if (!Ctx) return null
+      __ringCtx = new Ctx()
+      return __ringCtx
+    } catch {
+      return null
+    }
+  }
+  function AudioBubble({ jid, msg, content, ensureMediaUrl }) {
+    const [url, setUrl] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [duration, setDuration] = useState(0)
+    const [peaks, setPeaks] = useState([])
+    const [playing, setPlaying] = useState(false)
+    const [progress, setProgress] = useState(0) // 0..1
+    const [currTime, setCurrTime] = useState(0)
+    const audioRef = useRef(null)
+    const canvasRef = useRef(null)
+    const containerRef = useRef(null)
+    const [containerWidth, setContainerWidth] = useState(240)
+
+    // Load URL (support optimistic localUrl for immediate playback)
+    useEffect(() => {
+      let alive = true
+      const local = content?.audioMessage?.localUrl
+      if (local) {
+        setUrl(local)
+        setLoading(false)
+        return () => {
+          alive = false
+        }
+      }
+      const load = async () => {
+        const u = await ensureMediaUrl(jid, msg?.key?.id)
+        if (!alive) return
+        setUrl(u)
+      }
+      load()
+      return () => {
+        alive = false
+      }
+    }, [jid, msg?.key?.id, content?.audioMessage?.localUrl])
+
+    // Build audio element and decode peaks
+    useEffect(() => {
+      if (!url) return
+      let cancelled = false
+      const a = new Audio()
+      a.src = url
+      a.preload = 'metadata'
+      const onTime = () => {
+        if (!a.duration || isNaN(a.duration)) return
+        setCurrTime(a.currentTime || 0)
+        setProgress((a.currentTime || 0) / a.duration)
+      }
+      const onEnded = () => {
+        setPlaying(false)
+        setProgress(1)
+        try { setCurrTime(a.duration || 0) } catch {}
+      }
+      const onPause = () => {
+        setPlaying(false)
+      }
+      a.addEventListener('timeupdate', onTime)
+      a.addEventListener('ended', onEnded)
+      a.addEventListener('pause', onPause)
+      audioRef.current = a
+
+      const compute = async () => {
+        setLoading(true)
+        // Use cache if present
+        if (__waveformCache.has(url)) {
+          const { peaks, duration } = __waveformCache.get(url)
+          if (!cancelled) {
+            setPeaks(peaks)
+            setDuration(duration)
+            setLoading(false)
+          }
+          return
+        }
+        try {
+          const res = await fetch(url)
+          const buf = await res.arrayBuffer()
+          // Use shared AudioContext only after user interaction; otherwise fall back
+          const ctx = getRingCtx()
+          if (!ctx) {
+            // No AudioContext yet due to autoplay policy; render a simple fallback waveform
+            const fallback = new Array(40).fill(0).map((_, i) => (Math.sin(i / 3) + 1) / 2)
+            if (!cancelled) {
+              setPeaks(fallback)
+              setDuration(0)
+              setLoading(false)
+            }
+            return
+          }
+          const audioBuf = await ctx.decodeAudioData(buf)
+          const ch = audioBuf.numberOfChannels > 0 ? audioBuf.getChannelData(0) : new Float32Array()
+          const len = 34 // number of bars, exact match to WhatsApp layout size
+          const block = Math.floor(ch.length / len) || 1
+          const peaksArr = new Array(len).fill(0).map((_, i) => {
+            let sum = 0
+            const start = i * block
+            for (let j = 0; j < block && start + j < ch.length; j++) sum += Math.abs(ch[start + j])
+            return sum / block
+          })
+          // Normalize
+          const max = Math.max(0.01, ...peaksArr)
+          const norm = peaksArr.map((v) => v / max)
+          const dur = audioBuf.duration
+          __waveformCache.set(url, { peaks: norm, duration: dur })
+          if (!cancelled) {
+            setPeaks(norm)
+            setDuration(dur)
+          }
+        } catch {
+          // Fallback: show simple bar if decode fails
+          const fallback = new Array(40).fill(0).map((_, i) => (Math.sin(i / 3) + 1) / 2)
+          __waveformCache.set(url, { peaks: fallback, duration: 0 })
+          if (!cancelled) {
+            setPeaks(fallback)
+            setDuration(0)
+          }
+        } finally {
+          if (!cancelled) setLoading(false)
+        }
+      }
+      compute()
+      return () => {
+        cancelled = true
+        try {
+          a.pause()
+        } catch {}
+        try {
+          a.removeAttribute('src')
+          a.load?.()
+        } catch {}
+        try {
+          a.removeEventListener('timeupdate', onTime)
+        } catch {}
+        try {
+          a.removeEventListener('ended', onEnded)
+        } catch {}
+        try {
+          a.removeEventListener('pause', onPause)
+        } catch {}
+        try {
+          if (__globalAudio === a) __globalAudio = null
+        } catch {}
+      }
+    }, [url])
+
+    // Observe container width for responsive canvas sizing (with fallback if ResizeObserver is unavailable)
+    useEffect(() => {
+      if (!containerRef.current) return
+      const el = containerRef.current
+      const update = () => {
+        try {
+          setContainerWidth(el.clientWidth || 240)
+        } catch {}
+      }
+      let ro = null
+      try {
+        if (typeof ResizeObserver !== 'undefined') {
+          ro = new ResizeObserver((entries) => {
+            const cr = entries[0]?.contentRect
+            if (cr && cr.width) {
+              setContainerWidth(cr.width)
+            }
+          })
+          ro.observe(el)
+        } else {
+          window.addEventListener('resize', update)
+        }
+      } catch {
+        /* ignore */
+      }
+      // initial measure
+      update()
+      return () => {
+        try {
+          ro ? ro.disconnect() : window.removeEventListener('resize', update)
+        } catch {}
+      }
+    }, [])
+
+    // Draw waveform
+    useEffect(() => {
+      const canvas = canvasRef.current
+      if (!canvas || peaks.length === 0) return
+      const dpr = window.devicePixelRatio || 1
+      const height = 36
+      const width = Math.max(180, Math.floor(containerWidth))
+      canvas.width = width * dpr
+      canvas.height = height * dpr
+      canvas.style.width = width + 'px'
+      canvas.style.height = height + 'px'
+      const ctx = canvas.getContext('2d')
+      ctx.scale(dpr, dpr)
+      ctx.clearRect(0, 0, width, height)
+      const barW = Math.max(2, Math.floor(width / (peaks.length * 1.5)))
+      const gap = Math.max(1, Math.floor(barW / 2))
+      const baseY = height / 2
+      const color = '#9aa4b2'
+      const colorActive = '#4fb3ff'
+      const progressBars = Math.floor(peaks.length * progress)
+      for (let i = 0; i < peaks.length; i++) {
+        const p = Math.max(0.15, peaks[i])
+        const h = p * (height - 6)
+        const x = i * (barW + gap)
+        ctx.fillStyle = i <= progressBars ? colorActive : color
+        ctx.fillRect(x, baseY - h / 2, barW, h)
+      }
+    }, [peaks, progress, containerWidth])
+
+    function toggle() {
+      const a = audioRef.current
+      if (!a) return
+      if (a.paused) {
+        try {
+          const cur = __globalAudio
+          if (cur && cur !== a) {
+            cur.pause()
+          }
+          __globalAudio = a
+        } catch {}
+        a.play()
+          .then(() => setPlaying(true))
+          .catch(() => {})
+      } else {
+        a.pause()
+        setPlaying(false)
+      }
+    }
+
+    function seek(e) {
+      try {
+        const a = audioRef.current
+        if (!a || !a.duration || isNaN(a.duration)) return
+        const rect = e.currentTarget.getBoundingClientRect()
+        const x = Math.min(Math.max(0, e.clientX - rect.left), rect.width)
+        const ratio = rect.width ? x / rect.width : 0
+        a.currentTime = Math.max(0, Math.min(a.duration, a.duration * ratio))
+        setCurrTime(a.currentTime || 0)
+        setProgress((a.currentTime || 0) / a.duration)
+      } catch {}
+    }
+
+    function onSeekTouch(e) {
+      try {
+        const t = e.touches && e.touches[0]
+        if (!t) return
+        seek({ currentTarget: e.currentTarget, clientX: t.clientX })
+      } catch {}
+    }
+
+    return (
+      <div className="wa-audio-bubble" ref={containerRef}>
+        {/* Mic avatar (shows while not playing) */}
+        <div className="wa-audio-thumb" aria-hidden>
+          {playing
+            ? <svg width="14" height="14" viewBox="0 0 24 24" fill="#00a884"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path fill="none" stroke="#00a884" strokeWidth="2" strokeLinecap="round" d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+            : <svg width="14" height="14" viewBox="0 0 24 24" fill="#667781"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path fill="none" stroke="#667781" strokeWidth="2" strokeLinecap="round" d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+          }
+        </div>
+        {/* Play/Pause button */}
+        <button
+          className="wa-audio-play"
+          onClick={toggle}
+          aria-label={playing ? 'Pause voice message' : 'Play voice message'}
+        >
+          {playing
+            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            : <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}><polygon points="5,3 19,12 5,21"/></svg>
+          }
+        </button>
+        {/* Waveform + duration */}
+        <div className="wa-audio-waveform-wrap">
+          <div
+            className="wa-audio-waveform"
+            onClick={seek}
+            onTouchStart={onSeekTouch}
+            style={{ cursor: 'pointer' }}
+          >
+            {peaks.length > 0
+              ? peaks.map((p, i) => {
+                  const pct = Math.floor(peaks.length * progress)
+                  const h = Math.max(4, Math.round(p * 26))
+                  return (
+                    <div
+                      key={i}
+                      className={`wa-audio-waveform-bar${i <= pct ? ' played' : ''}`}
+                      style={{ height: h }}
+                    />
+                  )
+                })
+              : Array.from({ length: 40 }).map((_, i) => (
+                  <div key={i} className="wa-audio-waveform-bar" style={{ height: 6 }} />
+                ))
+            }
+          </div>
+          <div className="wa-audio-dur">
+            {duration
+              ? secondsToMMSS(Math.max(0, Math.floor(duration - currTime)))
+              : (content?.audioMessage?.seconds
+                  ? secondsToMMSS(content.audioMessage.seconds)
+                  : '0:00')
+            }
+          </div>
+        </div>
+      </div>
+    )
+  }
+  function ImageBubble({ jid, msg, content, ensureMediaUrl }) {
+    const [url, setUrl] = useState(null)
+    const [loaded, setLoaded] = useState(false)
+    const caption = content?.imageMessage?.caption || ''
+    useEffect(() => {
+      let alive = true
+      const local = content?.imageMessage?.localUrl
+      if (local) { setUrl(local); return () => { alive = false } }
+      const load = async () => {
+        const u = await ensureMediaUrl(jid, msg?.key?.id)
+        if (alive) setUrl(u)
+      }
+      load()
+      return () => { alive = false }
+    }, [jid, msg?.key?.id])
+    const showCaption = caption && !/\.(jpe?g|png|gif|bmp|webp)$/i.test(caption)
+    return (
+      <div style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', width: 280, minHeight: 180, background: '#e8e8e8' }}>
+        {url ? (
+          <a href={url} target="_blank" rel="noreferrer" style={{ display: 'block', width: '100%', height: '100%' }}>
+            <img
+              src={url}
+              alt="photo"
+              onLoad={() => setLoaded(true)}
+              style={{ display: 'block', width: '100%', height: '100%', maxHeight: 320, objectFit: 'cover', transition: 'opacity 0.2s', opacity: loaded ? 1 : 0 }}
+            />
+            {!loaded && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span className="spinner" style={{ borderColor: 'rgba(0,0,0,0.1)', borderTopColor: '#888' }} /></div>}
+          </a>
+        ) : (
+          <div style={{ width: 200, height: 140, background: '#e8e8e8', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+          </div>
+        )}
+        {showCaption && (
+          <div style={{ padding: '4px 6px 2px', fontSize: 13.5, color: 'var(--wa-in-text)', background: 'rgba(0,0,0,0.02)', lineHeight: 1.4 }}>{caption}</div>
+        )}
+      </div>
+    )
+  }
+  function LocationBubble({ content }) {
+    const loc = content?.locationMessage || {}
+    const lat = loc.degreesLatitude
+    const lng = loc.degreesLongitude
+    const name = loc.name || 'Location'
+    const address = loc.address || ''
+    const url =
+      typeof lat === 'number' && typeof lng === 'number'
+        ? `https://www.google.com/maps?q=${lat},${lng}`
+        : null
+    const [copied, setCopied] = useState(false)
+    function copyCoords() {
+      try {
+        const txt =
+          typeof lat === 'number' && typeof lng === 'number'
+            ? `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+            : ''
+        if (!txt) return
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(txt)
+        } else {
+          const ta = document.createElement('textarea')
+          ta.value = txt
+          document.body.appendChild(ta)
+          ta.select()
+          try {
+            document.execCommand('copy')
+          } catch {}
+          document.body.removeChild(ta)
+        }
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1200)
+      } catch {}
+    }
+    return (
+      <div style={{ display: 'grid', gap: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span>📍</span>
+          <div style={{ fontWeight: 600 }}>{name}</div>
+        </div>
+        {address && <div style={{ opacity: 0.9 }}>{address}</div>}
+        {typeof lat === 'number' && typeof lng === 'number' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>
+              ({lat.toFixed(6)}, {lng.toFixed(6)})
+            </div>
+            <button
+              className="btn secondary small"
+              onClick={copyCoords}
+              title="Copy coordinates"
+              aria-label="Copy coordinates"
+              style={{ padding: '4px 8px' }}
+            >
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        )}
+        {url && (
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            className="btn secondary"
+            style={{ justifySelf: 'start' }}
+          >
+            Open in Maps
+          </a>
+        )}
+      </div>
+    )
+  }
+
+// ----------------------------
+
 export default function WhatsAppInbox() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -185,8 +744,6 @@ export default function WhatsAppInbox() {
   const listRef = useRef(null)
   const mediaUrlCacheRef = useRef(new Map()) // key: `${jid}:${id}` -> objectURL
   const mediaMetaCacheRef = useRef(new Map()) // key: `${jid}:${id}` -> { hasMedia, type, mimeType, fileName, fileLength }
-  const waveformCacheRef = useRef(new Map()) // key: media URL -> { peaks, duration }
-  const globalAudioRef = useRef(null)
   // Voice send guards
   const recStartGuardRef = useRef(0) // last startRecording timestamp to debounce duplicate pointer events
   const voiceSendingRef = useRef(false) // prevent concurrent voice uploads
@@ -194,7 +751,6 @@ export default function WhatsAppInbox() {
   const [notifyGranted, setNotifyGranted] = useState(
     () => typeof Notification !== 'undefined' && Notification.permission === 'granted'
   )
-  const ringCtxRef = useRef(null)
   const lastRingAtRef = useRef(0)
   const userInteractedRef = useRef(false)
   const chatsLoadAtRef = useRef(0)
@@ -270,67 +826,7 @@ export default function WhatsAppInbox() {
   }
 
   // Small SVG icons for professional look
-  function AllIcon() {
-    return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path
-          d="M4 6h16M4 12h16M4 18h16"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </svg>
-    )
-  }
 
-  function LocationBubble({ content }) {
-    try {
-      const loc = content?.locationMessage || {}
-      const lat = Number(loc.degreesLatitude)
-      const lon = Number(loc.degreesLongitude)
-      const name = loc.name || loc.address || 'Location'
-      const q = `${lat},${lon}`
-      const url = `https://www.google.com/maps?q=${encodeURIComponent(q)}`
-      return (
-        <div className="wa-location">
-          <div className="wa-location-title">{name}</div>
-          <div className="wa-location-geo">{Number.isFinite(lat) && Number.isFinite(lon) ? `${lat.toFixed(5)}, ${lon.toFixed(5)}` : ''}</div>
-          <a href={url} target="_blank" rel="noreferrer" className="btn secondary" style={{ marginTop: 6 }}>
-            Open in Google Maps
-          </a>
-        </div>
-      )
-    } catch {
-      return <div style={{ opacity: 0.8 }}>[Location]</div>
-    }
-  }
-  function UnreadIcon() {
-    return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-        <circle cx="12" cy="12" r="5" />
-      </svg>
-    )
-  }
-  function ReadIcon() {
-    return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <path
-          d="M20 6 9 17l-5-5"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d="M22 8 11 19l-3-3"
-          stroke="currentColor"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    )
-  }
   function PlusIcon() {
     return (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -552,10 +1048,10 @@ export default function WhatsAppInbox() {
   useEffect(() => {
     const handleInteraction = () => {
       userInteractedRef.current = true
-      if (!ringCtxRef.current) {
+      if (!__ringCtx) {
         try {
           const Ctx = window.AudioContext || window.webkitAudioContext
-          if (Ctx) ringCtxRef.current = new Ctx()
+          if (Ctx) __ringCtx = new Ctx()
         } catch {}
       }
       window.removeEventListener('click', handleInteraction)
@@ -631,60 +1127,6 @@ export default function WhatsAppInbox() {
     navigate(`${base}/orders?${q}`)
   }
 
-  function VideoBubble({ jid, msg, content, ensureMediaUrl }) {
-    const [url, setUrl] = useState(null)
-    const [playing, setPlaying] = useState(false)
-    const caption = content?.videoMessage?.caption || ''
-    const showCaption = caption && !/\.(mp4|mkv|webm|mov|avi)$/i.test(caption)
-    useEffect(() => {
-      let alive = true
-      const load = async () => {
-        const u = await ensureMediaUrl(jid, msg?.key?.id)
-        if (alive) setUrl(u)
-      }
-      load()
-      return () => { alive = false }
-    }, [jid, msg?.key?.id])
-    return (
-      <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', width: 280, minHeight: 180, background: '#111' }}>
-        {url ? (
-          playing ? (
-            <video
-              src={url}
-              controls
-              autoPlay
-              preload="auto"
-              style={{ display: 'block', width: '100%', maxHeight: 300, borderRadius: 8, background: '#000' }}
-            />
-          ) : (
-            <div
-              style={{ position: 'relative', cursor: 'pointer', borderRadius: 8, overflow: 'hidden' }}
-              onClick={() => setPlaying(true)}
-            >
-              <video
-                src={url}
-                preload="metadata"
-                style={{ display: 'block', width: '100%', maxHeight: 300, borderRadius: 8, background: '#111' }}
-              />
-              {/* Play overlay */}
-              <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.25)' }}>
-                <div style={{ width: 52, height: 52, borderRadius: '50%', background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><polygon points="5,3 19,12 5,21"/></svg>
-                </div>
-              </div>
-            </div>
-          )
-        ) : (
-          <div style={{ width: 200, height: 140, background: '#222', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5"><polygon points="5,3 19,12 5,21"/></svg>
-          </div>
-        )}
-        {showCaption && (
-          <div style={{ padding: '4px 6px 2px', fontSize: 13.5, color: 'var(--wa-in-text)', lineHeight: 1.4 }}>{caption}</div>
-        )}
-      </div>
-    )
-  }
 
 
   function DocumentBubble({ jid, msg, content, ensureMediaUrl }) {
@@ -1682,10 +2124,10 @@ export default function WhatsAppInbox() {
     try {
       userInteractedRef.current = true
       const Ctx = window.AudioContext || window.webkitAudioContext
-      if (Ctx && !ringCtxRef.current) {
-        ringCtxRef.current = new Ctx()
+      if (Ctx && !__ringCtx) {
+        __ringCtx = new Ctx()
       }
-      ringCtxRef.current && ringCtxRef.current.resume && ringCtxRef.current.resume().catch(() => {})
+      __ringCtx && __ringCtx.resume && __ringCtx.resume().catch(() => {})
     } catch {}
     // Basic capability checks with fallback to native capture
     if (
@@ -2101,13 +2543,6 @@ export default function WhatsAppInbox() {
     setText((t) => t + e)
   }
 
-  function secondsToMMSS(s) {
-    const m = Math.floor(s / 60)
-      .toString()
-      .padStart(2, '0')
-    const sec = (s % 60).toString().padStart(2, '0')
-    return `${m}:${sec}`
-  }
 
   function normalizeTs(ts) {
     try {
@@ -2168,20 +2603,6 @@ export default function WhatsAppInbox() {
       return 'New message'
     }
   }
-  function getRingCtx() {
-    try {
-      // Do not create an AudioContext until the user has interacted (autoplay policy)
-      if (!userInteractedRef.current) return null
-      if (ringCtxRef.current && typeof ringCtxRef.current.state === 'string')
-        return ringCtxRef.current
-      const Ctx = window.AudioContext || window.webkitAudioContext
-      if (!Ctx) return null
-      ringCtxRef.current = new Ctx()
-      return ringCtxRef.current
-    } catch {
-      return null
-    }
-  }
 
   // Initialize/resume the audio context only after the first user gesture
   useEffect(() => {
@@ -2190,11 +2611,11 @@ export default function WhatsAppInbox() {
         try {
           userInteractedRef.current = true
           const Ctx = window.AudioContext || window.webkitAudioContext
-          if (Ctx && !ringCtxRef.current) {
-            ringCtxRef.current = new Ctx()
+          if (Ctx && !__ringCtx) {
+            __ringCtx = new Ctx()
           }
-          if (ringCtxRef.current && ringCtxRef.current.resume) {
-            ringCtxRef.current.resume().catch(() => {})
+          if (__ringCtx && __ringCtx.resume) {
+            __ringCtx.resume().catch(() => {})
           }
         } catch {}
       }
@@ -2466,422 +2887,8 @@ export default function WhatsAppInbox() {
     )
   }
 
-  function AudioBubble({ jid, msg, content, ensureMediaUrl }) {
-    const [url, setUrl] = useState(null)
-    const [loading, setLoading] = useState(true)
-    const [duration, setDuration] = useState(0)
-    const [peaks, setPeaks] = useState([])
-    const [playing, setPlaying] = useState(false)
-    const [progress, setProgress] = useState(0) // 0..1
-    const [currTime, setCurrTime] = useState(0)
-    const audioRef = useRef(null)
-    const canvasRef = useRef(null)
-    const containerRef = useRef(null)
-    const [containerWidth, setContainerWidth] = useState(240)
 
-    // Load URL (support optimistic localUrl for immediate playback)
-    useEffect(() => {
-      let alive = true
-      const local = content?.audioMessage?.localUrl
-      if (local) {
-        setUrl(local)
-        setLoading(false)
-        return () => {
-          alive = false
-        }
-      }
-      const load = async () => {
-        const u = await ensureMediaUrl(jid, msg?.key?.id)
-        if (!alive) return
-        setUrl(u)
-      }
-      load()
-      return () => {
-        alive = false
-      }
-    }, [jid, msg?.key?.id, content?.audioMessage?.localUrl])
 
-    // Build audio element and decode peaks
-    useEffect(() => {
-      if (!url) return
-      let cancelled = false
-      const a = new Audio()
-      a.src = url
-      a.preload = 'metadata'
-      const onTime = () => {
-        if (!a.duration || isNaN(a.duration)) return
-        setCurrTime(a.currentTime || 0)
-        setProgress((a.currentTime || 0) / a.duration)
-      }
-      const onEnded = () => {
-        setPlaying(false)
-        setProgress(1)
-        try { setCurrTime(a.duration || 0) } catch {}
-      }
-      const onPause = () => {
-        setPlaying(false)
-      }
-      a.addEventListener('timeupdate', onTime)
-      a.addEventListener('ended', onEnded)
-      a.addEventListener('pause', onPause)
-      audioRef.current = a
-
-      const compute = async () => {
-        setLoading(true)
-        // Use cache if present
-        if (waveformCacheRef.current.has(url)) {
-          const { peaks, duration } = waveformCacheRef.current.get(url)
-          if (!cancelled) {
-            setPeaks(peaks)
-            setDuration(duration)
-            setLoading(false)
-          }
-          return
-        }
-        try {
-          const res = await fetch(url)
-          const buf = await res.arrayBuffer()
-          // Use shared AudioContext only after user interaction; otherwise fall back
-          const ctx = getRingCtx()
-          if (!ctx) {
-            // No AudioContext yet due to autoplay policy; render a simple fallback waveform
-            const fallback = new Array(40).fill(0).map((_, i) => (Math.sin(i / 3) + 1) / 2)
-            if (!cancelled) {
-              setPeaks(fallback)
-              setDuration(0)
-              setLoading(false)
-            }
-            return
-          }
-          const audioBuf = await ctx.decodeAudioData(buf)
-          const ch = audioBuf.numberOfChannels > 0 ? audioBuf.getChannelData(0) : new Float32Array()
-          const len = 34 // number of bars, exact match to WhatsApp layout size
-          const block = Math.floor(ch.length / len) || 1
-          const peaksArr = new Array(len).fill(0).map((_, i) => {
-            let sum = 0
-            const start = i * block
-            for (let j = 0; j < block && start + j < ch.length; j++) sum += Math.abs(ch[start + j])
-            return sum / block
-          })
-          // Normalize
-          const max = Math.max(0.01, ...peaksArr)
-          const norm = peaksArr.map((v) => v / max)
-          const dur = audioBuf.duration
-          waveformCacheRef.current.set(url, { peaks: norm, duration: dur })
-          if (!cancelled) {
-            setPeaks(norm)
-            setDuration(dur)
-          }
-        } catch {
-          // Fallback: show simple bar if decode fails
-          const fallback = new Array(40).fill(0).map((_, i) => (Math.sin(i / 3) + 1) / 2)
-          waveformCacheRef.current.set(url, { peaks: fallback, duration: 0 })
-          if (!cancelled) {
-            setPeaks(fallback)
-            setDuration(0)
-          }
-        } finally {
-          if (!cancelled) setLoading(false)
-        }
-      }
-      compute()
-      return () => {
-        cancelled = true
-        try {
-          a.pause()
-        } catch {}
-        try {
-          a.removeAttribute('src')
-          a.load?.()
-        } catch {}
-        try {
-          a.removeEventListener('timeupdate', onTime)
-        } catch {}
-        try {
-          a.removeEventListener('ended', onEnded)
-        } catch {}
-        try {
-          a.removeEventListener('pause', onPause)
-        } catch {}
-        try {
-          if (globalAudioRef.current === a) globalAudioRef.current = null
-        } catch {}
-      }
-    }, [url])
-
-    // Observe container width for responsive canvas sizing (with fallback if ResizeObserver is unavailable)
-    useEffect(() => {
-      if (!containerRef.current) return
-      const el = containerRef.current
-      const update = () => {
-        try {
-          setContainerWidth(el.clientWidth || 240)
-        } catch {}
-      }
-      let ro = null
-      try {
-        if (typeof ResizeObserver !== 'undefined') {
-          ro = new ResizeObserver((entries) => {
-            const cr = entries[0]?.contentRect
-            if (cr && cr.width) {
-              setContainerWidth(cr.width)
-            }
-          })
-          ro.observe(el)
-        } else {
-          window.addEventListener('resize', update)
-        }
-      } catch {
-        /* ignore */
-      }
-      // initial measure
-      update()
-      return () => {
-        try {
-          ro ? ro.disconnect() : window.removeEventListener('resize', update)
-        } catch {}
-      }
-    }, [])
-
-    // Draw waveform
-    useEffect(() => {
-      const canvas = canvasRef.current
-      if (!canvas || peaks.length === 0) return
-      const dpr = window.devicePixelRatio || 1
-      const height = 36
-      const width = Math.max(180, Math.floor(containerWidth))
-      canvas.width = width * dpr
-      canvas.height = height * dpr
-      canvas.style.width = width + 'px'
-      canvas.style.height = height + 'px'
-      const ctx = canvas.getContext('2d')
-      ctx.scale(dpr, dpr)
-      ctx.clearRect(0, 0, width, height)
-      const barW = Math.max(2, Math.floor(width / (peaks.length * 1.5)))
-      const gap = Math.max(1, Math.floor(barW / 2))
-      const baseY = height / 2
-      const color = '#9aa4b2'
-      const colorActive = '#4fb3ff'
-      const progressBars = Math.floor(peaks.length * progress)
-      for (let i = 0; i < peaks.length; i++) {
-        const p = Math.max(0.15, peaks[i])
-        const h = p * (height - 6)
-        const x = i * (barW + gap)
-        ctx.fillStyle = i <= progressBars ? colorActive : color
-        ctx.fillRect(x, baseY - h / 2, barW, h)
-      }
-    }, [peaks, progress, containerWidth])
-
-    function toggle() {
-      const a = audioRef.current
-      if (!a) return
-      if (a.paused) {
-        try {
-          const cur = globalAudioRef.current
-          if (cur && cur !== a) {
-            cur.pause()
-          }
-          globalAudioRef.current = a
-        } catch {}
-        a.play()
-          .then(() => setPlaying(true))
-          .catch(() => {})
-      } else {
-        a.pause()
-        setPlaying(false)
-      }
-    }
-
-    function seek(e) {
-      try {
-        const a = audioRef.current
-        if (!a || !a.duration || isNaN(a.duration)) return
-        const rect = e.currentTarget.getBoundingClientRect()
-        const x = Math.min(Math.max(0, e.clientX - rect.left), rect.width)
-        const ratio = rect.width ? x / rect.width : 0
-        a.currentTime = Math.max(0, Math.min(a.duration, a.duration * ratio))
-        setCurrTime(a.currentTime || 0)
-        setProgress((a.currentTime || 0) / a.duration)
-      } catch {}
-    }
-
-    function onSeekTouch(e) {
-      try {
-        const t = e.touches && e.touches[0]
-        if (!t) return
-        seek({ currentTarget: e.currentTarget, clientX: t.clientX })
-      } catch {}
-    }
-
-    return (
-      <div className="wa-audio-bubble" ref={containerRef}>
-        {/* Mic avatar (shows while not playing) */}
-        <div className="wa-audio-thumb" aria-hidden>
-          {playing
-            ? <svg width="14" height="14" viewBox="0 0 24 24" fill="#00a884"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path fill="none" stroke="#00a884" strokeWidth="2" strokeLinecap="round" d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
-            : <svg width="14" height="14" viewBox="0 0 24 24" fill="#667781"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path fill="none" stroke="#667781" strokeWidth="2" strokeLinecap="round" d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
-          }
-        </div>
-        {/* Play/Pause button */}
-        <button
-          className="wa-audio-play"
-          onClick={toggle}
-          aria-label={playing ? 'Pause voice message' : 'Play voice message'}
-        >
-          {playing
-            ? <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-            : <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff" style={{ marginLeft: 2 }}><polygon points="5,3 19,12 5,21"/></svg>
-          }
-        </button>
-        {/* Waveform + duration */}
-        <div className="wa-audio-waveform-wrap">
-          <div
-            className="wa-audio-waveform"
-            onClick={seek}
-            onTouchStart={onSeekTouch}
-            style={{ cursor: 'pointer' }}
-          >
-            {peaks.length > 0
-              ? peaks.map((p, i) => {
-                  const pct = Math.floor(peaks.length * progress)
-                  const h = Math.max(4, Math.round(p * 26))
-                  return (
-                    <div
-                      key={i}
-                      className={`wa-audio-waveform-bar${i <= pct ? ' played' : ''}`}
-                      style={{ height: h }}
-                    />
-                  )
-                })
-              : Array.from({ length: 40 }).map((_, i) => (
-                  <div key={i} className="wa-audio-waveform-bar" style={{ height: 6 }} />
-                ))
-            }
-          </div>
-          <div className="wa-audio-dur">
-            {duration
-              ? secondsToMMSS(Math.max(0, Math.floor(duration - currTime)))
-              : (content?.audioMessage?.seconds
-                  ? secondsToMMSS(content.audioMessage.seconds)
-                  : '0:00')
-            }
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  function ImageBubble({ jid, msg, content, ensureMediaUrl }) {
-    const [url, setUrl] = useState(null)
-    const [loaded, setLoaded] = useState(false)
-    const caption = content?.imageMessage?.caption || ''
-    useEffect(() => {
-      let alive = true
-      const local = content?.imageMessage?.localUrl
-      if (local) { setUrl(local); return () => { alive = false } }
-      const load = async () => {
-        const u = await ensureMediaUrl(jid, msg?.key?.id)
-        if (alive) setUrl(u)
-      }
-      load()
-      return () => { alive = false }
-    }, [jid, msg?.key?.id])
-    const showCaption = caption && !/\.(jpe?g|png|gif|bmp|webp)$/i.test(caption)
-    return (
-      <div style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', width: 280, minHeight: 180, background: '#e8e8e8' }}>
-        {url ? (
-          <a href={url} target="_blank" rel="noreferrer" style={{ display: 'block', width: '100%', height: '100%' }}>
-            <img
-              src={url}
-              alt="photo"
-              onLoad={() => setLoaded(true)}
-              style={{ display: 'block', width: '100%', height: '100%', maxHeight: 320, objectFit: 'cover', transition: 'opacity 0.2s', opacity: loaded ? 1 : 0 }}
-            />
-            {!loaded && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span className="spinner" style={{ borderColor: 'rgba(0,0,0,0.1)', borderTopColor: '#888' }} /></div>}
-          </a>
-        ) : (
-          <div style={{ width: 200, height: 140, background: '#e8e8e8', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-          </div>
-        )}
-        {showCaption && (
-          <div style={{ padding: '4px 6px 2px', fontSize: 13.5, color: 'var(--wa-in-text)', background: 'rgba(0,0,0,0.02)', lineHeight: 1.4 }}>{caption}</div>
-        )}
-      </div>
-    )
-  }
-
-  function LocationBubble({ content }) {
-    const loc = content?.locationMessage || {}
-    const lat = loc.degreesLatitude
-    const lng = loc.degreesLongitude
-    const name = loc.name || 'Location'
-    const address = loc.address || ''
-    const url =
-      typeof lat === 'number' && typeof lng === 'number'
-        ? `https://www.google.com/maps?q=${lat},${lng}`
-        : null
-    const [copied, setCopied] = useState(false)
-    function copyCoords() {
-      try {
-        const txt =
-          typeof lat === 'number' && typeof lng === 'number'
-            ? `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-            : ''
-        if (!txt) return
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(txt)
-        } else {
-          const ta = document.createElement('textarea')
-          ta.value = txt
-          document.body.appendChild(ta)
-          ta.select()
-          try {
-            document.execCommand('copy')
-          } catch {}
-          document.body.removeChild(ta)
-        }
-        setCopied(true)
-        setTimeout(() => setCopied(false), 1200)
-      } catch {}
-    }
-    return (
-      <div style={{ display: 'grid', gap: 6 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span>📍</span>
-          <div style={{ fontWeight: 600 }}>{name}</div>
-        </div>
-        {address && <div style={{ opacity: 0.9 }}>{address}</div>}
-        {typeof lat === 'number' && typeof lng === 'number' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ fontSize: 12, opacity: 0.8 }}>
-              ({lat.toFixed(6)}, {lng.toFixed(6)})
-            </div>
-            <button
-              className="btn secondary small"
-              onClick={copyCoords}
-              title="Copy coordinates"
-              aria-label="Copy coordinates"
-              style={{ padding: '4px 8px' }}
-            >
-              {copied ? 'Copied' : 'Copy'}
-            </button>
-          </div>
-        )}
-        {url && (
-          <a
-            href={url}
-            target="_blank"
-            rel="noreferrer"
-            className="btn secondary"
-            style={{ justifySelf: 'start' }}
-          >
-            Open in Maps
-          </a>
-        )}
-      </div>
-    )
-  }
 
   // UI helpers
   const MOBILE_HDR_H = 56
@@ -4062,3 +4069,4 @@ export default function WhatsAppInbox() {
     </div>
   )
 }
+
