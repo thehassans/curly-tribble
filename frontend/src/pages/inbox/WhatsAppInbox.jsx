@@ -1382,7 +1382,7 @@ export default function WhatsAppInbox() {
     } catch {}
     const socket = io(sockUrl, {
       path: '/socket.io',
-      transports: ['websocket', 'polling'],
+      transports: ['websocket'],
       withCredentials: true,
       auth: { token },
       reconnection: true,
@@ -2026,7 +2026,8 @@ export default function WhatsAppInbox() {
         )
         await new Promise((resolve, reject) => {
           try {
-            const url = `${API_BASE || ''}/api/wa/send-media`
+            const basePath = String(API_BASE || '').replace(/\/$/, '')
+            const url = basePath.endsWith('/api') ? `${basePath.slice(0, -4)}/api/wa/send-media` : `${basePath}/api/wa/send-media`
             const xhr = new XMLHttpRequest()
             uploadAbortRef.current = xhr
             xhr.open('POST', url, true)
@@ -2846,7 +2847,10 @@ export default function WhatsAppInbox() {
 
   function Ticks({ isMe, status }) {
     if (!isMe) return null
-    const st = (status === 'seen' ? 'read' : status) || 'sent'
+    let st = status || 'sent'
+    if (typeof st === 'string') st = st.toLowerCase()
+    if (st === 'seen') st = 'read'
+    
     const GREY = '#8696a0'
     const BLUE = '#53bdeb'
 
@@ -3426,14 +3430,24 @@ export default function WhatsAppInbox() {
                           const startX = touch ? touch.clientX : 0; const startY = touch ? touch.clientY : 0
                           let handled = false
                           const timer = setTimeout(() => { if (!handled) setReactingTo(id) }, 380)
+                          const el = e.currentTarget
                           const onMove = mv => {
                             const t2 = mv.touches && mv.touches[0]; if (!t2) return
                             const dx = t2.clientX - startX; const dy = t2.clientY - startY
-                            if (dx > 56 && Math.abs(dy) < 24 && !handled) { handled = true; clearTimeout(timer); try { startReply(m) } catch {} cleanup() }
-                            else if (Math.abs(dy) > 24) { clearTimeout(timer); cleanup() }
+                            if (!handled && dx > 0 && Math.abs(dy) < 30) {
+                              el.style.transform = `translateX(${Math.min(dx, 65)}px)`
+                              el.style.transition = 'none'
+                            }
+                            if (dx > 45 && Math.abs(dy) < 30 && !handled) { 
+                              handled = true; clearTimeout(timer); try { startReply(m) } catch {} cleanup() 
+                            }
+                            else if (Math.abs(dy) > 30) { clearTimeout(timer); cleanup() }
                           }
-                          const onEnd = () => { clearTimeout(timer); cleanup() }
-                          const el = e.currentTarget
+                          const onEnd = () => { 
+                            el.style.transform = ''
+                            el.style.transition = 'transform 0.2s ease-out'
+                            clearTimeout(timer); cleanup() 
+                          }
                           function cleanup() { try { el.removeEventListener('touchend', onEnd) } catch {} try { el.removeEventListener('touchmove', onMove) } catch {} }
                           el.addEventListener('touchend', onEnd, { once: true })
                           el.addEventListener('touchmove', onMove, { passive: true })

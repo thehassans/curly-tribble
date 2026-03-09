@@ -580,7 +580,6 @@
   max-height: 120px;
   align-self: stretch;
   box-shadow: 0 1px 2px rgba(11,20,26,0.08);
-  overflow: hidden;
 }
 .wa-composer-icon-btn {
   display: flex;
@@ -1059,6 +1058,10 @@
   gap: 4px;
   z-index: 99;
   animation: wa-ctx-in 0.12s ease;
+}
+.wa-message-bubble.me .wa-react-bar {
+  left: auto;
+  right: 0;
 }
 .wa-react-bar .emoji {
   background: none; border: none;
