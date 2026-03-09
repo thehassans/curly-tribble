@@ -625,7 +625,7 @@ export default function WhatsAppInbox() {
       return () => { alive = false }
     }, [jid, msg?.key?.id])
     return (
-      <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', minWidth: 120, maxWidth: 280 }}>
+      <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', width: 280, minHeight: 180, background: '#111' }}>
         {url ? (
           playing ? (
             <video
@@ -2766,16 +2766,16 @@ export default function WhatsAppInbox() {
     }, [jid, msg?.key?.id])
     const showCaption = caption && !/\.(jpe?g|png|gif|bmp|webp)$/i.test(caption)
     return (
-      <div style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', minWidth: 120, maxWidth: 280 }}>
+      <div style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', width: 280, minHeight: 180, background: '#e8e8e8' }}>
         {url ? (
-          <a href={url} target="_blank" rel="noreferrer" style={{ display: 'block' }}>
+          <a href={url} target="_blank" rel="noreferrer" style={{ display: 'block', width: '100%', height: '100%' }}>
             <img
               src={url}
               alt="photo"
               onLoad={() => setLoaded(true)}
-              style={{ display: 'block', width: '100%', maxHeight: 320, objectFit: 'cover', borderRadius: 6, background: '#e0e0e0', transition: 'opacity 0.2s', opacity: loaded ? 1 : 0 }}
+              style={{ display: 'block', width: '100%', height: '100%', maxHeight: 320, objectFit: 'cover', transition: 'opacity 0.2s', opacity: loaded ? 1 : 0 }}
             />
-            {!loaded && <div style={{ position: 'absolute', inset: 0, background: '#e8e8e8', borderRadius: 6, minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>}
+            {!loaded && <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span className="spinner" style={{ borderColor: 'rgba(0,0,0,0.1)', borderTopColor: '#888' }} /></div>}
           </a>
         ) : (
           <div style={{ width: 200, height: 140, background: '#e8e8e8', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

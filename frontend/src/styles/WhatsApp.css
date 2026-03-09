@@ -429,17 +429,19 @@
 }
 
 /* ── Audio bubble (voice message) ──────────────────────── */
-.wa-audio {
+.wa-audio-bubble {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 230px;
+  gap: 12px;
+  min-width: 260px;
   max-width: 340px;
-  padding: 6px 4px 4px;
 }
-.wa-audio-play-btn {
-  width: 42px;
-  height: 42px;
+.wa-audio-thumb {
+  position: relative;
+}
+.wa-audio-play {
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
   background: var(--wa-green);
@@ -449,49 +451,37 @@
   justify-content: center;
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.15s, transform 0.1s;
+  transition: transform 0.1s;
   -webkit-tap-highlight-color: transparent;
 }
-.wa-audio-play-btn:hover { background: var(--wa-green-dark); }
-.wa-audio-play-btn:active { transform: scale(0.93); }
-.wa-audio-waveform {
+.wa-audio-play:active { transform: scale(0.95); }
+.wa-audio-waveform-wrap {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  overflow: hidden;
+  justify-content: center;
+  gap: 2px;
 }
-.wa-audio-bars {
+.wa-audio-waveform {
   display: flex;
   align-items: center;
-  gap: 1.5px;
-  height: 32px;
+  gap: 2px;
+  height: 28px;
   cursor: pointer;
 }
-.wa-audio-bar {
+.wa-audio-waveform-bar {
   width: 3px;
-  border-radius: 2px;
+  border-radius: 1.5px;
   background: #c5d0d8;
   transition: background 0.1s;
   flex-shrink: 0;
 }
-.wa-audio-bar.played { background: var(--wa-green); }
-.wa-audio-duration {
-  font-size: 12px;
+.wa-audio-waveform-bar.played { background: var(--wa-green); }
+.wa-audio-dur {
+  font-size: 11px;
   color: var(--wa-meta);
+  margin-top: -2px;
 }
-.wa-audio-mic-icon {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: #d1d7db;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  overflow: hidden;
-}
-
 /* ── Reply quote bubble ────────────────────────────────── */
 .wa-reply-bubble {
   border-left: 4px solid var(--wa-green);
