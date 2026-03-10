@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import Header from '../../../components/layout/Header.jsx'; // Adjust path if using different Header
+import Header from '../../components/layout/Header.jsx'; // Adjust path if using different Header
 
 /**
  * 🎨 Next-Gen SEO Dashboard Layout
