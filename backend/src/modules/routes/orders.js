@@ -5,6 +5,8 @@ import path from "path";
 import Order from "../models/Order.js";
 import WebOrder from "../models/WebOrder.js";
 import Product from "../models/Product.js";
+import Shop from "../models/Shop.js";
+import Setting from "../models/Setting.js";
 import ManagerProductStock from "../models/ManagerProductStock.js";
 import Counter from "../models/Counter.js";
 import { auth, allowRoles } from "../middleware/auth.js";
@@ -12,6 +14,7 @@ import User from "../models/User.js";
 import { getIO } from "../config/socket.js";
 import { createNotification } from "./notifications.js";
 import { assignInvestorProfitToOrder, preAssignInvestorToOrder } from "../services/investorProfitService.js";
+import googleMapsService from "../services/googleMapsService.js";
 // Removed invoice PDF generation
 
 const router = express.Router();
@@ -144,6 +147,250 @@ async function getWA() {
   }
 }
 
+async function getDeliveryWorkflowConfig() {
+  try {
+    const doc = await Setting.findOne({ key: "delivery_workflow" })
+      .select("value")
+      .lean();
+    return {
+      requireBarcodeScanForPickup: true,
+      allowManualPickupVerification: true,
+      autoAssignNearestShop: false,
+      enableDriverLiveTracking: true,
+      ...(doc?.value && typeof doc.value === "object" ? doc.value : {}),
+    };
+  } catch {
+    return {
+      requireBarcodeScanForPickup: true,
+      allowManualPickupVerification: true,
+      autoAssignNearestShop: false,
+      enableDriverLiveTracking: true,
+    };
+  }
+}
+
+async function resolveOrderOwnerId(order) {
+  try {
+    if (!order?.createdBy) return "";
+    const creator = await User.findById(order.createdBy)
+      .select("role createdBy")
+      .lean();
+    if (!creator) return String(order.createdBy || "");
+    return creator.role === "user"
+      ? String(order.createdBy)
+      : String(creator.createdBy || order.createdBy || "");
+  } catch {
+    return String(order?.createdBy || "");
+  }
+}
+
+function getOrderProductIds(order) {
+  const ids = [];
+  if (order?.productId) ids.push(String(order.productId));
+  if (Array.isArray(order?.items)) {
+    for (const item of order.items) {
+      if (item?.productId) ids.push(String(item.productId));
+    }
+  }
+  return Array.from(new Set(ids.filter(Boolean)));
+}
+
+async function resolveOrderDropoffInput(body = {}) {
+  const dropoff =
+    body.dropoffLocation && typeof body.dropoffLocation === "object"
+      ? body.dropoffLocation
+      : {};
+  const rawLat =
+    body.locationLat ?? body.lat ?? body.latitude ?? dropoff.lat ?? dropoff.latitude;
+  const rawLng =
+    body.locationLng ?? body.lng ?? body.longitude ?? dropoff.lng ?? dropoff.longitude;
+  const address = String(
+    body.customerAddress ||
+      body.dropoffAddress ||
+      dropoff.address ||
+      ""
+  ).trim();
+  const googleMapsUrl = String(
+    body.googleMapsUrl ||
+      body.mapUrl ||
+      dropoff.googleMapsUrl ||
+      dropoff.mapUrl ||
+      ""
+  ).trim();
+  const placeId = String(body.placeId || body.dropoffPlaceId || dropoff.placeId || "").trim();
+
+  if (Number.isFinite(Number(rawLat)) && Number.isFinite(Number(rawLng))) {
+    let formattedAddress = address;
+    let city = "";
+    let area = "";
+    let country = "";
+    try {
+      const reverse = await googleMapsService.reverseGeocode(Number(rawLat), Number(rawLng));
+      if (reverse?.success) {
+        formattedAddress = reverse.formatted_address || formattedAddress;
+        city = reverse.city || "";
+        area = reverse.area || "";
+        country = reverse.country || "";
+      }
+    } catch {}
+    return {
+      lat: Number(rawLat),
+      lng: Number(rawLng),
+      formattedAddress,
+      city,
+      area,
+      country,
+      geoPoint: googleMapsService.buildGeoPoint(Number(rawLat), Number(rawLng), formattedAddress || address, {
+        placeId,
+        googleMapsUrl,
+      }),
+    };
+  }
+
+  if (googleMapsUrl) {
+    const resolved = await googleMapsService.resolveGoogleMapsUrl(googleMapsUrl);
+    if (resolved?.success) {
+      return {
+        lat: Number(resolved.lat),
+        lng: Number(resolved.lng),
+        formattedAddress: resolved.formatted_address || address,
+        city: resolved.city || "",
+        area: resolved.area || "",
+        country: resolved.country || "",
+        geoPoint: googleMapsService.buildGeoPoint(
+          Number(resolved.lat),
+          Number(resolved.lng),
+          resolved.formatted_address || address,
+          {
+            placeId: resolved.place_id || placeId,
+            googleMapsUrl: resolved.finalUrl || googleMapsUrl,
+          }
+        ),
+      };
+    }
+  }
+
+  return null;
+}
+
+async function getCandidateShopsForOrder(order) {
+  const ownerId = await resolveOrderOwnerId(order);
+  const productIds = getOrderProductIds(order)
+    .filter((id) => mongoose.Types.ObjectId.isValid(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+  if (!ownerId || !productIds.length) return [];
+
+  const products = await Product.find({
+    _id: { $in: productIds },
+    createdBy: ownerId,
+    "shops.0": { $exists: true },
+  })
+    .select("name shops")
+    .lean();
+
+  const matched = new Map();
+  for (const product of products) {
+    for (const assignment of Array.isArray(product.shops) ? product.shops : []) {
+      const key = String(assignment?.shopId || "");
+      if (!key) continue;
+      if (!matched.has(key)) {
+        matched.set(key, {
+          shopId: key,
+          matchedProducts: [],
+        });
+      }
+      matched.get(key).matchedProducts.push({
+        productId: String(product._id),
+        productName: product.name,
+        shopBuyingPrice: Number(assignment?.shopBuyingPrice || 0),
+      });
+    }
+  }
+
+  const shops = await Shop.find({
+    _id: { $in: Array.from(matched.keys()) },
+    createdBy: ownerId,
+    isActive: true,
+  }).lean();
+
+  return shops
+    .map((shop) => ({
+      ...shop,
+      matchedProducts: matched.get(String(shop._id))?.matchedProducts || [],
+      matchedProductCount: matched.get(String(shop._id))?.matchedProducts?.length || 0,
+    }))
+    .sort((a, b) => b.matchedProductCount - a.matchedProductCount);
+}
+
+function getDestinationPoint(order) {
+  const phase = String(order?.logisticsPhase || "");
+  const shipmentStatus = String(order?.shipmentStatus || "").toLowerCase();
+  const pickupPhase = new Set(["assigned_to_shop", "driver_assigned", "to_pickup", "at_pickup"]);
+  if (
+    pickupPhase.has(phase) ||
+    (!order?.pickupVerification?.verifiedAt &&
+      !["picked_up", "out_for_delivery", "in_transit", "delivered"].includes(shipmentStatus) &&
+      order?.pickupLocationSnapshot?.coordinates?.length === 2)
+  ) {
+    return order?.pickupLocationSnapshot || null;
+  }
+  if (order?.dropoffLocation?.coordinates?.length === 2) {
+    return order.dropoffLocation;
+  }
+  if (Number.isFinite(Number(order?.locationLat)) && Number.isFinite(Number(order?.locationLng))) {
+    return googleMapsService.buildGeoPoint(order.locationLat, order.locationLng, order.customerAddress || "");
+  }
+  return null;
+}
+
+async function syncDriverOrderState(driverId, order) {
+  if (!driverId) return;
+  const phase = String(order?.logisticsPhase || "");
+  let stage = "idle";
+  let currentOrder = null;
+  if (["assigned_to_shop", "driver_assigned", "to_pickup", "at_pickup"].includes(phase)) {
+    stage = "to_pickup";
+    currentOrder = order?._id || null;
+  } else if (["picked_up", "to_dropoff"].includes(phase)) {
+    stage = "to_dropoff";
+    currentOrder = order?._id || null;
+  }
+  await User.findByIdAndUpdate(driverId, {
+    $set: {
+      "driverProfile.currentOrder": currentOrder,
+      "driverProfile.currentAssignmentStage": stage,
+      "driverProfile.isOnline": true,
+    },
+  }).catch(() => {});
+}
+
+async function canAccessOrderForLogistics(reqUser, order) {
+  if (!reqUser || !order) return false;
+  if (reqUser.role === "admin") return true;
+  if (reqUser.role === "driver") {
+    return String(order.deliveryBoy || "") === String(reqUser.id);
+  }
+  if (reqUser.role === "shop_vendor") {
+    return String(order.assignedShop || "") === String(reqUser.shopId || reqUser.id);
+  }
+
+  const ownerId = await resolveOrderOwnerId(order);
+  if (reqUser.role === "user") {
+    return ownerId && String(ownerId) === String(reqUser.id);
+  }
+  if (reqUser.role === "manager") {
+    const mgr = await User.findById(reqUser.id).select("createdBy").lean();
+    return (
+      String(mgr?.createdBy || "") === String(ownerId || "") &&
+      (!order.assignedManager || String(order.assignedManager) === String(reqUser.id))
+    );
+  }
+  if (reqUser.role === "agent" || reqUser.role === "dropshipper") {
+    return String(order.createdBy || "") === String(reqUser.id);
+  }
+  return false;
+}
+
 // Helper: emit targeted order updates
 async function emitOrderChange(ord, action = "updated") {
   try {
@@ -151,6 +398,7 @@ async function emitOrderChange(ord, action = "updated") {
     const orderId = String(ord?._id || "");
     const status = String(ord?.shipmentStatus || ord?.status || "");
     const invoiceNumber = ord?.invoiceNumber || null;
+    const logisticsPhase = String(ord?.logisticsPhase || "");
     // Notify assigned driver
     if (ord?.deliveryBoy) {
       const room = `user:${String(ord.deliveryBoy)}`;
@@ -161,6 +409,19 @@ async function emitOrderChange(ord, action = "updated") {
           invoiceNumber,
           action,
           status,
+          logisticsPhase,
+          order: ord,
+        });
+      } catch {}
+    }
+    if (ord?.assignedShop) {
+      try {
+        io.to(`shop:${String(ord.assignedShop)}`).emit("shop.orders.changed", {
+          orderId,
+          invoiceNumber,
+          action,
+          status,
+          logisticsPhase,
           order: ord,
         });
       } catch {}
@@ -172,6 +433,7 @@ async function emitOrderChange(ord, action = "updated") {
         invoiceNumber,
         action,
         status,
+        logisticsPhase,
       });
     } catch {}
     // Compute workspace owner for broadcast
@@ -194,6 +456,7 @@ async function emitOrderChange(ord, action = "updated") {
           invoiceNumber,
           action,
           status,
+          logisticsPhase,
         });
       } catch {}
 
@@ -320,6 +583,22 @@ router.post(
       additionalPhonePref,
       paymentMethod,
     } = req.body || {};
+    const resolvedDropoff = await resolveOrderDropoffInput(req.body || {});
+    const finalLocationLat = resolvedDropoff?.lat ?? locationLat;
+    const finalLocationLng = resolvedDropoff?.lng ?? locationLng;
+    const finalCustomerAddress = resolvedDropoff?.formattedAddress || customerAddress;
+    const finalCity = resolvedDropoff?.city || city;
+    const finalCustomerArea = resolvedDropoff?.area || customerArea;
+    const finalOrderCountry = resolvedDropoff?.country || orderCountry;
+    const finalCustomerLocation =
+      (customerLocation && String(customerLocation).trim()) ||
+      (resolvedDropoff?.formattedAddress && String(resolvedDropoff.formattedAddress).trim()) ||
+      ((Number.isFinite(Number(finalLocationLat)) && Number.isFinite(Number(finalLocationLng)))
+        ? `(${Number(finalLocationLat).toFixed(6)}, ${Number(finalLocationLng).toFixed(6)})`
+        : "") ||
+      (finalCustomerAddress && String(finalCustomerAddress).trim()) ||
+      "";
+    const deliveryWorkflow = await getDeliveryWorkflowConfig();
     // ===== STRICT VALIDATION: Required fields =====
 
     // 1. Customer phone is required
@@ -331,7 +610,7 @@ router.post(
     }
 
     // 2. WhatsApp location (lat/lng) is required
-    if (locationLat == null || locationLng == null) {
+    if (finalLocationLat == null || finalLocationLng == null) {
       return res.status(400).json({
         message:
           "WhatsApp location is required. Please share your location pin in WhatsApp",
@@ -340,7 +619,7 @@ router.post(
     }
 
     // 3. Customer address is required
-    if (!customerAddress || !String(customerAddress).trim()) {
+    if (!finalCustomerAddress || !String(finalCustomerAddress).trim()) {
       return res.status(400).json({
         message:
           "Customer address is required. Please provide the full delivery address",
@@ -349,7 +628,7 @@ router.post(
     }
 
     // 4. City is required
-    if (!city || !String(city).trim()) {
+    if (!finalCity || !String(finalCity).trim()) {
       return res.status(400).json({
         message: "City is required. Please specify the city name",
         error: "MISSING_CITY",
@@ -357,7 +636,7 @@ router.post(
     }
 
     // 5. Order country is required
-    if (!orderCountry || !String(orderCountry).trim()) {
+    if (!finalOrderCountry || !String(finalOrderCountry).trim()) {
       return res.status(400).json({
         message: "Delivery country is required",
         error: "MISSING_COUNTRY",
@@ -365,18 +644,12 @@ router.post(
     }
 
     // Derive a reasonable customerLocation string
-    const customerLocationResolved =
-      (customerLocation && String(customerLocation).trim()) ||
-      `(${Number(locationLat).toFixed(6)}, ${Number(locationLng).toFixed(
-        6
-      )})` ||
-      (customerAddress && String(customerAddress).trim()) ||
-      "";
+    const customerLocationResolved = finalCustomerLocation;
 
     // Validate address country matches phone country code
-    if (phoneCountryCode && orderCountry) {
+    if (phoneCountryCode && finalOrderCountry) {
       const phoneDigits = String(phoneCountryCode).replace(/[^0-9]/g, "");
-      const countryUpper = String(orderCountry).trim().toUpperCase();
+      const countryUpper = String(finalOrderCountry).trim().toUpperCase();
 
       // Map country codes to country names (ISO codes)
       const countryCodeMap = {
@@ -418,18 +691,19 @@ router.post(
           const expectedCountryName =
             expectedCountries[expectedCountries.length - 1]; // Use full name
           return res.status(400).json({
-            message: `Country Verification Failed: The delivery address country (${orderCountry}) does not match the phone number country code (+${phoneDigits} - ${expectedCountryName}). Please select the correct delivery country: ${expectedCountryName}.`,
+            message: `Country Verification Failed: The delivery address country (${finalOrderCountry}) does not match the phone number country code (+${phoneDigits} - ${expectedCountryName}). Please select the correct delivery country: ${expectedCountryName}.`,
             error: "COUNTRY_MISMATCH",
             phoneCountryCode: phoneDigits,
-            orderCountry: orderCountry,
+            orderCountry: finalOrderCountry,
             expectedCountry: expectedCountryName,
+            expectedCountryISO: expectedCountries[0],
           });
         }
       }
     }
 
     // Additional validation: If lat/lng provided, verify resolved location country matches phone country code
-    if (phoneCountryCode && locationLat != null && locationLng != null) {
+    if (phoneCountryCode && finalLocationLat != null && finalLocationLng != null) {
       try {
         const phoneDigits = String(phoneCountryCode).replace(/[^0-9]/g, "");
 
@@ -465,8 +739,8 @@ router.post(
             "../services/googleMapsService.js"
           );
           const geoResult = await googleMapsService.reverseGeocode(
-            locationLat,
-            locationLng
+            finalLocationLat,
+            finalLocationLng
           );
 
           if (geoResult.success && geoResult.address_components) {
@@ -560,7 +834,7 @@ router.post(
       /* best effort */
     }
 
-    const orderStockCountryKey = normalizeStockCountryKey(orderCountry);
+    const orderStockCountryKey = normalizeStockCountryKey(finalOrderCountry);
 
     let managerOwnerId = null;
     if (req.user.role === "manager") {
@@ -678,7 +952,7 @@ router.post(
         const availableStock = getCountryStock(p);
         if (availableStock < requestedQty) {
           return res.status(400).json({
-            message: `No stock available for ${p.name} in ${orderCountry}. Available: ${availableStock}, Requested: ${requestedQty}`,
+            message: `No stock available for ${p.name} in ${finalOrderCountry}. Available: ${availableStock}, Requested: ${requestedQty}`,
             error: "INSUFFICIENT_STOCK",
             product: p.name,
             available: availableStock,
@@ -692,7 +966,7 @@ router.post(
       const availableStock = getCountryStock(prod);
       if (availableStock < requestedQty) {
         return res.status(400).json({
-          message: `No stock available for ${prod.name} in ${orderCountry}. Available: ${availableStock}, Requested: ${requestedQty}`,
+          message: `No stock available for ${prod.name} in ${finalOrderCountry}. Available: ${availableStock}, Requested: ${requestedQty}`,
           error: "INSUFFICIENT_STOCK",
           product: prod.name,
           available: availableStock,
@@ -808,13 +1082,14 @@ router.post(
       customerName: customerName || (shortCode ? `customer ${shortCode}` : ""),
       customerPhone,
       phoneCountryCode,
-      orderCountry,
-      city,
-      customerAddress,
-      customerArea: customerArea || "",
-      locationLat,
-      locationLng,
-      customerLocation,
+      orderCountry: finalOrderCountry,
+      city: finalCity,
+      customerAddress: finalCustomerAddress,
+      customerArea: finalCustomerArea || "",
+      locationLat: finalLocationLat,
+      locationLng: finalLocationLng,
+      customerLocation: customerLocationResolved,
+      dropoffLocation: resolvedDropoff?.geoPoint,
       preferredTiming: preferredTiming || "",
       ...(additionalPhone ? { additionalPhone } : {}),
       ...(additionalPhonePref ? { additionalPhonePref } : {}),
@@ -837,6 +1112,10 @@ router.post(
       ...(shortCode ? { invoiceNumber: shortCode } : {}),
       ...(shortCode ? { invoiceNumber: shortCode } : {}),
       shipmentStatus: "pending", // Set initial status
+      pickupVerification: {
+        required: Boolean(deliveryWorkflow?.requireBarcodeScanForPickup),
+        method: "none",
+      },
       paymentMethod: paymentMethod === "stripe" ? "stripe" : "COD",
     });
     
@@ -3838,6 +4117,7 @@ router.post(
     if (!ord.shipmentStatus || ord.shipmentStatus === "pending")
       ord.shipmentStatus = "assigned";
     await ord.save();
+    await syncDriverOrderState(ord.deliveryBoy, ord);
     await ord.populate("deliveryBoy", "firstName lastName email");
     // Notify driver + workspace
     emitOrderChange(ord, "assigned").catch(() => {});
@@ -4221,6 +4501,7 @@ router.post("/:id/claim", auth, allowRoles("driver"), async (req, res) => {
   if (!ord.shipmentStatus || ord.shipmentStatus === "pending")
     ord.shipmentStatus = "assigned";
   await ord.save();
+  await syncDriverOrderState(ord.deliveryBoy, ord);
   await ord.populate("productId");
   emitOrderChange(ord, "assigned").catch(() => {});
   res.json({ message: "Order claimed", order: ord });
@@ -4339,6 +4620,7 @@ router.post(
           (ord.shippingFee || 0)
       );
       await ord.save();
+      await syncDriverOrderState(ord.deliveryBoy, ord);
       emitOrderChange(ord, "shipment_updated").catch(() => {});
       return res.json({ message: "Shipment updated", order: ord });
     }
@@ -4382,6 +4664,7 @@ router.post(
       (ord.codAmount || 0) - (ord.collectedAmount || 0) - (ord.shippingFee || 0)
     );
     await ord.save();
+    await syncDriverOrderState(ord.deliveryBoy, ord);
     emitOrderChange(ord, "shipment_updated").catch(() => {});
     res.json({ message: "Shipment updated", order: ord });
   }
@@ -4925,6 +5208,7 @@ router.post(
       ord.agentCommissionComputedAt = new Date();
     } catch {}
     await ord.save();
+    await syncDriverOrderState(ord.deliveryBoy, ord);
     
     // Auto-calculate dropshipper profit on delivery
     try {
@@ -4997,6 +5281,7 @@ router.post(
     ord.returnReason = reason || ord.returnReason;
     // DO NOT restore stock here - it will be restored after manager/user verification
     await ord.save();
+    await syncDriverOrderState(ord.deliveryBoy, ord);
     emitOrderChange(ord, "returned").catch(() => {});
 
     // No notification here - notification will be created when driver submits to company via /return/submit
@@ -5053,6 +5338,7 @@ router.post(
     if (reason != null) ord.returnReason = String(reason);
     // DO NOT restore stock here - it will be restored after manager/user verification
     await ord.save();
+    await syncDriverOrderState(ord.deliveryBoy, ord);
     emitOrderChange(ord, "cancelled").catch(() => {});
 
     // Notify agent/dropshipper that their order was cancelled (only if someone else cancelled it)
@@ -5657,6 +5943,271 @@ router.post(
 );
 
 // Migration endpoint: Adjust stock for existing orders (admin only)
+router.post(
+  "/resolve-dropoff",
+  auth,
+  allowRoles("admin", "user", "agent", "manager", "dropshipper"),
+  async (req, res) => {
+    try {
+      const resolved = await resolveOrderDropoffInput(req.body || {});
+      if (!resolved) {
+        return res.status(400).json({ message: "Could not resolve dropoff location" });
+      }
+      return res.json({ success: true, dropoff: resolved });
+    } catch (err) {
+      return res.status(400).json({ message: err?.message || "Failed to resolve dropoff" });
+    }
+  }
+);
+
+router.get(
+  "/:id/candidate-shops",
+  auth,
+  allowRoles("admin", "user", "agent", "manager", "dropshipper"),
+  async (req, res) => {
+    try {
+      const order = await Order.findById(req.params.id).lean();
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      if (!(await canAccessOrderForLogistics(req.user, order))) {
+        return res.status(403).json({ message: "Not allowed" });
+      }
+      const shops = await getCandidateShopsForOrder(order);
+      return res.json({ shops });
+    } catch (err) {
+      return res.status(500).json({ message: err?.message || "Failed to load candidate shops" });
+    }
+  }
+);
+
+router.post(
+  "/:id/assign-shop",
+  auth,
+  allowRoles("admin", "user", "manager"),
+  async (req, res) => {
+    try {
+      const { shopId } = req.body || {};
+      if (!shopId || !mongoose.Types.ObjectId.isValid(String(shopId))) {
+        return res.status(400).json({ message: "Valid shopId is required" });
+      }
+
+      const order = await Order.findById(req.params.id);
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      if (!(await canAccessOrderForLogistics(req.user, order))) {
+        return res.status(403).json({ message: "Not allowed" });
+      }
+
+      const ownerId = await resolveOrderOwnerId(order);
+      const shop = await Shop.findOne({
+        _id: shopId,
+        createdBy: ownerId,
+        isActive: true,
+      });
+      if (!shop) {
+        return res.status(404).json({ message: "Shop not found" });
+      }
+
+      order.assignedShop = shop._id;
+      order.assignedShopName = shop.name || "";
+      order.assignedShopAssignedAt = new Date();
+      order.assignedShopAssignedBy = req.user.id;
+      if (shop.pickupLocation?.coordinates?.length === 2) {
+        order.pickupLocationSnapshot = {
+          type: "Point",
+          coordinates: [...shop.pickupLocation.coordinates],
+          address: shop.pickupLocation.address || shop.address || "",
+          placeId: shop.pickupLocation.placeId || "",
+          googleMapsUrl: "",
+        };
+      }
+
+      await order.save();
+      await syncDriverOrderState(order.deliveryBoy, order);
+      emitOrderChange(order, "shop_assigned").catch(() => {});
+      return res.json({ message: "Shop assigned", order });
+    } catch (err) {
+      return res.status(500).json({ message: err?.message || "Failed to assign shop" });
+    }
+  }
+);
+
+router.post(
+  "/:id/pickup-verify",
+  auth,
+  allowRoles("admin", "user", "manager", "driver"),
+  async (req, res) => {
+    try {
+      const order = await Order.findById(req.params.id);
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      if (!(await canAccessOrderForLogistics(req.user, order))) {
+        return res.status(403).json({ message: "Not allowed" });
+      }
+
+      const config = await getDeliveryWorkflowConfig();
+      const scannedCode = String(req.body?.scannedCode || req.body?.barcode || req.body?.code || "").trim();
+      const requestedMethod = String(req.body?.method || "").trim().toLowerCase();
+      const method = requestedMethod || (scannedCode ? "barcode" : "manual");
+      const expectedCode = String(order.barcode?.value || order._id || "").trim();
+
+      if (method === "barcode") {
+        if (!scannedCode) {
+          return res.status(400).json({ message: "scannedCode is required for barcode pickup verification" });
+        }
+        if (scannedCode !== expectedCode) {
+          return res.status(400).json({ message: "Barcode does not match this order", expectedCode });
+        }
+        order.barcode = {
+          ...(order.barcode?.toObject?.() || order.barcode || {}),
+          isVerified: true,
+          scannedCode,
+          scannedAt: new Date(),
+          scannedBy: req.user.id,
+          verifiedAt: new Date(),
+          verificationMethod: "barcode",
+        };
+      } else {
+        if (!config.allowManualPickupVerification) {
+          return res.status(400).json({ message: "Manual pickup verification is disabled" });
+        }
+        if (config.requireBarcodeScanForPickup) {
+          return res.status(400).json({ message: "Barcode scan is required for pickup verification" });
+        }
+        order.barcode = {
+          ...(order.barcode?.toObject?.() || order.barcode || {}),
+          verificationMethod: "manual",
+          verifiedAt: new Date(),
+        };
+      }
+
+      order.pickupVerification = {
+        ...(order.pickupVerification?.toObject?.() || order.pickupVerification || {}),
+        required: Boolean(config.requireBarcodeScanForPickup),
+        method: method === "barcode" ? "barcode" : "manual",
+        verifiedAt: new Date(),
+        verifiedBy: req.user.id,
+      };
+      order.shipmentStatus = "picked_up";
+      if (!order.pickedUpAt) order.pickedUpAt = new Date();
+
+      await order.save();
+      await syncDriverOrderState(order.deliveryBoy, order);
+      emitOrderChange(order, "pickup_verified").catch(() => {});
+      return res.json({ message: "Pickup verified", order });
+    } catch (err) {
+      return res.status(500).json({ message: err?.message || "Failed to verify pickup" });
+    }
+  }
+);
+
+router.post(
+  "/:id/driver-location",
+  auth,
+  allowRoles("driver"),
+  async (req, res) => {
+    try {
+      const { lat, lng, accuracy, heading, speed } = req.body || {};
+      if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
+        return res.status(400).json({ message: "lat and lng are required as numbers" });
+      }
+
+      const order = await Order.findById(req.params.id);
+      if (!order) return res.status(404).json({ message: "Order not found" });
+      if (!(await canAccessOrderForLogistics(req.user, order))) {
+        return res.status(403).json({ message: "Not allowed" });
+      }
+
+      const config = await getDeliveryWorkflowConfig();
+      const currentPoint = {
+        type: "Point",
+        coordinates: [Number(lng), Number(lat)],
+        address: order.driverTracking?.currentLocation?.address || "",
+        placeId: "",
+        googleMapsUrl: "",
+      };
+
+      order.driverTracking = {
+        ...(order.driverTracking?.toObject?.() || order.driverTracking || {}),
+        currentLocation: currentPoint,
+        lastPingAt: new Date(),
+      };
+
+      let directions = null;
+      if (config.enableDriverLiveTracking) {
+        const destination = getDestinationPoint(order);
+        if (destination?.coordinates?.length === 2) {
+          const result = await googleMapsService.getDirections(
+            { lat: Number(lat), lng: Number(lng) },
+            {
+              lat: Number(destination.coordinates[1]),
+              lng: Number(destination.coordinates[0]),
+            }
+          );
+          if (result?.success) {
+            order.driverTracking.directionsPolyline = result.polyline || "";
+            directions = result;
+          }
+        }
+      }
+
+      await order.save();
+      await User.findByIdAndUpdate(req.user.id, {
+        $set: {
+          lastLocation: {
+            lat: Number(lat),
+            lng: Number(lng),
+            accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : undefined,
+            heading: Number.isFinite(Number(heading)) ? Number(heading) : undefined,
+            speed: Number.isFinite(Number(speed)) ? Number(speed) : undefined,
+            updatedAt: new Date(),
+          },
+          lastKnownLocation: {
+            type: "Point",
+            coordinates: [Number(lng), Number(lat)],
+            address: "",
+            accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : 0,
+            heading: Number.isFinite(Number(heading)) ? Number(heading) : 0,
+            speed: Number.isFinite(Number(speed)) ? Number(speed) : 0,
+            updatedAt: new Date(),
+          },
+          "driverProfile.currentOrder": order._id,
+          "driverProfile.isOnline": true,
+        },
+      }).catch(() => {});
+
+      try {
+        const io = getIO();
+        const ownerId = await resolveOrderOwnerId(order);
+        const payload = {
+          orderId: String(order._id),
+          driverId: String(req.user.id),
+          location: {
+            lat: Number(lat),
+            lng: Number(lng),
+            accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : null,
+            heading: Number.isFinite(Number(heading)) ? Number(heading) : null,
+            speed: Number.isFinite(Number(speed)) ? Number(speed) : null,
+            updatedAt: new Date(),
+          },
+          logisticsPhase: order.logisticsPhase,
+          routeStage: order.driverTracking?.routeStage || "idle",
+          destinationKind: order.driverTracking?.destinationKind || "none",
+          polyline: order.driverTracking?.directionsPolyline || "",
+        };
+        if (ownerId) io.to(`workspace:${ownerId}`).emit("driver.location.updated", payload);
+        if (order.assignedShop) io.to(`shop:${String(order.assignedShop)}`).emit("shop.driver.location", payload);
+        if (order.createdBy) io.to(`user:${String(order.createdBy)}`).emit("driver.location.updated", payload);
+      } catch {}
+
+      return res.json({
+        success: true,
+        tracking: order.driverTracking,
+        directions,
+      });
+    } catch (err) {
+      return res.status(500).json({ message: err?.message || "Failed to update driver location" });
+    }
+  }
+);
+
 router.post(
   "/migrate/adjust-stock",
   auth,

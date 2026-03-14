@@ -979,8 +979,8 @@ router.post(
   allowRoles("driver"),
   async (req, res) => {
     try {
-      const { lat, lng } = req.body || {};
-      if (typeof lat !== "number" || typeof lng !== "number") {
+      const { lat, lng, accuracy, heading, speed } = req.body || {};
+      if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) {
         return res.status(400).json({ message: "lat and lng are required as numbers" });
       }
       const user = await User.findByIdAndUpdate(
@@ -988,15 +988,72 @@ router.post(
         {
           $set: {
             lastLocation: {
-              lat,
-              lng,
+              lat: Number(lat),
+              lng: Number(lng),
+              accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : undefined,
+              heading: Number.isFinite(Number(heading)) ? Number(heading) : undefined,
+              speed: Number.isFinite(Number(speed)) ? Number(speed) : undefined,
               updatedAt: new Date(),
             },
+            lastKnownLocation: {
+              type: "Point",
+              coordinates: [Number(lng), Number(lat)],
+              address: "",
+              accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : 0,
+              heading: Number.isFinite(Number(heading)) ? Number(heading) : 0,
+              speed: Number.isFinite(Number(speed)) ? Number(speed) : 0,
+              updatedAt: new Date(),
+            },
+            "driverProfile.isOnline": true,
           },
         },
         { new: true, projection: "-password" }
       );
       if (!user) return res.status(404).json({ message: "User not found" });
+      try {
+        const activeOrder = await Order.findOne({
+          _id: user.driverProfile?.currentOrder,
+          deliveryBoy: user._id,
+        });
+        if (activeOrder) {
+          activeOrder.driverTracking = {
+            ...(activeOrder.driverTracking?.toObject?.() || activeOrder.driverTracking || {}),
+            currentLocation: {
+              type: "Point",
+              coordinates: [Number(lng), Number(lat)],
+              address: "",
+              placeId: "",
+              googleMapsUrl: "",
+            },
+            lastPingAt: new Date(),
+          };
+          await activeOrder.save();
+
+          try {
+            const io = getIO();
+            const ownerId = String(user.createdBy || user._id);
+            const payload = {
+              orderId: String(activeOrder._id),
+              driverId: String(user._id),
+              location: {
+                lat: Number(lat),
+                lng: Number(lng),
+                accuracy: Number.isFinite(Number(accuracy)) ? Number(accuracy) : null,
+                heading: Number.isFinite(Number(heading)) ? Number(heading) : null,
+                speed: Number.isFinite(Number(speed)) ? Number(speed) : null,
+                updatedAt: new Date(),
+              },
+              logisticsPhase: activeOrder.logisticsPhase,
+              routeStage: activeOrder.driverTracking?.routeStage || "idle",
+              destinationKind: activeOrder.driverTracking?.destinationKind || "none",
+            };
+            io.to(`workspace:${ownerId}`).emit("driver.location.updated", payload);
+            if (activeOrder.assignedShop) {
+              io.to(`shop:${String(activeOrder.assignedShop)}`).emit("shop.driver.location", payload);
+            }
+          } catch {}
+        }
+      } catch {}
       return res.json({ ok: true, location: user.lastLocation });
     } catch (err) {
       return res.status(500).json({ message: err?.message || "failed" });

@@ -68,6 +68,16 @@ function defaultCurrencyConfig() {
   };
 }
 
+function defaultDeliveryWorkflowConfig() {
+  return {
+    requireBarcodeScanForPickup: true,
+    allowManualPickupVerification: true,
+    autoAssignNearestShop: false,
+    enableDriverLiveTracking: true,
+    updatedAt: new Date(),
+  };
+}
+
 // GET /api/settings/currency - PUBLIC (no auth required for reading currency config)
 router.get("/currency", async (_req, res) => {
   try {
@@ -137,6 +147,76 @@ router.post(
       res.json({ success: true });
     } catch (e) {
       res.status(500).json({ success: false, error: e?.message || "failed" });
+    }
+  }
+);
+
+router.get("/delivery-workflow", async (_req, res) => {
+  try {
+    const doc = await Setting.findOne({ key: "delivery_workflow" }).lean();
+    const val = doc?.value && typeof doc.value === "object" ? doc.value : {};
+    return res.json({
+      success: true,
+      ...defaultDeliveryWorkflowConfig(),
+      ...val,
+    });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e?.message || "failed" });
+  }
+});
+
+router.post(
+  "/delivery-workflow",
+  auth,
+  allowRoles("admin", "user", "manager"),
+  async (req, res) => {
+    try {
+      const body = req.body || {};
+      let doc = await Setting.findOne({ key: "delivery_workflow" });
+      if (!doc) {
+        doc = new Setting({
+          key: "delivery_workflow",
+          category: "delivery",
+          description: "Driver pickup verification and logistics workflow flags",
+          value: defaultDeliveryWorkflowConfig(),
+        });
+      }
+
+      const out = {
+        ...defaultDeliveryWorkflowConfig(),
+        ...(doc.value && typeof doc.value === "object" ? doc.value : {}),
+      };
+
+      if (body.requireBarcodeScanForPickup != null) {
+        out.requireBarcodeScanForPickup =
+          body.requireBarcodeScanForPickup === true ||
+          String(body.requireBarcodeScanForPickup).toLowerCase() === "true";
+      }
+      if (body.allowManualPickupVerification != null) {
+        out.allowManualPickupVerification =
+          body.allowManualPickupVerification === true ||
+          String(body.allowManualPickupVerification).toLowerCase() === "true";
+      }
+      if (body.autoAssignNearestShop != null) {
+        out.autoAssignNearestShop =
+          body.autoAssignNearestShop === true ||
+          String(body.autoAssignNearestShop).toLowerCase() === "true";
+      }
+      if (body.enableDriverLiveTracking != null) {
+        out.enableDriverLiveTracking =
+          body.enableDriverLiveTracking === true ||
+          String(body.enableDriverLiveTracking).toLowerCase() === "true";
+      }
+
+      out.updatedAt = new Date();
+      doc.category = "delivery";
+      doc.description = "Driver pickup verification and logistics workflow flags";
+      doc.updatedBy = req.user?.id || undefined;
+      doc.value = out;
+      await doc.save();
+      return res.json({ success: true, config: out });
+    } catch (e) {
+      return res.status(500).json({ success: false, error: e?.message || "failed" });
     }
   }
 );

@@ -110,7 +110,7 @@ export default function UserLogin() {
     }
   }
 
-  const fallbackLogo = `${import.meta.env.BASE_URL}BSBackgroundremoved.png`
+  const fallbackLogo = `${import.meta.env.BASE_URL}logo.png`
   const logoSrc = branding.loginLogo ? `${API_BASE}${branding.loginLogo}` : fallbackLogo
 
   const healthBad = (() => {
@@ -130,14 +130,14 @@ export default function UserLogin() {
           {/* Logo */}
           <div className="pl-logo-wrap">
             <div className="pl-logo-box">
-              <img src={logoSrc} alt="BuySial" className="pl-logo-img" />
+              <img src={logoSrc} alt="Buysial" className="pl-logo-img" />
             </div>
           </div>
 
           {/* Heading */}
           <div className="pl-heading">
             <h1 className="pl-title">Welcome back</h1>
-            <p className="pl-subtitle">Sign in to your workspace</p>
+            <p className="pl-subtitle">Sign in to your Buysial workspace</p>
           </div>
 
           {/* Email */}
@@ -212,7 +212,7 @@ export default function UserLogin() {
           )}
 
           {/* Footer */}
-          <p className="pl-footer">Powered by <strong>BuySial</strong></p>
+          <p className="pl-footer">Powered by <strong>Buysial</strong></p>
         </form>
       </div>
 

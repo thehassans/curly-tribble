@@ -25,6 +25,7 @@ import reportsRoutes from "./modules/routes/reports.js";
 import geocodeRoutes from "./modules/routes/geocode.js";
 import shopifyRoutes from "./modules/routes/shopify.js";
 import websiteSettingsRoutes from "./modules/routes/websiteSettings.js";
+import shopsRoutes from "./modules/routes/shops.js";
 import dropshipperRoutes from "./modules/routes/dropshippers.js";
 import dropshipperShopifyRoutes from "./modules/routes/dropshipperShopify.js";
 import settingsShopifyRoutes from "./modules/routes/settingsShopify.js";
@@ -187,6 +188,7 @@ app.use("/api/shopify", shopifyRoutes);
 app.use("/api/settings/shopify", settingsShopifyRoutes);
 app.use("/api/settings/shopify", shopifyOAuthRoutes); // OAuth app config routes
 app.use("/api/settings/website", websiteSettingsRoutes);
+app.use("/api/shops", shopsRoutes);
 app.use("/api/dropshippers", dropshipperRoutes);
 app.use("/api/dropshippers/shopify", dropshipperShopifyRoutes);
 app.use("/api/shopify", shopifyOAuthRoutes);

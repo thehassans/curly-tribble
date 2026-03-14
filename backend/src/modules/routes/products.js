@@ -43,6 +43,32 @@ const publicProductsCache = {
   TTL: 30000 // 30 seconds cache
 }
 
+function parseShopAssignments(rawValue, assignedBy) {
+  try {
+    let raw = rawValue
+    if (typeof raw === 'string') raw = JSON.parse(raw)
+    if (!Array.isArray(raw)) return []
+    return raw
+      .map((entry) => {
+        if (!entry || typeof entry !== 'object') return null
+        const shopId = String(entry.shopId || entry._id || '').trim()
+        const shopBuyingPrice = Number(entry.shopBuyingPrice)
+        if (!mongoose.Types.ObjectId.isValid(shopId) || !Number.isFinite(shopBuyingPrice) || shopBuyingPrice < 0) {
+          return null
+        }
+        return {
+          shopId,
+          shopBuyingPrice,
+          assignedAt: entry.assignedAt ? new Date(entry.assignedAt) : new Date(),
+          assignedBy: entry.assignedBy || assignedBy,
+        }
+      })
+      .filter(Boolean)
+  } catch {
+    return []
+  }
+}
+
 async function getSubcategoriesSettingMap() {
   try {
     const doc = await Setting.findOne({ key: 'productSubcategoriesByCategory' }).select('value').lean()
@@ -567,6 +593,7 @@ router.post('/', auth, allowRoles('admin','user','manager'), upload.any(), async
     const baseCurrency = validCurrencies.includes(req.body?.baseCurrency) ? req.body.baseCurrency : 'SAR'
 
     const finalSku = String(sku || '').trim()
+    const parsedShopAssignments = parseShopAssignments(req.body?.shops, req.user.id)
     
     const doc = new Product({
       name: String(name).trim(),
@@ -599,6 +626,7 @@ router.post('/', auth, allowRoles('admin','user','manager'), upload.any(), async
       createdByRole: String(req.user.role||''),
       createdByActor: req.user.id,
       createdByActorName: actorName,
+      shops: parsedShopAssignments,
       // Premium E-commerce Features
       sellByBuysial: String(req.body?.sellByBuysial||'').toLowerCase() === 'true' || req.body?.sellByBuysial === true,
       salePrice: req.body?.salePrice ? Number(req.body.salePrice) : 0,
@@ -1461,6 +1489,9 @@ router.patch('/:id', auth, allowRoles('admin','user','manager'), upload.any(), a
       if (typeof gsc === 'string') gsc = JSON.parse(gsc)
       if (gsc && typeof gsc === 'object') prod.gscData = { ...(prod.gscData?.toObject?.() || prod.gscData || {}), ...gsc }
     } catch (e) { console.error('Failed to parse gscData', e) }
+  }
+  if (req.body?.shops != null) {
+    prod.shops = parseShopAssignments(req.body.shops, req.user.id)
   }
   // Update availableCountries if provided
   if (req.body?.availableCountries != null){

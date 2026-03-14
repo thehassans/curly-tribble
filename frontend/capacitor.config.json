@@ -1,6 +1,6 @@
 {
   "appId": "com.buysial.app",
-  "appName": "BuySial",
+  "appName": "Buysial",
   "webDir": "dist",
   "plugins": {
     "SplashScreen": {
