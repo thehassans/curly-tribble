@@ -396,25 +396,89 @@ export default function ProductCatalog() {
     setVisualSearchResult(next)
     const query = String(next?.query || '').trim()
     const matchedProducts = Array.isArray(next?.products) ? next.products : []
+    const normalizedTerms = [
+      query,
+      String(next?.brand || '').trim(),
+      String(next?.category || '').trim(),
+      ...((Array.isArray(next?.attributes) ? next.attributes : []).map((entry) => String(entry || '').trim())),
+    ]
+      .filter(Boolean)
+      .map((entry) => entry.toLowerCase())
+    const rankedMatches = matchedProducts
+      .map((product) => {
+        const name = String(product?.name || '').trim().toLowerCase()
+        const brand = String(product?.brand || '').trim().toLowerCase()
+        const category = String(product?.category || '').trim().toLowerCase()
+        const subcategory = String(product?.subcategory || '').trim().toLowerCase()
+        const description = String(product?.description || '').trim().toLowerCase()
+        const haystack = [name, brand, category, subcategory, description].filter(Boolean).join(' ')
+        let score = 0
+        for (const term of normalizedTerms) {
+          if (!term) continue
+          if (name === term) score += 10
+          else if (name.includes(term)) score += 7
+          else if (haystack.includes(term)) score += 3
+          if (brand && term === brand) score += 4
+          if (category && term === category) score += 4
+          if (subcategory && term === subcategory) score += 2
+        }
+        if (query) {
+          const q = query.toLowerCase()
+          if (name === q) score += 10
+          else if (name.includes(q)) score += 8
+          else if (haystack.includes(q)) score += 4
+        }
+        return { product, score }
+      })
+      .sort((a, b) => b.score - a.score)
+    const bestMatch = rankedMatches[0]?.product || null
+    const bestScore = Number(rankedMatches[0]?.score || 0)
+    const runnerUpScore = Number(rankedMatches[1]?.score || 0)
+    const bestMatchUrl = (() => {
+      const slug = String(bestMatch?.slug || '').trim()
+      const id = String(bestMatch?._id || bestMatch?.id || '').trim()
+      if (slug) return `/products/${slug}`
+      if (id) return `/product/${id}`
+      return ''
+    })()
+
     setSelectedCategory('all')
     setSelectedSubcategory('all')
-    if (matchedProducts.length) {
-      setProducts(matchedProducts)
-      setDisplayedProducts(matchedProducts)
-      setPagination({ page: 1, pages: 1, total: matchedProducts.length })
-      setHasMore(false)
-      setCurrentPage(1)
-    }
+
+    const confidence = Number(next?.confidence || 0)
+    const shouldOpenBestMatch = !!bestMatchUrl && (
+      matchedProducts.length === 1 ||
+      bestScore >= 12 ||
+      (bestScore >= 9 && bestScore >= runnerUpScore + 3) ||
+      (confidence >= 0.82 && bestScore >= 7)
+    )
+
     if (query) {
       setSearchQuery(query)
       try {
         trackSearch(query, matchedProducts.length)
       } catch {}
     }
-    if (!matchedProducts.length && query) {
+
+    if (shouldOpenBestMatch) {
+      toast.success(query ? `Opening best match for “${query}”` : 'Opening best visual match')
+      navigate(bestMatchUrl)
+      return
+    }
+
+    if (matchedProducts.length) {
+      setProducts(matchedProducts)
+      setDisplayedProducts(matchedProducts)
+      setPagination({ page: 1, pages: 1, total: matchedProducts.length })
+      setHasMore(false)
+      setCurrentPage(1)
+      return
+    }
+
+    if (query) {
       toast.info(`Visual search found “${query}”. Loading matching products...`)
     }
-  }, [toast])
+  }, [navigate, toast])
   useEffect(() => {
     const update = () => { try { const c = JSON.parse(localStorage.getItem('shopping_cart') || '[]'); setCartCount(c.reduce((s, i) => s + (i.quantity || 1), 0)) } catch { setCartCount(0) } }
     window.addEventListener('cartUpdated', update); window.addEventListener('storage', update)

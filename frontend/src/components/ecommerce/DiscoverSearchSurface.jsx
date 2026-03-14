@@ -74,8 +74,7 @@ export default function DiscoverSearchSurface({
   const [payload, setPayload] = useState({ suggestions: [], products: [], categories: [] })
   const containerRef = useRef(null)
   const inputRef = useRef(null)
-  const uploadInputRef = useRef(null)
-  const cameraInputRef = useRef(null)
+  const visualInputRef = useRef(null)
 
   useEffect(() => {
     setLocalQuery(String(value || ''))
@@ -220,8 +219,7 @@ export default function DiscoverSearchSurface({
       onError?.(error?.message || 'Failed to process visual search')
     } finally {
       setVisualBusy(false)
-      if (uploadInputRef.current) uploadInputRef.current.value = ''
-      if (cameraInputRef.current) cameraInputRef.current.value = ''
+      if (visualInputRef.current) visualInputRef.current.value = ''
     }
   }
 
@@ -389,7 +387,7 @@ export default function DiscoverSearchSurface({
                 setOpen(true)
               }}
               placeholder={placeholder}
-              className="w-full bg-transparent border-none outline-none text-base text-slate-900 placeholder:text-slate-400"
+              className="w-full appearance-none bg-transparent border-none outline-none ring-0 shadow-none focus:outline-none focus:ring-0 focus:shadow-none focus-visible:outline-none focus-visible:ring-0 text-base text-slate-900 placeholder:text-slate-400"
             />
             {localQuery ? (
               <button type="button" onClick={() => handleClear(true)} className="w-8 h-8 rounded-full bg-white text-slate-400 hover:text-slate-600 grid place-items-center flex-shrink-0">
@@ -397,11 +395,8 @@ export default function DiscoverSearchSurface({
               </button>
             ) : null}
             <div className="flex items-center gap-1 pl-1">
-              <button type="button" onClick={() => cameraInputRef.current?.click()} disabled={visualBusy} className="w-9 h-9 rounded-full bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 grid place-items-center transition-colors disabled:opacity-60 flex-shrink-0" title="Camera search">
+              <button type="button" onClick={() => visualInputRef.current?.click()} disabled={visualBusy} className="w-9 h-9 rounded-full bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 grid place-items-center transition-colors disabled:opacity-60 flex-shrink-0" title="Search by image">
                 <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h2l1.6-2h6.8L17 5h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /><circle cx="12" cy="12" r="4" /></svg>
-              </button>
-              <button type="button" onClick={() => uploadInputRef.current?.click()} disabled={visualBusy} className="w-9 h-9 rounded-full bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 grid place-items-center transition-colors disabled:opacity-60 flex-shrink-0" title="Upload image">
-                <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M20 16.74V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.26" /></svg>
               </button>
               <button type="submit" className="w-10 h-10 rounded-full bg-slate-950 text-white shadow-[0_18px_30px_rgba(15,23,42,0.18)] hover:bg-slate-800 transition-colors grid place-items-center flex-shrink-0" title="Search">
                 <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
@@ -429,8 +424,7 @@ export default function DiscoverSearchSurface({
           ) : localQuery.trim() ? renderQueryState() : renderEmptyState()}
         </div>
       ) : null}
-      <input ref={uploadInputRef} type="file" accept="image/*" hidden onChange={(event) => handleVisualFile(event.target.files?.[0])} />
-      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden onChange={(event) => handleVisualFile(event.target.files?.[0])} />
+      <input ref={visualInputRef} type="file" accept="image/*" hidden onChange={(event) => handleVisualFile(event.target.files?.[0])} />
     </div>
   )
 
@@ -464,18 +458,15 @@ export default function DiscoverSearchSurface({
                   value={localQuery}
                   onChange={(event) => setLocalQuery(event.target.value)}
                   placeholder={placeholder}
-                  className="min-w-0 flex-1 bg-transparent border-none outline-none text-[14px] text-slate-900 placeholder:text-slate-400"
+                  className="min-w-0 flex-1 appearance-none bg-transparent border-none outline-none ring-0 shadow-none focus:outline-none focus:ring-0 focus:shadow-none focus-visible:outline-none focus-visible:ring-0 text-[14px] text-slate-900 placeholder:text-slate-400"
                 />
                 {localQuery ? (
                   <button type="button" onClick={() => handleClear(true)} className="w-[26px] h-[26px] rounded-full text-slate-300 grid place-items-center flex-shrink-0">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                   </button>
                 ) : null}
-                <button type="button" onClick={() => cameraInputRef.current?.click()} disabled={visualBusy} className="w-[30px] h-[30px] rounded-full bg-slate-100 text-slate-700 grid place-items-center disabled:opacity-60 flex-shrink-0" title="Camera search">
+                <button type="button" onClick={() => visualInputRef.current?.click()} disabled={visualBusy} className="w-[30px] h-[30px] rounded-full bg-slate-100 text-slate-700 grid place-items-center disabled:opacity-60 flex-shrink-0" title="Search by image">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h2l1.6-2h6.8L17 5h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /><circle cx="12" cy="12" r="4" /></svg>
-                </button>
-                <button type="button" onClick={() => uploadInputRef.current?.click()} disabled={visualBusy} className="w-[30px] h-[30px] rounded-full bg-slate-100 text-slate-700 grid place-items-center disabled:opacity-60 flex-shrink-0" title="Upload image">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M20 16.74V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.26" /></svg>
                 </button>
                 <button type="submit" className="w-[30px] h-[30px] rounded-full bg-slate-950 text-white grid place-items-center flex-shrink-0">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
@@ -492,8 +483,7 @@ export default function DiscoverSearchSurface({
               </div>
             ) : localQuery.trim() ? renderQueryState() : renderEmptyState()}
           </div>
-          <input ref={uploadInputRef} type="file" accept="image/*" hidden onChange={(event) => handleVisualFile(event.target.files?.[0])} />
-          <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" hidden onChange={(event) => handleVisualFile(event.target.files?.[0])} />
+          <input ref={visualInputRef} type="file" accept="image/*" hidden onChange={(event) => handleVisualFile(event.target.files?.[0])} />
         </div>
       ) : null}
     </>

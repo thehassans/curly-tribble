@@ -433,31 +433,6 @@ const ProductDetail = () => {
     } catch {} finally { setWishBusy(false) }
   }
 
-  // Loading state
-  if (loading && !product) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FC]">
-        <Header />
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="animate-pulse"><div className="grid grid-cols-1 lg:grid-cols-2 gap-12"><div className="bg-gray-100 rounded-[40px] h-[500px]" /><div className="space-y-6"><div className="h-8 bg-gray-100 rounded-2xl w-3/4" /><div className="h-6 bg-gray-100 rounded-2xl w-1/4" /><div className="h-24 bg-gray-100 rounded-2xl w-full" /><div className="h-14 bg-gray-100 rounded-2xl w-1/2" /></div></div></div>
-        </div>
-      </div>
-    )
-  }
-
-  if (!product) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FC]">
-        <Header />
-        <div className="max-w-7xl mx-auto px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">Product not found</h1>
-          <p className="mt-2 text-gray-500">The product you're looking for doesn't exist.</p>
-          <Link to="/catalog" className="mt-4 inline-block text-orange-600 hover:underline">Return to Catalog</Link>
-        </div>
-      </div>
-    )
-  }
-
   const resolveImageUrl = (u) => {
     if (!u) return '/placeholder-product.svg'
     if (typeof u !== 'string') return '/placeholder-product.svg'
@@ -467,14 +442,15 @@ const ProductDetail = () => {
   }
   const sanitizeWhatsAppNumber = (n) => String(n || '').replace(/[^0-9]/g, '')
   const toAbsoluteUrl = (u) => { const s = String(u || ''); if (!s) return ''; if (s.startsWith('http://') || s.startsWith('https://')) return s; if (!s.startsWith('/')) return s; try { return `${window.location.origin}${s}` } catch { return s } }
+  const productData = product || {}
 
   const orderedMedia = (() => {
-    const seq = Array.isArray(product?.mediaSequence) ? product.mediaSequence : []
+    const seq = Array.isArray(productData.mediaSequence) ? productData.mediaSequence : []
     const cleaned = seq.filter(m => m && typeof m === 'object' && typeof m.url === 'string' && String(m.url).trim()).map(m => ({ type: String(m.type || 'image'), url: String(m.url || '').trim(), position: Number.isFinite(Number(m.position)) ? Number(m.position) : 0 })).sort((a, b) => a.position - b.position)
     if (cleaned.length) return cleaned
-    const imgs = Array.isArray(product?.images) && product.images.length ? product.images : (product?.imagePath ? [product.imagePath] : [])
+    const imgs = Array.isArray(productData.images) && productData.images.length ? productData.images : (productData.imagePath ? [productData.imagePath] : [])
     const out = imgs.filter(Boolean).map((u, idx) => ({ type: 'image', url: String(u), position: idx }))
-    const v = product?.video || ''
+    const v = productData.video || ''
     if (v) out.push({ type: 'video', url: String(v), position: out.length })
     return out
   })()
@@ -484,24 +460,24 @@ const ProductDetail = () => {
   const hasNoImages = rawImages.length === 0
   const images = hasNoImages ? [] : rawImages.map(resolveImageUrl)
   const firstVideo = orderedMedia.find(m => String(m.type) === 'video')
-  const videoUrl = firstVideo?.url ? resolveImageUrl(firstVideo.url) : (product.video ? resolveImageUrl(product.video) : null)
+  const videoUrl = firstVideo?.url ? resolveImageUrl(firstVideo.url) : (productData.video ? resolveImageUrl(productData.video) : null)
   const hasVideo = !!videoUrl
   const isVideoSelected = hasVideo && selectedImage === images.length
 
-  const waNumber = sanitizeWhatsAppNumber(product?.whatsappNumber)
-  const waImage = toAbsoluteUrl((images && images.length ? images[0] : resolveImageUrl(product?.imagePath)) || '')
+  const waNumber = sanitizeWhatsAppNumber(productData.whatsappNumber)
+  const waImage = toAbsoluteUrl((images && images.length ? images[0] : resolveImageUrl(productData.imagePath)) || '')
   const waProductUrl = (() => { try { return window.location.href } catch { return '' } })()
-  const waText = (() => { try { return encodeURIComponent(`Product: ${product?.name || ''}\nImage: ${waImage}\nLink: ${waProductUrl}`) } catch { return '' } })()
+  const waText = (() => { try { return encodeURIComponent(`Product: ${productData.name || ''}\nImage: ${waImage}\nLink: ${waProductUrl}`) } catch { return '' } })()
   const waUrl = waNumber ? `https://wa.me/${waNumber}?text=${waText}` : ''
 
-  const basePrice = Number(product.price) || 0
-  const salePrice2 = Number(product.salePrice) || 0
+  const basePrice = Number(productData.price) || 0
+  const salePrice2 = Number(productData.salePrice) || 0
   const hasActiveSale = salePrice2 > 0 && salePrice2 < basePrice
   const displayPrice = hasActiveSale ? salePrice2 : basePrice
   const originalPrice = hasActiveSale ? basePrice : null
   const discountPercentage = originalPrice && originalPrice > displayPrice ? Math.round(((originalPrice - displayPrice) / originalPrice) * 100) : 0
 
-  const normalizedVars = normalizeVariants(product.variants)
+  const normalizedVars = normalizeVariants(productData.variants)
   const colorVariantEntry = Object.entries(normalizedVars).find(([k]) => String(k).toLowerCase() === 'color') || []
   const colorVariantKey = colorVariantEntry[0] || 'color'
   const variantColorOpts = Array.isArray(colorVariantEntry[1]) ? colorVariantEntry[1] : []
@@ -572,12 +548,37 @@ const ProductDetail = () => {
   }, [images, selectedImage, selectedVariantPreviewImage])
 
   // Shared price display (numeric values for FormattedPrice)
-  const priceConverted = convertPrice(displayPrice, product.baseCurrency || 'SAR', getDisplayCurrency())
-  const origPriceConverted = originalPrice ? convertPrice(originalPrice, product.baseCurrency || 'SAR', getDisplayCurrency()) : null
+  const priceConverted = convertPrice(displayPrice, productData.baseCurrency || 'SAR', getDisplayCurrency())
+  const origPriceConverted = originalPrice ? convertPrice(originalPrice, productData.baseCurrency || 'SAR', getDisplayCurrency()) : null
   const dispCcy = getDisplayCurrency()
   // Legacy string fallbacks for places that still use text
   const priceDisplay = formatPrice(priceConverted, dispCcy)
   const origPriceDisplay = origPriceConverted ? formatPrice(origPriceConverted, dispCcy) : null
+
+  // Loading state
+  if (loading && !product) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FC]">
+        <Header />
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="animate-pulse"><div className="grid grid-cols-1 lg:grid-cols-2 gap-12"><div className="bg-gray-100 rounded-[40px] h-[500px]" /><div className="space-y-6"><div className="h-8 bg-gray-100 rounded-2xl w-3/4" /><div className="h-6 bg-gray-100 rounded-2xl w-1/4" /><div className="h-24 bg-gray-100 rounded-2xl w-full" /><div className="h-14 bg-gray-100 rounded-2xl w-1/2" /></div></div></div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FC]">
+        <Header />
+        <div className="max-w-7xl mx-auto px-4 py-16 text-center">
+          <h1 className="text-2xl font-bold text-gray-900">Product not found</h1>
+          <p className="mt-2 text-gray-500">The product you're looking for doesn't exist.</p>
+          <Link to="/catalog" className="mt-4 inline-block text-orange-600 hover:underline">Return to Catalog</Link>
+        </div>
+      </div>
+    )
+  }
 
   // --- Variant Selector Component ---
   const VariantSelector = ({ excludeColor }) => {
