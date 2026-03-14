@@ -415,7 +415,12 @@ export function clearApiCache(pathPrefix) {
 export async function apiPost(path, body) {
   const url = buildUrl(path)
   const isLogin =
-    /\/auth\/login$/.test(path) || /\/api\/auth\/login$/.test(path) || path.includes('/auth/login')
+    /\/auth\/login$/.test(path) ||
+    /\/api\/auth\/login$/.test(path) ||
+    /\/auth\/shop\/login$/.test(path) ||
+    /\/api\/auth\/shop\/login$/.test(path) ||
+    path.includes('/auth/login') ||
+    path.includes('/auth/shop/login')
   const isAI = path.includes('/generate-description') || path.includes('/images/ai') || path.includes('/generate-seo')
   
   const authHeaders = await authHeader()

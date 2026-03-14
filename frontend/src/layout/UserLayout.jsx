@@ -290,6 +290,25 @@ export default function UserLayout() {
           ),
         },
         {
+          to: '/user/shops',
+          label: 'Shops',
+          icon: (
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3 9.5 12 4l9 5.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
+              <path d="M9 22v-7h6v7" />
+            </svg>
+          ),
+        },
+        {
           to: '/user/dropshippers',
           label: 'Dropshippers',
           icon: (
@@ -464,6 +483,53 @@ export default function UserLayout() {
               <line x1="16" y1="13" x2="8" y2="13" />
               <line x1="16" y1="17" x2="8" y2="17" />
               <polyline points="10 9 9 9 8 9" />
+            </svg>
+          ),
+        },
+        {
+          to: '/user/shops',
+          label: 'Shops',
+          icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9.5 12 4l9 5.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
+              <path d="M9 22v-7h6v7" />
+            </svg>
+          ),
+        },
+        {
+          to: '/user/shop-logistics',
+          label: 'Shop Logistics',
+          icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 7h12v10H3z" />
+              <path d="M15 10h3l3 3v4h-6" />
+              <circle cx="7.5" cy="19.5" r="1.5" />
+              <circle cx="18.5" cy="19.5" r="1.5" />
+            </svg>
+          ),
+        },
+        {
+          to: '/user/delivery-workflow',
+          label: 'Delivery Workflow',
+          icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 6h16" />
+              <path d="M4 12h16" />
+              <path d="M4 18h16" />
+              <circle cx="9" cy="6" r="2" />
+              <circle cx="15" cy="12" r="2" />
+              <circle cx="11" cy="18" r="2" />
+            </svg>
+          ),
+        },
+        {
+          to: '/user/shop-assignments',
+          label: 'Shop Assignments',
+          icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+              <path d="M7 12h10" />
+              <path d="M12 7v10" />
             </svg>
           ),
         },
@@ -1697,6 +1763,72 @@ export default function UserLayout() {
                 <line x1="12" y1="22.08" x2="12" y2="12" />
               </svg>
               Products
+            </button>
+            <button
+              onClick={() => navigate('/user/shops')}
+              title="Shops"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                background: 'linear-gradient(135deg, rgba(249, 115, 22, 0.14) 0%, rgba(234, 88, 12, 0.14) 100%)',
+                border: '1px solid rgba(249, 115, 22, 0.28)',
+                borderRadius: '10px',
+                color: '#f97316',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(249, 115, 22, 0.24) 0%, rgba(234, 88, 12, 0.24) 100%)'
+                e.currentTarget.style.transform = 'translateY(-1px)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(249, 115, 22, 0.14) 0%, rgba(234, 88, 12, 0.14) 100%)'
+                e.currentTarget.style.transform = 'translateY(0)'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 9.5 12 4l9 5.5V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
+                <path d="M9 22v-7h6v7" />
+              </svg>
+              Shops
+            </button>
+            <button
+              onClick={() => navigate('/user/shop-logistics')}
+              title="Shop Logistics"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.14) 0%, rgba(2, 132, 199, 0.14) 100%)',
+                border: '1px solid rgba(14, 165, 233, 0.28)',
+                borderRadius: '10px',
+                color: '#0ea5e9',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(14, 165, 233, 0.24) 0%, rgba(2, 132, 199, 0.24) 100%)'
+                e.currentTarget.style.transform = 'translateY(-1px)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(14, 165, 233, 0.14) 0%, rgba(2, 132, 199, 0.14) 100%)'
+                e.currentTarget.style.transform = 'translateY(0)'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 7h12v10H3z" />
+                <path d="M15 10h3l3 3v4h-6" />
+                <circle cx="7.5" cy="19.5" r="1.5" />
+                <circle cx="18.5" cy="19.5" r="1.5" />
+              </svg>
+              Logistics
             </button>
             {/* Premium Theme Toggle Switch */}
             <button
