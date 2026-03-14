@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { apiGet, apiPost, mediaUrl } from '../../api'
 import { detectCountryCode } from '../../utils/geo'
@@ -383,7 +383,14 @@ const ProductDetail = () => {
       const variantSignature = buildVariantSignature(selectedVariants)
       const cartItemId = variantSignature ? `${product._id}::${variantSignature}` : String(product._id)
       const existingItemIndex = cartItems.findIndex(item => String(item.id) === String(cartItemId))
-      const cartItem = { id: cartItemId, productId: product._id, name: product.name, price: unitPrice, currency: product.baseCurrency || 'SAR', image: (Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : (product.imagePath || '')), quantity: addQty, maxStock: max, variants: selectedVariants, stockByCountry: product.stockByCountry || {}, warehouseType: wh.type, etaMinDays: wh.etaMinDays, etaMaxDays: wh.etaMaxDays, warehouseCountry: selectedCountry }
+      const selectedImagePath = (() => {
+        if (selectedVariantPreviewImage) {
+          const raw = Array.isArray(product.images) ? product.images.find((img) => resolveImageUrl(img) === selectedVariantPreviewImage) : ''
+          if (raw) return raw
+        }
+        return Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : (product.imagePath || '')
+      })()
+      const cartItem = { id: cartItemId, productId: product._id, name: product.name, price: unitPrice, currency: product.baseCurrency || 'SAR', image: selectedImagePath, quantity: addQty, maxStock: max, variants: selectedVariants, stockByCountry: product.stockByCountry || {}, warehouseType: wh.type, etaMinDays: wh.etaMinDays, etaMaxDays: wh.etaMaxDays, warehouseCountry: selectedCountry }
       if (existingItemIndex >= 0) {
         const current = Number(cartItems[existingItemIndex].quantity || 0)
         const candidate = current + addQty
@@ -495,7 +502,37 @@ const ProductDetail = () => {
   const discountPercentage = originalPrice && originalPrice > displayPrice ? Math.round(((originalPrice - displayPrice) / originalPrice) * 100) : 0
 
   const normalizedVars = normalizeVariants(product.variants)
-  const variantColorOpts = (() => { for (const [k, opts] of Object.entries(normalizedVars)) { if (String(k).toLowerCase() === 'color') return opts } return [] })()
+  const colorVariantEntry = Object.entries(normalizedVars).find(([k]) => String(k).toLowerCase() === 'color') || []
+  const colorVariantKey = colorVariantEntry[0] || 'color'
+  const variantColorOpts = Array.isArray(colorVariantEntry[1]) ? colorVariantEntry[1] : []
+  const selectedVariantPreviewImage = useMemo(() => {
+    const preferredKeys = [colorVariantKey, ...Object.keys(selectedVariants || {})]
+    for (const key of preferredKeys) {
+      const selectedValue = String(selectedVariants?.[key] || '').trim()
+      if (!selectedValue) continue
+      const options = Array.isArray(normalizedVars?.[key]) ? normalizedVars[key] : []
+      const match = options.find((opt) => String(opt?.value || '').trim() === selectedValue)
+      if (match?.image) return resolveImageUrl(match.image)
+    }
+    return ''
+  }, [colorVariantKey, normalizedVars, selectedVariants])
+
+  const selectedVariantAvailability = useMemo(() => {
+    let max = Number.POSITIVE_INFINITY
+    let hasSelection = false
+    for (const [key, options] of Object.entries(normalizedVars || {})) {
+      const selectedValue = String(selectedVariants?.[key] || '').trim()
+      if (!selectedValue) continue
+      const match = Array.isArray(options) ? options.find((opt) => String(opt?.value || '').trim() === selectedValue) : null
+      if (!match) continue
+      hasSelection = true
+      if (Number.isFinite(Number(match.stockQty))) {
+        max = Math.min(max, Math.max(0, Number(match.stockQty)))
+      }
+    }
+    if (!hasSelection || max === Number.POSITIVE_INFINITY) return null
+    return max
+  }, [normalizedVars, selectedVariants])
 
   const goBack = () => { try { if (window.history.length > 1) navigate(-1); else navigate('/catalog') } catch { navigate('/catalog') } }
 
@@ -517,8 +554,22 @@ const ProductDetail = () => {
 
   const onVariantClick = (name, value, opt) => {
     setSelectedVariants(prev => ({ ...prev, [name]: value }))
-    try { if (opt?.image) { const abs = resolveImageUrl(opt.image); const imgIdx = images.findIndex(u => u === abs); if (imgIdx >= 0) setSelectedImage(imgIdx) } } catch {}
+    try {
+      if (opt?.image) {
+        const abs = resolveImageUrl(opt.image)
+        const imgIdx = images.findIndex((u) => u === abs)
+        if (imgIdx >= 0) scrollToImage(imgIdx)
+      }
+    } catch {}
   }
+
+  useEffect(() => {
+    if (!selectedVariantPreviewImage) return
+    const imgIdx = images.findIndex((u) => u === selectedVariantPreviewImage)
+    if (imgIdx >= 0 && imgIdx !== selectedImage) {
+      scrollToImage(imgIdx)
+    }
+  }, [images, selectedImage, selectedVariantPreviewImage])
 
   // Shared price display (numeric values for FormattedPrice)
   const priceConverted = convertPrice(displayPrice, product.baseCurrency || 'SAR', getDisplayCurrency())
@@ -536,26 +587,34 @@ const ProductDetail = () => {
         {Object.entries(normalizedVars).map(([name, options]) => {
           const isColor = String(name).toLowerCase() === 'color'
           if (excludeColor && isColor) return null
+          const selectedLabel = selectedVariants[name] || ''
           if (isColor) return (
-            <div key={name}>
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">{name}: <span className="text-gray-900">{selectedVariants[name] || ''}</span></label>
-              <div className="flex flex-wrap gap-2">
+            <div key={name} className="rounded-[28px] border border-slate-200/80 bg-white/90 backdrop-blur-xl shadow-[0_16px_50px_rgba(15,23,42,0.06)] p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.24em] block">{name}</label>
+                <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">{selectedLabel || 'Choose'}</span>
+              </div>
+              <div className="flex flex-wrap gap-3">
                 {options.map((opt, idx) => {
                   const val = String(opt?.value || ''); const dis = Number.isFinite(Number(opt?.stockQty)) ? Number(opt.stockQty) <= 0 : false
-                  return <button key={idx} onClick={() => !dis && onVariantClick(name, val, opt)} disabled={dis} title={val} className={`w-10 h-10 rounded-full border-2 transition-all overflow-hidden ${selectedVariants[name] === val ? 'border-orange-500 scale-110 shadow-md' : dis ? 'border-gray-200 opacity-30 cursor-not-allowed' : 'border-gray-200 hover:border-gray-400 hover:scale-105'}`}>
+                  return <button key={idx} onClick={() => !dis && onVariantClick(name, val, opt)} disabled={dis} title={val} className={`relative w-12 h-12 rounded-full border-[3px] transition-all overflow-hidden ${selectedVariants[name] === val ? 'border-orange-500 scale-110 shadow-[0_16px_26px_rgba(249,115,22,0.28)]' : dis ? 'border-slate-200 opacity-30 cursor-not-allowed' : 'border-white shadow-md hover:border-slate-300 hover:scale-105'}`}>
                     {opt?.image ? <img src={resolveImageUrl(opt.image)} alt={val} className="w-full h-full object-cover" /> : <div className="w-full h-full" style={{ backgroundColor: opt?.swatch || '#e5e7eb' }} />}
+                    {selectedVariants[name] === val ? <span className="absolute inset-0 rounded-full ring-2 ring-white/80" /> : null}
                   </button>
                 })}
               </div>
             </div>
           )
           return (
-            <div key={name}>
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 block">{name}</label>
-              <div className="flex flex-wrap gap-2">
+            <div key={name} className="rounded-[28px] border border-slate-200/80 bg-white/90 backdrop-blur-xl shadow-[0_16px_50px_rgba(15,23,42,0.05)] p-4">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.24em] block">{name}</label>
+                <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">{selectedLabel || 'Choose'}</span>
+              </div>
+              <div className="flex flex-wrap gap-2.5">
                 {options.map((opt, idx) => {
                   const val = String(opt?.value || ''); const dis = Number.isFinite(Number(opt?.stockQty)) ? Number(opt.stockQty) <= 0 : false
-                  return <button key={idx} onClick={() => !dis && onVariantClick(name, val, opt)} disabled={dis} className={`px-5 py-2.5 rounded-2xl text-sm font-medium transition-all ${selectedVariants[name] === val ? 'bg-gray-900 text-white shadow-lg scale-105' : dis ? 'bg-gray-100 text-gray-300 cursor-not-allowed' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}>{val}</button>
+                  return <button key={idx} onClick={() => !dis && onVariantClick(name, val, opt)} disabled={dis} className={`px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all ${selectedVariants[name] === val ? 'bg-slate-900 text-white shadow-[0_18px_35px_rgba(15,23,42,0.18)] scale-[1.03]' : dis ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{val}</button>
                 })}
               </div>
             </div>
@@ -752,8 +811,8 @@ const ProductDetail = () => {
 
           {/* Floating color swatches */}
           {variantColorOpts.length > 1 && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-3 bg-white/60 backdrop-blur-md p-2 rounded-full shadow-xl">
-              {variantColorOpts.map((opt, idx) => { const val = String(opt?.value || ''); return <button key={idx} onClick={() => onVariantClick('color', val, opt)} className={`w-7 h-7 rounded-full border-2 transition-all ${selectedVariants.color === val ? 'border-orange-500 scale-125' : 'border-white/80 hover:scale-110'}`} style={{ backgroundColor: opt?.swatch || '#e5e7eb' }} title={val} /> })}
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-3 bg-white/65 backdrop-blur-xl px-2.5 py-3 rounded-[32px] shadow-[0_18px_45px_rgba(15,23,42,0.16)] border border-white/70">
+              {variantColorOpts.map((opt, idx) => { const val = String(opt?.value || ''); return <button key={idx} onClick={() => onVariantClick(colorVariantKey, val, opt)} className={`w-8 h-8 rounded-full border-[3px] transition-all ${selectedVariants[colorVariantKey] === val ? 'border-orange-500 scale-125 shadow-[0_14px_25px_rgba(249,115,22,0.26)]' : 'border-white/80 hover:scale-110'}`} style={{ backgroundColor: opt?.swatch || '#e5e7eb' }} title={val} /> })}
             </div>
           )}
 
@@ -807,7 +866,15 @@ const ProductDetail = () => {
             <span className="text-xs text-gray-400">({displayReviewCount})</span>
           </div>
           {product.description && <PremiumText content={product.description} className="text-gray-500 text-sm leading-relaxed mb-4" />}
-          <div className="mb-5"><VariantSelector excludeColor /></div>
+          <div className="mb-5 space-y-3">
+            {selectedVariantAvailability != null ? (
+              <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold ${selectedVariantAvailability > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                <span className={`w-2 h-2 rounded-full ${selectedVariantAvailability > 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                {selectedVariantAvailability > 0 ? `${selectedVariantAvailability} variant units available` : 'Selected variant is out of stock'}
+              </div>
+            ) : null}
+            <VariantSelector excludeColor />
+          </div>
 
 
           <div className="rounded-2xl p-4 flex items-start gap-3 bg-white shadow-sm mb-5">
@@ -874,8 +941,8 @@ const ProductDetail = () => {
               </div>
 
               {variantColorOpts.length > 1 && (
-                <div className="absolute right-8 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-3 bg-white/60 backdrop-blur-md p-2.5 rounded-full shadow-xl">
-                  {variantColorOpts.map((opt, idx) => { const val = String(opt?.value || ''); return <button key={idx} onClick={() => onVariantClick('color', val, opt)} className={`w-8 h-8 rounded-full border-2 transition-all ${selectedVariants.color === val ? 'border-orange-500 scale-125' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: opt?.swatch || '#e5e7eb' }} title={val} /> })}
+                <div className="absolute right-8 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-3 bg-white/65 backdrop-blur-xl px-3 py-3 rounded-[34px] shadow-[0_18px_45px_rgba(15,23,42,0.16)] border border-white/70">
+                  {variantColorOpts.map((opt, idx) => { const val = String(opt?.value || ''); return <button key={idx} onClick={() => onVariantClick(colorVariantKey, val, opt)} className={`w-9 h-9 rounded-full border-[3px] transition-all ${selectedVariants[colorVariantKey] === val ? 'border-orange-500 scale-125 shadow-[0_14px_25px_rgba(249,115,22,0.24)]' : 'border-transparent hover:scale-110'}`} style={{ backgroundColor: opt?.swatch || '#e5e7eb' }} title={val} /> })}
                 </div>
               )}
 
@@ -898,7 +965,15 @@ const ProductDetail = () => {
               </div>
               {product.description && <PremiumText content={product.description} className="text-gray-500 leading-relaxed mb-8 text-base line-clamp-4 overflow-hidden" />}
 
-              <div className="mb-8"><VariantSelector /></div>
+              <div className="mb-8 space-y-3">
+                {selectedVariantAvailability != null ? (
+                  <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold ${selectedVariantAvailability > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
+                    <span className={`w-2 h-2 rounded-full ${selectedVariantAvailability > 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                    {selectedVariantAvailability > 0 ? `${selectedVariantAvailability} variant units available` : 'Selected variant is out of stock'}
+                  </div>
+                ) : null}
+                <VariantSelector />
+              </div>
 
               <div className="flex items-center gap-4 mb-8">
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Quantity</label>

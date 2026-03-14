@@ -253,6 +253,61 @@ Generate 5 backlinks, first 3 dofollow from niche authorities, last 2 nofollow f
     }
   }
 
+  async extractVisualSearchIntent(base64Data, mimeType) {
+    if (!base64Data || !mimeType) {
+      throw new Error('Image data is required')
+    }
+    if (!this.client) {
+      await this.initClient()
+    }
+    const modelName = await this.getModelName()
+    const prompt = `You are an e-commerce product search expert.
+Analyze the uploaded image and return ONLY valid JSON with this shape:
+{
+  "query": "short product search query",
+  "category": "best matching store category",
+  "brand": "brand if visible else empty string",
+  "attributes": ["attribute 1", "attribute 2"],
+  "suggestions": ["search suggestion 1", "search suggestion 2", "search suggestion 3"],
+  "confidence": 0.0
+}
+Rules:
+- query must be 2 to 6 words
+- suggestions must be concise shopping search terms
+- confidence must be between 0 and 1
+- if unsure, still provide the closest shopping-oriented query
+- do not include markdown or explanation`
+    let response = null
+    const inlineImage = { inlineData: { mimeType, data: base64Data } }
+    const textPart = { text: prompt }
+    try {
+      response = await this.client.models.generateContent({
+        model: modelName,
+        contents: [textPart, inlineImage],
+      })
+    } catch {
+      response = await this.client.models.generateContent({
+        model: modelName,
+        contents: [{ role: 'user', parts: [textPart, inlineImage] }],
+      })
+    }
+    const text = response?.text || ''
+    const jsonMatch = String(text).match(/\{[\s\S]*\}/)
+    if (!jsonMatch) {
+      throw new Error('Failed to parse AI visual search response')
+    }
+    const parsed = JSON.parse(jsonMatch[0])
+    const query = String(parsed?.query || '').trim()
+    return {
+      query,
+      category: String(parsed?.category || '').trim(),
+      brand: String(parsed?.brand || '').trim(),
+      attributes: Array.isArray(parsed?.attributes) ? parsed.attributes.map((v) => String(v || '').trim()).filter(Boolean).slice(0, 8) : [],
+      suggestions: Array.isArray(parsed?.suggestions) ? parsed.suggestions.map((v) => String(v || '').trim()).filter(Boolean).slice(0, 8) : [],
+      confidence: Math.max(0, Math.min(1, Number(parsed?.confidence || 0))),
+    }
+  }
+
   // Compatibility method for existing checks
   async ensureInitialized() {
     const key = await this.getApiKey();

@@ -43,6 +43,79 @@ const publicProductsCache = {
   TTL: 30000 // 30 seconds cache
 }
 
+function normalizePublicCountryValue(input) {
+  const raw = String(input || '').trim()
+  if (!raw) return null
+  const upper = raw.toUpperCase()
+  if (upper === 'UAE' || upper === 'UNITED ARAB EMIRATES' || upper === 'AE' || upper === 'ARE') return 'UAE'
+  if (upper === 'GB' || upper === 'UK' || upper === 'UNITED KINGDOM') return 'UK'
+  if (upper === 'PK' || upper === 'PAKISTAN') return 'Pakistan'
+  return null
+}
+
+function buildPublicProductQuery({ country, category, subcategory, search, filter } = {}) {
+  const stockCountry = normalizePublicCountryValue(country)
+  const and = [
+    { $or: [{ displayOnWebsite: true }, { displayOnWebsite: { $exists: false } }] },
+  ]
+  if (stockCountry) {
+    and.push({ [`stockByCountry.${stockCountry}`]: { $gt: 0 } })
+  } else {
+    and.push({
+      $or: [
+        { stockQty: { $gt: 0 } },
+        { stockQty: { $exists: false } },
+        { stockQty: null }
+      ]
+    })
+  }
+  const query = { $and: and }
+  if (filter) {
+    switch (filter) {
+      case 'bestSelling':
+        query.isBestSelling = true
+        break
+      case 'featured':
+        query.isFeatured = true
+        break
+      case 'trending':
+        query.isTrending = true
+        break
+      case 'recommended':
+        query.isRecommended = true
+        break
+    }
+  }
+  if (category && category !== 'all') query.category = category
+  if (subcategory && String(subcategory).trim()) query.subcategory = String(subcategory).trim()
+  if (search && String(search).trim()) {
+    const searchRegex = new RegExp(String(search).trim(), 'i')
+    query.$or = [
+      { name: searchRegex },
+      { description: searchRegex },
+      { brand: searchRegex },
+      { category: searchRegex },
+      { subcategory: searchRegex }
+    ]
+  }
+  return query
+}
+
+function enrichPublicProducts(products) {
+  return (Array.isArray(products) ? products : []).map((p) => {
+    const prod = typeof p?.toObject === 'function' ? p.toObject() : { ...(p || {}) }
+    if (prod.totalPurchased == null || prod.totalPurchased === 0) {
+      let totalFromHistory = 0
+      if (Array.isArray(prod.stockHistory) && prod.stockHistory.length > 0) {
+        totalFromHistory = prod.stockHistory.reduce((sum, entry) => sum + (Number(entry.quantity) || 0), 0)
+      }
+      prod.totalPurchased = totalFromHistory > 0 ? totalFromHistory : (prod.stockQty || 0)
+    }
+    if (!prod.sku) prod.sku = fallbackSkuFromId(prod._id)
+    return prod
+  })
+}
+
 function parseShopAssignments(rawValue, assignedBy) {
   try {
     let raw = rawValue
@@ -326,18 +399,8 @@ const storage = multer.diskStorage({
 // Public: return category usage counts for visible products
 router.get('/public/categories-usage', async (req, res) => {
   try{
-    const normalizePublicCountry = (input) => {
-      const raw = String(input || '').trim()
-      if (!raw) return null
-      const upper = raw.toUpperCase()
-      if (upper === 'UAE' || upper === 'UNITED ARAB EMIRATES' || upper === 'AE' || upper === 'ARE') return 'UAE'
-      if (upper === 'GB' || upper === 'UK' || upper === 'UNITED KINGDOM') return 'UK'
-      if (upper === 'PK' || upper === 'PAKISTAN') return 'Pakistan'
-      return null
-    }
-
     const countryRaw = req.query?.country || req.headers['x-country'] || ''
-    const stockCountry = normalizePublicCountry(countryRaw)
+    const stockCountry = normalizePublicCountryValue(countryRaw)
 
     const and = [
       { $or: [{ displayOnWebsite: true }, { displayOnWebsite: { $exists: false } }] },
@@ -396,6 +459,10 @@ const upload = multer({
     fileSize: 100 * 1024 * 1024, // 100MB max per file
     files: 12 // Max files per request (10 images + 1 video + buffer)
   }
+})
+const uploadMemory = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 }
 })
 
 // Create product (admin; user; manager with permission)
@@ -757,6 +824,120 @@ router.get('/public/by-slug/:slug', async (req, res) => {
   } catch (error) {
     console.error('Get product by slug error:', error)
     res.status(500).json({ message: 'Failed to fetch product' })
+  }
+})
+
+router.get('/public/search-suggestions', async (req, res) => {
+  try {
+    const rawQuery = String(req.query?.q || req.query?.search || '').trim()
+    const countryRaw = req.query?.country || req.headers['x-country'] || ''
+    const baseQuery = buildPublicProductQuery({ country: countryRaw })
+    let products = []
+    if (rawQuery) {
+      const suggestionQuery = buildPublicProductQuery({ country: countryRaw, search: rawQuery })
+      products = await Product.find(suggestionQuery)
+        .sort({ isFeatured: -1, isTrending: -1, createdAt: -1 })
+        .limit(10)
+        .select('name category subcategory brand imagePath images')
+        .lean()
+    } else {
+      products = await Product.find(baseQuery)
+        .sort({ isFeatured: -1, isTrending: -1, createdAt: -1 })
+        .limit(8)
+        .select('name category subcategory brand imagePath images')
+        .lean()
+    }
+    const seed = []
+    for (const product of products) {
+      if (product?.name) seed.push(String(product.name))
+      if (product?.brand && product?.name) seed.push(`${product.brand} ${product.name}`)
+      if (product?.subcategory && product?.category) seed.push(`${product.subcategory} ${product.category}`)
+      if (product?.category) seed.push(String(product.category))
+    }
+    const categories = await Product.distinct('category', rawQuery ? buildPublicProductQuery({ country: countryRaw, search: rawQuery }) : baseQuery)
+    categories.forEach((entry) => seed.push(String(entry || '').trim()))
+    const normalizedQuery = rawQuery.toLowerCase()
+    const seen = new Set()
+    const suggestions = seed
+      .map((entry) => String(entry || '').trim())
+      .filter(Boolean)
+      .filter((entry) => !normalizedQuery || entry.toLowerCase().includes(normalizedQuery))
+      .filter((entry) => {
+        const key = entry.toLowerCase()
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      .slice(0, 12)
+    return res.json({
+      suggestions,
+      products: products.map((product) => ({
+        _id: product._id,
+        name: product.name || '',
+        category: product.category || '',
+        brand: product.brand || '',
+        image: product.imagePath || (Array.isArray(product.images) ? product.images[0] : '') || '',
+      })),
+      categories: Array.from(new Set(categories.map((entry) => String(entry || '').trim()).filter(Boolean))).slice(0, 12),
+    })
+  } catch (error) {
+    console.error('Public search suggestions error:', error)
+    return res.status(500).json({ message: 'Failed to load search suggestions' })
+  }
+})
+
+router.post('/public/visual-search', uploadMemory.single('image'), async (req, res) => {
+  try {
+    if (!req.file?.buffer) {
+      return res.status(400).json({ message: 'Image is required' })
+    }
+    if (!(await geminiService.ensureInitialized())) {
+      return res.status(503).json({ message: 'Visual search is not available. Configure Gemini API key first.' })
+    }
+    const optimized = await sharp(req.file.buffer)
+      .rotate()
+      .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })
+      .jpeg({ quality: 82 })
+      .toBuffer()
+    const intent = await geminiService.extractVisualSearchIntent(optimized.toString('base64'), 'image/jpeg')
+    const searchTerms = [
+      intent.query,
+      intent.brand,
+      intent.category,
+      ...(Array.isArray(intent.attributes) ? intent.attributes : []),
+    ]
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)
+    const searchPhrase = searchTerms.slice(0, 4).join(' ').trim()
+    const countryRaw = req.query?.country || req.headers['x-country'] || ''
+    const query = buildPublicProductQuery({
+      country: countryRaw,
+      category: intent.category || '',
+      search: searchPhrase || intent.query || '',
+    })
+    let products = await Product.find(query)
+      .sort({ isFeatured: -1, isTrending: -1, createdAt: -1 })
+      .limit(24)
+      .select('-createdBy -updatedAt -__v')
+    if (!products.length && intent.query) {
+      products = await Product.find(buildPublicProductQuery({ country: countryRaw, search: intent.query }))
+        .sort({ isFeatured: -1, isTrending: -1, createdAt: -1 })
+        .limit(24)
+        .select('-createdBy -updatedAt -__v')
+    }
+    const enriched = enrichPublicProducts(products)
+    return res.json({
+      query: intent.query || searchPhrase,
+      category: intent.category || '',
+      brand: intent.brand || '',
+      attributes: intent.attributes || [],
+      suggestions: intent.suggestions || [],
+      confidence: intent.confidence || 0,
+      products: enriched,
+    })
+  } catch (error) {
+    console.error('Public visual search error:', error)
+    return res.status(500).json({ message: error?.message || 'Failed to process visual search' })
   }
 })
 
