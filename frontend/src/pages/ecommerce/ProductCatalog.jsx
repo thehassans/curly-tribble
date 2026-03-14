@@ -340,6 +340,7 @@ export default function ProductCatalog() {
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
   const productsPerPage = 12
+  const [products, setProducts] = useState([])
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [displayedProducts, setDisplayedProducts] = useState([])
   const [hasMore, setHasMore] = useState(true)
