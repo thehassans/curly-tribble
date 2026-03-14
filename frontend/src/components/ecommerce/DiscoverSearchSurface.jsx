@@ -132,15 +132,6 @@ export default function DiscoverSearchSurface({
     }
   }, [localQuery, open, selectedCountry])
 
-  useEffect(() => {
-    const trimmed = String(localQuery || '').trim()
-    if (trimmed === String(value || '').trim()) return undefined
-    const timer = window.setTimeout(() => {
-      onChange?.(localQuery)
-    }, trimmed ? 240 : 0)
-    return () => window.clearTimeout(timer)
-  }, [localQuery, onChange, value])
-
   const combinedCategories = useMemo(() => {
     const cardNames = categoryCards.map((entry) => entry.name)
     return mergeUnique([...cardNames, ...categories, ...(payload.categories || [])], isMobile ? 12 : 14)
@@ -181,20 +172,32 @@ export default function DiscoverSearchSurface({
     return (payload.products || []).slice(0, isMobile ? 4 : 6)
   }, [isMobile, payload.products])
 
+  const emitCommittedQuery = (nextQuery) => {
+    if (typeof onSubmit === 'function') {
+      onSubmit(nextQuery)
+      return
+    }
+    onChange?.(nextQuery)
+  }
+
   const commitQuery = (nextQuery) => {
     const trimmed = String(nextQuery || '').trim()
     setLocalQuery(trimmed)
     if (!trimmed) {
-      onChange?.('')
-      onSubmit?.('')
+      emitCommittedQuery('')
       setOpen(false)
       return
     }
     const nextHistory = pushSearchHistory(trimmed)
     setHistory(nextHistory)
-    onChange?.(trimmed)
-    onSubmit?.(trimmed)
+    emitCommittedQuery(trimmed)
     setOpen(false)
+  }
+
+  const handleClear = (keepOpen = true) => {
+    setLocalQuery('')
+    emitCommittedQuery('')
+    if (keepOpen) setOpen(true)
   }
 
   const handleCategoryClick = (category) => {
@@ -374,7 +377,7 @@ export default function DiscoverSearchSurface({
         className="rounded-[30px] border border-white/70 bg-white/90 backdrop-blur-xl shadow-[0_22px_60px_rgba(15,23,42,0.08)] p-2.5"
       >
         <div className="flex items-center gap-2">
-          <div className="flex-1 flex items-center gap-3 rounded-[22px] bg-slate-50 px-4 py-3">
+          <div className="flex-1 flex items-center gap-3 rounded-[22px] bg-slate-50 border border-slate-200/80 px-4 py-2.5">
             <svg className="w-5 h-5 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
             <input
               ref={inputRef}
@@ -389,17 +392,22 @@ export default function DiscoverSearchSurface({
               className="w-full bg-transparent border-none outline-none text-base text-slate-900 placeholder:text-slate-400"
             />
             {localQuery ? (
-              <button type="button" onClick={() => { setLocalQuery(''); onChange?.(''); setOpen(true) }} className="w-8 h-8 rounded-full bg-white text-slate-400 hover:text-slate-600 grid place-items-center">
+              <button type="button" onClick={() => handleClear(true)} className="w-8 h-8 rounded-full bg-white text-slate-400 hover:text-slate-600 grid place-items-center flex-shrink-0">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
               </button>
             ) : null}
+            <div className="flex items-center gap-1 pl-1">
+              <button type="button" onClick={() => cameraInputRef.current?.click()} disabled={visualBusy} className="w-9 h-9 rounded-full bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 grid place-items-center transition-colors disabled:opacity-60 flex-shrink-0" title="Camera search">
+                <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h2l1.6-2h6.8L17 5h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /><circle cx="12" cy="12" r="4" /></svg>
+              </button>
+              <button type="button" onClick={() => uploadInputRef.current?.click()} disabled={visualBusy} className="w-9 h-9 rounded-full bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 grid place-items-center transition-colors disabled:opacity-60 flex-shrink-0" title="Upload image">
+                <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M20 16.74V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.26" /></svg>
+              </button>
+              <button type="submit" className="w-10 h-10 rounded-full bg-slate-950 text-white shadow-[0_18px_30px_rgba(15,23,42,0.18)] hover:bg-slate-800 transition-colors grid place-items-center flex-shrink-0" title="Search">
+                <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+              </button>
+            </div>
           </div>
-          <button type="button" onClick={() => cameraInputRef.current?.click()} disabled={visualBusy} className="w-12 h-12 rounded-[18px] bg-slate-100 text-slate-700 hover:bg-slate-200 grid place-items-center transition-colors disabled:opacity-60" title="Camera search">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h2l1.6-2h6.8L17 5h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /><circle cx="12" cy="12" r="4" /></svg>
-          </button>
-          <button type="button" onClick={() => uploadInputRef.current?.click()} disabled={visualBusy} className="w-12 h-12 rounded-[18px] bg-slate-100 text-slate-700 hover:bg-slate-200 grid place-items-center transition-colors disabled:opacity-60" title="Upload image">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M20 16.74V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.26" /></svg>
-          </button>
           {onSortChange ? (
             <select value={sortBy} onChange={(event) => onSortChange(event.target.value)} className="h-12 rounded-[18px] bg-slate-50 border border-slate-200 px-4 text-sm font-semibold text-slate-700 outline-none">
               <option value="newest">Newest</option>
@@ -409,9 +417,6 @@ export default function DiscoverSearchSurface({
               <option value="featured">Featured</option>
             </select>
           ) : null}
-          <button type="submit" className="h-12 px-5 rounded-[18px] bg-slate-950 text-white font-bold shadow-[0_18px_30px_rgba(15,23,42,0.18)] hover:bg-slate-800 transition-colors">
-            Search
-          </button>
         </div>
       </form>
       {open ? (
@@ -462,26 +467,22 @@ export default function DiscoverSearchSurface({
                   className="flex-1 bg-transparent border-none outline-none text-[15px] text-slate-900"
                 />
                 {localQuery ? (
-                  <button type="button" onClick={() => { setLocalQuery(''); onChange?.('') }} className="text-slate-300">
+                  <button type="button" onClick={() => handleClear(true)} className="w-7 h-7 rounded-full text-slate-300 grid place-items-center flex-shrink-0">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>
                   </button>
                 ) : null}
-                <button type="submit" className="w-8 h-8 rounded-full bg-slate-950 text-white grid place-items-center">
+                <button type="button" onClick={() => cameraInputRef.current?.click()} disabled={visualBusy} className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 grid place-items-center disabled:opacity-60 flex-shrink-0" title="Camera search">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h2l1.6-2h6.8L17 5h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /><circle cx="12" cy="12" r="4" /></svg>
+                </button>
+                <button type="button" onClick={() => uploadInputRef.current?.click()} disabled={visualBusy} className="w-8 h-8 rounded-full bg-slate-100 text-slate-700 grid place-items-center disabled:opacity-60 flex-shrink-0" title="Upload image">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M20 16.74V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.26" /></svg>
+                </button>
+                <button type="submit" className="w-8 h-8 rounded-full bg-slate-950 text-white grid place-items-center flex-shrink-0">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
                 </button>
               </form>
             </div>
-            <div className="flex items-center gap-2 mt-3 pl-12">
-              <button type="button" onClick={() => cameraInputRef.current?.click()} disabled={visualBusy} className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-bold disabled:opacity-60">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h2l1.6-2h6.8L17 5h2a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" /><circle cx="12" cy="12" r="4" /></svg>
-                Camera
-              </button>
-              <button type="button" onClick={() => uploadInputRef.current?.click()} disabled={visualBusy} className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-slate-100 text-slate-700 text-xs font-bold disabled:opacity-60">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M20 16.74V19a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2.26" /></svg>
-                Upload
-              </button>
-              {visualBusy ? <div className="text-xs font-semibold text-slate-500">Analyzing image...</div> : null}
-            </div>
+            {visualBusy ? <div className="pl-12 mt-3 text-xs font-semibold text-slate-500">Analyzing image...</div> : null}
           </div>
           <div className="px-3 py-4 overflow-y-auto h-[calc(100vh-106px)]">
             {suggestionsBusy ? (
