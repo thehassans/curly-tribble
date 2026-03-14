@@ -171,6 +171,85 @@ export default function DiscoverSearchSurface({
     return (payload.products || []).slice(0, isMobile ? 4 : 6)
   }, [isMobile, payload.products])
 
+  const suggestionEntries = useMemo(() => {
+    const trimmed = String(localQuery || '').trim().toLowerCase()
+    if (!trimmed) return []
+    const out = []
+    const seen = new Set()
+    const pushEntry = (entry) => {
+      const title = String(entry?.title || '').trim()
+      const type = String(entry?.type || '').trim().toLowerCase()
+      if (!title || !type) return
+      const key = `${type}:${title.toLowerCase()}`
+      if (seen.has(key)) return
+      seen.add(key)
+      out.push({
+        type,
+        title,
+        subtitle: String(entry?.subtitle || '').trim(),
+        image: String(entry?.image || '').trim(),
+      })
+    }
+    const getCategoryImage = (name) => {
+      const key = String(name || '').trim().toLowerCase()
+      return String(categoryLookup.get(key)?.image || '').trim()
+    }
+    const normalizedCategoryEntries = (payload.categories || []).map((entry) => {
+      if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+        return {
+          name: String(entry.name || entry.title || '').trim(),
+          image: String(entry.image || '').trim(),
+          subtitle: String(entry.subtitle || '').trim(),
+        }
+      }
+      return { name: String(entry || '').trim(), image: '', subtitle: '' }
+    }).filter((entry) => entry.name)
+
+    for (const product of payload.products || []) {
+      const name = String(product?.name || '').trim()
+      const brand = String(product?.brand || '').trim()
+      const category = String(product?.category || '').trim()
+      const subcategory = String(product?.subcategory || '').trim()
+      const image = String(product?.image || product?.imagePath || '').trim()
+      if (name && name.toLowerCase().includes(trimmed)) {
+        pushEntry({
+          type: 'product',
+          title: name,
+          subtitle: [brand, subcategory || category].filter(Boolean).join(' · ') || category || 'Product',
+          image,
+        })
+      }
+      if (subcategory && subcategory.toLowerCase().includes(trimmed)) {
+        pushEntry({
+          type: 'subcategory',
+          title: subcategory,
+          subtitle: category || 'Browse subcategory',
+          image: image || getCategoryImage(category),
+        })
+      }
+      if (category && category.toLowerCase().includes(trimmed)) {
+        pushEntry({
+          type: 'category',
+          title: category,
+          subtitle: brand ? `From ${brand}` : 'Browse category',
+          image: image || getCategoryImage(category),
+        })
+      }
+    }
+
+    for (const entry of normalizedCategoryEntries) {
+      if (!entry.name.toLowerCase().includes(trimmed)) continue
+      pushEntry({
+        type: 'category',
+        title: entry.name,
+        subtitle: entry.subtitle || 'Browse category',
+        image: entry.image || getCategoryImage(entry.name),
+      })
+    }
+
+    return out.slice(0, isMobile ? 10 : 8)
+  }, [categoryLookup, isMobile, localQuery, payload.categories, payload.products])
+
   const emitCommittedQuery = (nextQuery) => {
     if (typeof onSubmit === 'function') {
       onSubmit(nextQuery)
@@ -204,6 +283,15 @@ export default function DiscoverSearchSurface({
     onCategorySelect?.(category)
   }
 
+  const handleSuggestionClick = (entry) => {
+    if (!entry || typeof entry !== 'object') return
+    if (entry.type === 'category') {
+      handleCategoryClick(entry.title)
+      return
+    }
+    commitQuery(entry.title)
+  }
+
   const handleVisualFile = async (file) => {
     if (!file) return
     setVisualBusy(true)
@@ -222,8 +310,6 @@ export default function DiscoverSearchSurface({
       if (visualInputRef.current) visualInputRef.current.value = ''
     }
   }
-
-  const quickSuggestions = suggestionTerms.slice(0, isMobile ? 10 : 8)
 
   const renderProductPreview = (compact = false) => (
     <div className={`grid ${compact ? 'grid-cols-2' : 'grid-cols-2 xl:grid-cols-3'} gap-3`}>
@@ -324,19 +410,29 @@ export default function DiscoverSearchSurface({
           Suggestions
         </div>
         <div className="divide-y divide-slate-100">
-          {quickSuggestions.map((entry) => (
+          {suggestionEntries.map((entry) => (
             <button
-              key={entry}
+              key={`${entry.type}:${entry.title}`}
               type="button"
-              onClick={() => commitQuery(entry)}
+              onClick={() => handleSuggestionClick(entry)}
               className="w-full px-4 py-3 flex items-center gap-3 text-left hover:bg-slate-50 transition-colors"
             >
-              <svg className="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
-              <span className="text-sm font-semibold text-slate-800">{entry}</span>
+              <div className="w-11 h-11 rounded-2xl bg-slate-100 overflow-hidden flex-shrink-0">
+                {entry.image ? (
+                  <img src={mediaUrl(entry.image)} alt={entry.title} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400 mb-1">{entry.type}</div>
+                <div className="text-sm font-semibold text-slate-800 line-clamp-2">{entry.title}</div>
+                {entry.subtitle ? <div className="mt-0.5 text-xs text-slate-500 line-clamp-1">{entry.subtitle}</div> : null}
+              </div>
             </button>
           ))}
-          {!quickSuggestions.length && !suggestionsBusy && (
-            <div className="px-4 py-6 text-sm text-slate-500">No suggestions yet. Try a different keyword.</div>
+          {!suggestionEntries.length && !suggestionsBusy && (
+            <div className="px-4 py-6 text-sm text-slate-500">No products, subcategories, or categories found yet. Try a different keyword.</div>
           )}
         </div>
       </div>
@@ -388,6 +484,7 @@ export default function DiscoverSearchSurface({
               }}
               placeholder={placeholder}
               className="w-full appearance-none bg-transparent border-none outline-none ring-0 shadow-none focus:outline-none focus:ring-0 focus:shadow-none focus-visible:outline-none focus-visible:ring-0 text-base text-slate-900 placeholder:text-slate-400"
+              style={{ outline: 'none', boxShadow: 'none', WebkitAppearance: 'none', border: '0', background: 'transparent', WebkitTapHighlightColor: 'transparent' }}
             />
             {localQuery ? (
               <button type="button" onClick={() => handleClear(true)} className="w-8 h-8 rounded-full bg-white text-slate-400 hover:text-slate-600 grid place-items-center flex-shrink-0">
@@ -459,6 +556,7 @@ export default function DiscoverSearchSurface({
                   onChange={(event) => setLocalQuery(event.target.value)}
                   placeholder={placeholder}
                   className="min-w-0 flex-1 appearance-none bg-transparent border-none outline-none ring-0 shadow-none focus:outline-none focus:ring-0 focus:shadow-none focus-visible:outline-none focus-visible:ring-0 text-[14px] text-slate-900 placeholder:text-slate-400"
+                  style={{ outline: 'none', boxShadow: 'none', WebkitAppearance: 'none', border: '0', background: 'transparent', WebkitTapHighlightColor: 'transparent' }}
                 />
                 {localQuery ? (
                   <button type="button" onClick={() => handleClear(true)} className="w-[26px] h-[26px] rounded-full text-slate-300 grid place-items-center flex-shrink-0">

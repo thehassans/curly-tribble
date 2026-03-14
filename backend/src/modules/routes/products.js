@@ -1075,6 +1075,7 @@ router.get('/public/search-suggestions', async (req, res) => {
         _id: product._id,
         name: product.name || '',
         category: product.category || '',
+        subcategory: product.subcategory || '',
         brand: product.brand || '',
         image: product.imagePath || (Array.isArray(product.images) ? product.images[0] : '') || '',
       })),

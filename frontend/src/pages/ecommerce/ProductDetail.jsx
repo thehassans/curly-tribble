@@ -97,24 +97,42 @@ const ProductDetail = () => {
     const v = rawVariants && typeof rawVariants === 'object' && !Array.isArray(rawVariants) ? rawVariants : {}
     for (const [k, opts] of Object.entries(v)) {
       if (!Array.isArray(opts)) continue
-      const norm = opts.map((opt) => {
+      const deduped = new Map()
+      opts.forEach((opt) => {
         if (opt == null) return null
-        if (typeof opt === 'string') return { value: opt, stockQty: 0 }
-        if (typeof opt !== 'object') return null
-        const value = String(opt.value ?? opt.name ?? opt.label ?? '').trim()
-        if (!value) return null
-        const stockQtyRaw = Number(opt.stockQty ?? opt.stock ?? 0)
-        const stockQty = Number.isFinite(stockQtyRaw) ? Math.max(0, Math.floor(stockQtyRaw)) : 0
-        const image = typeof opt.image === 'string' && opt.image.trim() ? opt.image.trim() : ''
-        let swatch = ''
-        try {
-          if (typeof opt.swatch === 'string' && opt.swatch.trim()) {
-            const raw = opt.swatch.trim()
-            if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(raw)) swatch = raw
-          }
-        } catch {}
-        return { value, stockQty, ...(image ? { image } : {}), ...(swatch ? { swatch } : {}) }
-      }).filter(Boolean)
+        const parsed = (() => {
+          if (typeof opt === 'string') return { value: String(opt).trim(), stockQty: 0 }
+          if (typeof opt !== 'object') return null
+          const value = String(opt.value ?? opt.name ?? opt.label ?? '').trim()
+          if (!value) return null
+          const stockQtyRaw = Number(opt.stockQty ?? opt.stock ?? 0)
+          const stockQty = Number.isFinite(stockQtyRaw) ? Math.max(0, Math.floor(stockQtyRaw)) : 0
+          const image = typeof opt.image === 'string' && opt.image.trim() ? opt.image.trim() : ''
+          let swatch = ''
+          try {
+            if (typeof opt.swatch === 'string' && opt.swatch.trim()) {
+              const raw = opt.swatch.trim()
+              if (/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(raw)) swatch = raw
+            }
+          } catch {}
+          return { value, stockQty, ...(image ? { image } : {}), ...(swatch ? { swatch } : {}) }
+        })()
+        if (!parsed?.value) return null
+        const key = parsed.value.toLowerCase()
+        const existing = deduped.get(key)
+        if (!existing) {
+          deduped.set(key, parsed)
+          return null
+        }
+        deduped.set(key, {
+          ...existing,
+          stockQty: Math.max(Number(existing?.stockQty || 0), Number(parsed?.stockQty || 0)),
+          image: existing?.image || parsed?.image || '',
+          swatch: existing?.swatch || parsed?.swatch || '',
+        })
+        return null
+      })
+      const norm = Array.from(deduped.values()).filter(Boolean)
       if (norm.length) out[k] = norm
     }
     return out
@@ -407,7 +425,14 @@ const ProductDetail = () => {
       try { localStorage.setItem('last_added_product', String(product._id)) } catch {}
       trackAddToCart(product._id, product.name, addQty, unitPrice)
       window.dispatchEvent(new CustomEvent('cartUpdated'))
-      setCartSuccessModal({ image: Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : (product.imagePath || ''), name: product.name, qty: addQty })
+      setCartSuccessModal({
+        image: selectedImagePath || (Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : (product.imagePath || '')),
+        name: product.name,
+        qty: addQty,
+        variants: Object.entries(selectedVariants || {})
+          .map(([name, value]) => ({ name: String(name || '').trim(), value: String(value || '').trim() }))
+          .filter((entry) => entry.name && entry.value),
+      })
     } catch (error) { console.error('Error adding to cart:', error); toast.error('Failed to add item to cart') }
   }
 
@@ -509,6 +534,14 @@ const ProductDetail = () => {
     if (!hasSelection || max === Number.POSITIVE_INFINITY) return null
     return max
   }, [normalizedVars, selectedVariants])
+  const selectedVariantSummary = useMemo(() => {
+    return Object.entries(selectedVariants || {})
+      .map(([name, value]) => ({
+        name: String(name || '').trim(),
+        value: String(value || '').trim(),
+      }))
+      .filter((entry) => entry.name && entry.value)
+  }, [selectedVariants])
 
   const goBack = () => { try { if (window.history.length > 1) navigate(-1); else navigate('/catalog') } catch { navigate('/catalog') } }
 
@@ -612,10 +645,10 @@ const ProductDetail = () => {
                 <label className="text-[11px] font-black text-slate-400 uppercase tracking-[0.24em] block">{name}</label>
                 <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold">{selectedLabel || 'Choose'}</span>
               </div>
-              <div className="flex flex-wrap gap-2.5">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                 {options.map((opt, idx) => {
                   const val = String(opt?.value || ''); const dis = Number.isFinite(Number(opt?.stockQty)) ? Number(opt.stockQty) <= 0 : false
-                  return <button key={idx} onClick={() => !dis && onVariantClick(name, val, opt)} disabled={dis} className={`px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all ${selectedVariants[name] === val ? 'bg-slate-900 text-white shadow-[0_18px_35px_rgba(15,23,42,0.18)] scale-[1.03]' : dis ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{val}</button>
+                  return <button key={idx} onClick={() => !dis && onVariantClick(name, val, opt)} disabled={dis} className={`min-w-0 min-h-[52px] px-4 py-3 rounded-[20px] text-sm font-semibold transition-all text-left leading-tight ${selectedVariants[name] === val ? 'bg-slate-900 text-white shadow-[0_18px_35px_rgba(15,23,42,0.18)] scale-[1.02]' : dis ? 'bg-slate-100 text-slate-300 cursor-not-allowed' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>{val}</button>
                 })}
               </div>
             </div>
@@ -1113,6 +1146,16 @@ const ProductDetail = () => {
               <p className="text-green-600 text-xs font-bold tracking-widest uppercase mb-1" style={{ animation: 'fadeSlideUp 0.4s 0.2s ease both' }}>Successfully Added!</p>
               <h3 className="font-bold text-gray-900 text-[17px] leading-snug line-clamp-2 mb-1" style={{ animation: 'fadeSlideUp 0.4s 0.3s ease both' }}>{cartSuccessModal.name}</h3>
               {cartSuccessModal.qty > 1 && <p className="text-gray-400 text-sm mb-4" style={{ animation: 'fadeSlideUp 0.4s 0.35s ease both' }}>Qty: {cartSuccessModal.qty}</p>}
+              {!!cartSuccessModal.variants?.length && (
+                <div className="mb-4 flex flex-wrap justify-center gap-2" style={{ animation: 'fadeSlideUp 0.4s 0.36s ease both' }}>
+                  {cartSuccessModal.variants.map((entry) => (
+                    <span key={`${entry.name}:${entry.value}`} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-700">
+                      <span className="uppercase tracking-wide text-slate-400">{entry.name}</span>
+                      <span>{entry.value}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
               {/* Buttons */}
               <div className="flex gap-3 mt-5" style={{ animation: 'fadeSlideUp 0.4s 0.4s ease both' }}>
                 <button type="button" onClick={() => setCartSuccessModal(null)} className="flex-1 py-3.5 rounded-2xl border-2 border-gray-200 text-gray-700 font-bold text-sm hover:border-gray-300 hover:bg-gray-50 active:scale-95 transition-all">
