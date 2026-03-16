@@ -232,14 +232,12 @@ export default function LiveMap({ orders = [], driverLocation, onSelectOrder, mi
         }
 
         usesAdvancedMarkersRef.current = Boolean(markerLib?.AdvancedMarkerElement)
-        const defaultCenter = driverLocation || { lat: 25.2048, lng: 55.2708 }
-
-        mapInstanceRef.current = new MapConstructor(mapRef.current, {
+        const defaultCenter = getNumericPosition(driverLocation) || { lat: 25.2048, lng: 55.2708 }
+        const sharedOptions = {
           center: defaultCenter,
           zoom: minimal ? 11 : 10,
           minZoom: minimal ? 9 : 3,
           maxZoom: 20,
-          ...(usesAdvancedMarkersRef.current ? { mapId: 'DEMO_MAP_ID' } : { styles: getMapStyles() }),
           ...(minimal
             ? {
                 disableDefaultUI: true,
@@ -277,8 +275,32 @@ export default function LiveMap({ orders = [], driverLocation, onSelectOrder, mi
                 keyboardShortcuts: true,
               }),
           gestureHandling: 'greedy',
-        })
+        }
+
+        let nextMap = null
+        if (usesAdvancedMarkersRef.current) {
+          try {
+            nextMap = new MapConstructor(mapRef.current, {
+              ...sharedOptions,
+              mapId: 'DEMO_MAP_ID',
+            })
+          } catch (advancedMapError) {
+            usesAdvancedMarkersRef.current = false
+            console.warn('Falling back to standard Google Map:', advancedMapError)
+          }
+        }
+
+        if (!nextMap) {
+          nextMap = new MapConstructor(mapRef.current, {
+            ...sharedOptions,
+            styles: getMapStyles(),
+          })
+        }
+
+        mapInstanceRef.current = nextMap
+        setError(null)
       } catch (err) {
+        console.error('Failed to initialize Google Maps:', err)
         if (!cancelled) {
           setError('Failed to initialize Google Maps')
         }
