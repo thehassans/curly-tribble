@@ -160,38 +160,50 @@ export default function LiveMap({ orders = [], driverLocation, onSelectOrder, mi
   useEffect(() => {
     if (!apiKey) return
 
-    const existingScript = document.getElementById(GOOGLE_MAPS_SCRIPT_ID)
-    if (existingScript) {
-      if (window.google && window.google.maps) {
-        setMapLoaded(true)
+    // When another component loaded the script with &loading=async, importLibrary must be called
+    // before window.google.maps.Map is available. This ensures classes are populated first.
+    async function readyUp() {
+      if (window.google?.maps?.importLibrary) {
+        try {
+          await window.google.maps.importLibrary('maps')
+          await window.google.maps.importLibrary('marker').catch(() => null)
+        } catch {}
       }
-      const onReady = () => setMapLoaded(true)
-      const onFailure = () => setError('Failed to load Google Maps. Check your API key.')
-      existingScript.addEventListener('load', onReady)
-      existingScript.addEventListener('error', onFailure)
-      return () => {
-        existingScript.removeEventListener('load', onReady)
-        existingScript.removeEventListener('error', onFailure)
-      }
+      setMapLoaded(true)
     }
 
-    if (window.google && window.google.maps) {
-      setMapLoaded(true)
+    const existingScript = document.getElementById(GOOGLE_MAPS_SCRIPT_ID)
+    if (existingScript) {
+      if (window.google?.maps) {
+        readyUp()
+      } else {
+        const onReady = () => readyUp()
+        const onFailure = () => setError('Failed to load Google Maps. Check your API key.')
+        existingScript.addEventListener('load', onReady)
+        existingScript.addEventListener('error', onFailure)
+        return () => {
+          existingScript.removeEventListener('load', onReady)
+          existingScript.removeEventListener('error', onFailure)
+        }
+      }
       return
     }
 
+    if (window.google?.maps) {
+      readyUp()
+      return
+    }
+
+    // Load without &loading=async so all window.google.maps.* classes are available after onload
     const script = document.createElement('script')
     script.id = GOOGLE_MAPS_SCRIPT_ID
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&libraries=geometry,marker&loading=async`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&libraries=geometry,marker`
     script.async = true
     script.defer = true
     script.onload = () => setMapLoaded(true)
     script.onerror = () => setError('Failed to load Google Maps. Check your API key.')
     document.head.appendChild(script)
-    
-    return () => {
-      // Don't remove script on unmount - it can be reused
-    }
+    return () => {}
   }, [apiKey])
 
   // Initialize map
@@ -202,21 +214,18 @@ export default function LiveMap({ orders = [], driverLocation, onSelectOrder, mi
 
     async function initMap() {
       try {
-        if (window.google.maps.importLibrary) {
-          try {
-            await Promise.all([
-              window.google.maps.importLibrary('maps').catch(() => null),
-              window.google.maps.importLibrary('marker').catch(() => null),
-            ])
-          } catch {}
-        }
+        if (cancelled || !mapRef.current) return
 
-        if (cancelled) return
+        const MapConstructor = window.google.maps.Map
+        if (!MapConstructor) {
+          setError('Google Maps failed to load. Please refresh.')
+          return
+        }
 
         usesAdvancedMarkersRef.current = Boolean(window.google.maps.marker?.AdvancedMarkerElement)
         const defaultCenter = driverLocation || { lat: 25.2048, lng: 55.2708 }
 
-        mapInstanceRef.current = new window.google.maps.Map(mapRef.current, {
+        mapInstanceRef.current = new MapConstructor(mapRef.current, {
           center: defaultCenter,
           zoom: minimal ? 11 : 10,
           minZoom: minimal ? 9 : 3,

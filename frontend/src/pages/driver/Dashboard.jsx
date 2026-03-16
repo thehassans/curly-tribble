@@ -408,267 +408,216 @@ export default function DriverDashboard() {
     },
   ]
 
+  const currencyCode = summary.currency || 'AED'
+
   return (
-    <div className="section" style={{ display: 'grid', gap: 12 }}>
-      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ display: 'grid', gap: 4 }}>
-          <div className="page-title gradient heading-blue">Dashboard</div>
-          <div className="helper">{driverName}</div>
+    <div style={{ display: 'grid', gap: 14, paddingBottom: 32 }}>
+
+      {/* ── Hero Card ── */}
+      <div style={{
+        background: 'linear-gradient(135deg, #0f172a 0%, #1a3a5c 55%, #0f172a 100%)',
+        borderRadius: 24,
+        padding: '20px 18px 16px',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        <div style={{ position: 'absolute', top: -50, right: -50, width: 220, height: 220, background: 'radial-gradient(circle, rgba(16,185,129,0.14), transparent 68%)', pointerEvents: 'none' }} />
+        <div style={{ position: 'absolute', bottom: -30, left: -30, width: 160, height: 160, background: 'radial-gradient(circle, rgba(59,130,246,0.1), transparent 68%)', pointerEvents: 'none' }} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 18, position: 'relative' }}>
+          <div style={{ width: 50, height: 50, borderRadius: 16, background: 'linear-gradient(135deg, #10b981, #059669)', display: 'grid', placeItems: 'center', fontSize: 20, fontWeight: 900, color: '#fff', boxShadow: '0 8px 20px rgba(16,185,129,0.4)', flexShrink: 0 }}>
+            {String(driverName || 'D').charAt(0).toUpperCase()}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, color: '#fff', letterSpacing: '-0.3px', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {loading ? '…' : driverName}
+            </div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2 }}>Driver</div>
+          </div>
+          <div style={{ padding: '5px 12px', borderRadius: 20, background: 'rgba(16,185,129,0.18)', border: '1px solid rgba(16,185,129,0.32)', fontSize: 11, color: '#34d399', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0 }}>
+            <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+            Online
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn secondary" onClick={() => nav('/driver/live-map')}>Map</button>
-          <button className="btn secondary" onClick={() => nav('/driver/orders/assigned')}>Orders</button>
-          <button className="btn secondary" onClick={() => nav('/driver/my-stock')}>Stock</button>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, position: 'relative' }}>
+          {[
+            { label: 'Live Map', path: '/driver/live-map', color: '#60a5fa', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> },
+            { label: 'Orders', path: '/driver/orders/assigned', color: '#34d399', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> },
+            { label: 'Stock', path: '/driver/my-stock', color: '#fbbf24', icon: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M3.3 7L12 12l8.7-5"/><path d="M12 22V12"/></svg> },
+          ].map(({ label, path, color, icon }) => (
+            <button key={label} onClick={() => nav(path)} style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.11)', borderRadius: 16, padding: '13px 0', color, cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+              {icon}
+              <span style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.65)', letterSpacing: '0.3px', textTransform: 'uppercase' }}>{label}</span>
+            </button>
+          ))}
         </div>
       </div>
 
       {loadError ? (
-        <div className="card" style={{ padding: 12, border: '1px solid rgba(220,38,38,0.18)', background: 'rgba(220,38,38,0.04)' }}>
-          <div className="helper" style={{ color: '#dc2626' }}>{loadError}</div>
-        </div>
+        <div style={{ padding: '10px 14px', borderRadius: 14, background: 'rgba(220,38,38,0.07)', border: '1px solid rgba(220,38,38,0.2)', fontSize: 13, color: '#dc2626', fontWeight: 600 }}>{loadError}</div>
       ) : null}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
-        {statTiles.map((tile) => (
-          <button
-            key={tile.key}
-            type="button"
-            onClick={tile.onClick}
-            className="panel"
-            style={{
-              padding: 14,
-              display: 'grid',
-              gap: 4,
-              textAlign: 'left',
-              borderRadius: 16,
-              border: '1px solid rgba(15,23,42,0.08)',
-              background: 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96))',
-              cursor: tile.onClick ? 'pointer' : 'default',
-            }}
-          >
-            <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{tile.label}</div>
-            <div style={{ fontSize: 22, fontWeight: 900, color: tile.accent, letterSpacing: '-0.03em' }}>{loading ? '…' : tile.value}</div>
-          </button>
+      {/* ── Stats Grid ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+        {[
+          { key: 'pickup', label: 'Ready to Pick Up', value: loading ? '…' : readyToPickupOrders.length, accent: '#3b82f6', bg: 'rgba(59,130,246,0.1)', border: 'rgba(59,130,246,0.2)', iconBg: 'linear-gradient(135deg,#3b82f6,#2563eb)', glow: 'rgba(59,130,246,0.35)', onClick: () => nav('/driver/orders/assigned'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg> },
+          { key: 'pickedup', label: 'Picked Up', value: loading ? '…' : pickedUpOrders.length, accent: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.22)', iconBg: 'linear-gradient(135deg,#f59e0b,#d97706)', glow: 'rgba(245,158,11,0.35)', onClick: null, icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg> },
+          { key: 'collected', label: 'Collected', value: loading ? '…' : formatMoney(currencyCode, summary.totalCollectedAmount), accent: '#10b981', bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', iconBg: 'linear-gradient(135deg,#10b981,#059669)', glow: 'rgba(16,185,129,0.35)', onClick: () => nav('/driver/orders/delivered'), icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg> },
+          { key: 'pending', label: 'Pending Pay', value: loading ? '…' : formatMoney(currencyCode, pendingToCompany), accent: '#fb923c', bg: 'rgba(251,146,60,0.1)', border: 'rgba(251,146,60,0.22)', iconBg: 'linear-gradient(135deg,#fb923c,#ea580c)', glow: 'rgba(251,146,60,0.35)', onClick: null, icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> },
+        ].map(({ key, label, value, accent, bg, border, iconBg, glow, onClick, icon }) => (
+          <div key={key} onClick={onClick || undefined} style={{ background: bg, border: `1px solid ${border}`, borderRadius: 20, padding: '14px 14px 12px', display: 'grid', gap: 10, cursor: onClick ? 'pointer' : 'default' }}>
+            <div style={{ width: 34, height: 34, borderRadius: 11, background: iconBg, display: 'grid', placeItems: 'center', boxShadow: `0 5px 14px ${glow}` }}>{icon}</div>
+            <div>
+              <div style={{ fontSize: typeof value === 'number' ? 28 : 14, fontWeight: 900, color: accent, letterSpacing: '-0.5px', lineHeight: 1.1 }}>{value}</div>
+              <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, marginTop: 4, textTransform: 'uppercase', letterSpacing: '0.6px' }}>{label}</div>
+            </div>
+          </div>
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.1fr) minmax(300px, 0.9fr)', gap: 12, alignItems: 'start' }}>
-        <div className="card" style={{ padding: 14, display: 'grid', gap: 12 }}>
-          <div className="card-header" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-            <div className="card-title">Pickup</div>
-            <button className="btn secondary" onClick={() => nav('/driver/orders/assigned')}>All</button>
-          </div>
-
-          {loading ? (
-            <div className="helper">Loading...</div>
-          ) : readyToPickupOrders.length === 0 ? (
-            <div className="helper">No pickup queue.</div>
-          ) : (
-            <div style={{ display: 'grid', gap: 10 }}>
-              {readyToPickupOrders.slice(0, 4).map((order) => {
-                const id = getOrderId(order)
-                const busy = pickupBusyId === id
-                return (
-                  <div
-                    key={id}
-                    className="panel"
-                    style={{
-                      padding: 14,
-                      borderRadius: 16,
-                      display: 'grid',
-                      gap: 10,
-                      border: '1px solid rgba(15,23,42,0.08)',
-                      background: 'rgba(248,250,252,0.9)',
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
-                      <div style={{ display: 'grid', gap: 4, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                          <div style={{ fontWeight: 900 }}>#{getInvoiceLabel(order)}</div>
-                          <StatusBadge meta={{ color: '#2563eb', background: 'rgba(37,99,235,0.12)', border: '1px solid rgba(37,99,235,0.2)' }} label={formatShipmentStatus(order?.shipmentStatus || order?.status)} />
-                        </div>
-                        <div style={{ fontWeight: 800, color: '#0f172a' }}>{getProductLabel(order)}</div>
-                        <div className="helper">{order?.customerName || 'Customer'} • {getLocationLabel(order)}</div>
-                      </div>
-                      <div style={{ fontWeight: 900, color: '#2563eb', whiteSpace: 'nowrap' }}>{formatOrderMoney(order)}</div>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      {order?.customerPhone ? (
-                        <a className="btn secondary" href={`tel:${order.customerPhone}`} style={{ textDecoration: 'none' }}>
-                          Call
-                        </a>
-                      ) : null}
-                      <button className="btn secondary" type="button" onClick={() => nav('/driver/live-map')}>
-                        Map
-                      </button>
-                      <button className="btn" type="button" disabled={busy} onClick={() => markPickedUp(order)}>
-                        {busy ? '...' : 'Pick Up'}
-                      </button>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-
-        <div style={{ display: 'grid', gap: 12 }}>
-          <div className="card" style={{ padding: 14, display: 'grid', gap: 12 }}>
-            <div className="card-header" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-              <div className="card-title">Pay</div>
-              <div style={{ fontWeight: 900, color: '#f59e0b' }}>{formatMoney(summary.currency || 'SAR', pendingToCompany)}</div>
-            </div>
-
-            {pendingApprovalRemittance ? (
-              <div className="panel" style={{ padding: 12, borderRadius: 14, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.18)' }}>
-                <div style={{ fontWeight: 800, color: '#92400e' }}>Pending approval</div>
-              </div>
-            ) : null}
-
-            {managerAcceptedRemittance ? (
-              <div className="panel" style={{ padding: 12, borderRadius: 14, background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.18)' }}>
-                <div style={{ fontWeight: 800, color: '#1d4ed8' }}>Manager accepted</div>
-              </div>
-            ) : null}
-
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                className={`btn ${form.method === 'hand' ? '' : 'secondary'}`}
-                onClick={() => setForm((prev) => ({ ...prev, method: 'hand', file: null }))}
-              >
-                Hand
-              </button>
-              <button
-                type="button"
-                className={`btn ${form.method === 'transfer' ? '' : 'secondary'}`}
-                onClick={() => setForm((prev) => ({ ...prev, method: 'transfer' }))}
-              >
-                Transfer
-              </button>
-            </div>
-
-            <SummaryBox label="Amount" value={formatMoney(summary.currency || 'SAR', pendingToCompany)} accent="#0f172a" />
-
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {managers.map((manager) => {
-                const managerId = String(manager?._id || manager?.id || '').trim()
-                const managerName = getManagerLabel(manager)
-                const active = String(form?.paidToId || '').trim() === managerId
-                return (
-                  <button
-                    key={managerId || managerName}
-                    type="button"
-                    className={`btn ${active ? '' : 'secondary'}`}
-                    onClick={() => setForm((prev) => ({ ...prev, paidToId: managerId, paidToName: managerName }))}
-                  >
-                    {managerName}
-                  </button>
-                )
-              })}
-              <button
-                type="button"
-                className={`btn ${String(form?.paidToId || '').trim() === '' ? '' : 'secondary'}`}
-                onClick={() => setForm((prev) => ({ ...prev, paidToId: '', paidToName: ownerLabel }))}
-              >
-                {ownerLabel}
-              </button>
-            </div>
-
-            {form.method === 'transfer' ? (
-              <>
-                <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
-                  <KeyValue label="Method" value={String(company?.method || 'bank').toUpperCase()} />
-                  <KeyValue label="Account" value={company?.accountName || company?.phoneNumber || '—'} />
-                  <KeyValue label="Bank / IBAN" value={company?.bankName || company?.iban || company?.accountNumber || '—'} />
-                </div>
-                <input
-                  className="input"
-                  type="file"
-                  accept="image/*"
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      file: (event.target.files && event.target.files[0]) || null,
-                    }))
-                  }
-                />
-                {form?.file ? <div className="helper">{form.file.name}</div> : null}
-              </>
-            ) : null}
-
-            <textarea
-              className="input"
-              rows={2}
-              value={form.note}
-              onChange={(event) => setForm((prev) => ({ ...prev, note: event.target.value }))}
-              placeholder="Note"
-            />
-
-            <button
-              className="btn"
-              type="button"
-              disabled={submitting || pendingToCompany <= 0 || !!pendingApprovalRemittance}
-              onClick={() => {
-                if (pendingToCompany <= 0) {
-                  toast.warn('No pending amount to send')
-                  return
-                }
-                if (pendingApprovalRemittance) {
-                  toast.warn('You already have a pending payment request')
-                  return
-                }
-                if (form.method === 'transfer' && !form.file) {
-                  toast.error('Upload a proof image for transfer payment')
-                  return
-                }
-                setConfirmOpen(true)
-              }}
-            >
-              {submitting ? 'Sending...' : 'Send Payment'}
-            </button>
-          </div>
-
-          <div className="card" style={{ padding: 14, display: 'grid', gap: 10 }}>
-            <div className="card-header" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
-              <div className="card-title">Recent</div>
-              <button className="btn secondary" onClick={() => nav('/driver/payout')}>Open</button>
-            </div>
-
-            {loading ? (
-              <div className="helper">Loading...</div>
-            ) : remittances.length === 0 ? (
-              <div className="helper">No payments yet.</div>
-            ) : (
-              <div style={{ display: 'grid', gap: 8 }}>
-                {remittances.slice(0, 4).map((item) => {
-                  const meta = getRemittanceStatusMeta(item?.status)
-                  return (
-                    <div
-                      key={String(item?._id || item?.id || `${item?.createdAt || ''}:${item?.amount || 0}`)}
-                      className="panel"
-                      style={{
-                        padding: 12,
-                        borderRadius: 14,
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        gap: 10,
-                        border: '1px solid rgba(15,23,42,0.08)',
-                      }}
-                    >
-                      <div style={{ display: 'grid', gap: 2 }}>
-                        <div style={{ fontWeight: 900 }}>{formatMoney(item?.currency || summary.currency || 'SAR', item?.amount || 0)}</div>
-                        <div className="helper">{item?.createdAt ? new Date(item.createdAt).toLocaleString() : '—'}</div>
-                      </div>
-                      <StatusBadge meta={meta} label={meta.label} />
-                    </div>
-                  )
-                })}
-              </div>
+      {/* ── Pickup Queue ── */}
+      <div style={{ background: 'var(--panel)', borderRadius: 20, border: '1px solid var(--border)', overflow: 'hidden' }}>
+        <div style={{ padding: '13px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', background: 'linear-gradient(90deg,rgba(59,130,246,0.06),transparent)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#3b82f6', boxShadow: '0 0 7px rgba(59,130,246,0.7)' }} />
+            <span style={{ fontWeight: 800, fontSize: 14 }}>Pickup Queue</span>
+            {!loading && readyToPickupOrders.length > 0 && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#3b82f6', background: 'rgba(59,130,246,0.12)', padding: '2px 8px', borderRadius: 20 }}>{readyToPickupOrders.length}</span>
             )}
           </div>
+          <button onClick={() => nav('/driver/orders/assigned')} style={{ fontSize: 11, fontWeight: 700, color: '#3b82f6', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 10, padding: '4px 12px', cursor: 'pointer' }}>View All</button>
+        </div>
+        <div style={{ padding: '10px 10px', display: 'grid', gap: 8 }}>
+          {loading ? (
+            <div style={{ padding: '18px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Loading...</div>
+          ) : readyToPickupOrders.length === 0 ? (
+            <div style={{ padding: '22px 0', textAlign: 'center' }}>
+              <div style={{ fontSize: 26, marginBottom: 6 }}>✅</div>
+              <div style={{ fontWeight: 600, color: 'var(--muted)', fontSize: 13 }}>Queue clear</div>
+            </div>
+          ) : readyToPickupOrders.slice(0, 5).map((order) => {
+            const id = getOrderId(order)
+            const busy = pickupBusyId === id
+            return (
+              <div key={id} style={{ borderRadius: 14, border: '1px solid var(--border)', background: 'var(--bg)', display: 'flex', borderLeft: '3px solid #3b82f6', overflow: 'hidden' }}>
+                <div style={{ flex: 1, padding: '11px 13px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8, marginBottom: 3 }}>
+                    <div style={{ fontWeight: 800, fontSize: 13 }}>#{getInvoiceLabel(order)}</div>
+                    <div style={{ fontWeight: 800, color: '#2563eb', fontSize: 12, whiteSpace: 'nowrap' }}>{formatOrderMoney(order)}</div>
+                  </div>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getProductLabel(order)}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 9 }}>{order?.customerName || 'Customer'} · {getLocationLabel(order)}</div>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {order?.customerPhone ? (
+                      <a href={`tel:${order.customerPhone}`} style={{ fontSize: 11, fontWeight: 700, color: '#2563eb', background: 'rgba(37,99,235,0.1)', border: '1px solid rgba(37,99,235,0.18)', borderRadius: 8, padding: '4px 10px', textDecoration: 'none' }}>Call</a>
+                    ) : null}
+                    <button onClick={() => nav('/driver/live-map')} style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed', background: 'rgba(124,58,237,0.1)', border: '1px solid rgba(124,58,237,0.18)', borderRadius: 8, padding: '4px 10px', cursor: 'pointer' }}>Map</button>
+                    <button onClick={() => markPickedUp(order)} disabled={busy} style={{ fontSize: 11, fontWeight: 800, color: '#fff', background: busy ? '#9ca3af' : 'linear-gradient(135deg,#10b981,#059669)', border: 'none', borderRadius: 8, padding: '4px 14px', cursor: busy ? 'default' : 'pointer', boxShadow: busy ? 'none' : '0 4px 10px rgba(16,185,129,0.35)' }}>
+                      {busy ? '…' : 'Pick Up'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* ── Pay to Company ── */}
+      <div style={{ background: 'var(--panel)', borderRadius: 20, border: '1px solid var(--border)', overflow: 'hidden' }}>
+        <div style={{ padding: '13px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', background: 'linear-gradient(90deg,rgba(245,158,11,0.07),transparent)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+            <div style={{ width: 7, height: 7, borderRadius: '50%', background: '#f59e0b' }} />
+            <span style={{ fontWeight: 800, fontSize: 14 }}>Pay to Company</span>
+          </div>
+          <span style={{ fontWeight: 900, fontSize: 14, color: '#f59e0b' }}>{formatMoney(currencyCode, pendingToCompany)}</span>
+        </div>
+        <div style={{ padding: '14px 16px', display: 'grid', gap: 12 }}>
+          {pendingApprovalRemittance ? (
+            <div style={{ padding: '9px 13px', borderRadius: 12, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', fontWeight: 700, color: '#92400e', fontSize: 12 }}>⏳ Awaiting approval</div>
+          ) : null}
+          {managerAcceptedRemittance ? (
+            <div style={{ padding: '9px 13px', borderRadius: 12, background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.2)', fontWeight: 700, color: '#1d4ed8', fontSize: 12 }}>✅ Manager accepted</div>
+          ) : null}
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            {['hand', 'transfer'].map((m) => (
+              <button key={m} onClick={() => setForm((prev) => ({ ...prev, method: m, file: null }))} style={{ flex: 1, padding: '10px 0', borderRadius: 12, cursor: 'pointer', fontWeight: 700, fontSize: 13, border: form.method === m ? 'none' : '1px solid var(--border)', background: form.method === m ? 'linear-gradient(135deg,#10b981,#059669)' : 'var(--bg)', color: form.method === m ? '#fff' : 'var(--muted)', boxShadow: form.method === m ? '0 4px 12px rgba(16,185,129,0.3)' : 'none', transition: 'all 0.2s' }}>
+                {m === 'hand' ? '🤝 Hand' : '🔁 Transfer'}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ padding: '13px 15px', borderRadius: 13, background: 'rgba(15,23,42,0.04)', border: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 3 }}>Amount</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--text)', letterSpacing: '-0.5px' }}>{formatMoney(currencyCode, pendingToCompany)}</div>
+          </div>
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+            {managers.map((manager) => {
+              const mId = String(manager?._id || manager?.id || '').trim()
+              const mLabel = getManagerLabel(manager)
+              const active = String(form?.paidToId || '').trim() === mId
+              return (
+                <button key={mId || mLabel} onClick={() => setForm((prev) => ({ ...prev, paidToId: mId, paidToName: mLabel }))} style={{ padding: '7px 15px', borderRadius: 11, cursor: 'pointer', fontWeight: 700, fontSize: 12, border: active ? 'none' : '1px solid var(--border)', background: active ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : 'var(--bg)', color: active ? '#fff' : 'var(--text)', boxShadow: active ? '0 4px 10px rgba(37,99,235,0.3)' : 'none', transition: 'all 0.15s' }}>{mLabel}</button>
+              )
+            })}
+            <button onClick={() => setForm((prev) => ({ ...prev, paidToId: '', paidToName: ownerLabel }))} style={{ padding: '7px 15px', borderRadius: 11, cursor: 'pointer', fontWeight: 700, fontSize: 12, border: !String(form?.paidToId || '').trim() ? 'none' : '1px solid var(--border)', background: !String(form?.paidToId || '').trim() ? 'linear-gradient(135deg,#2563eb,#1d4ed8)' : 'var(--bg)', color: !String(form?.paidToId || '').trim() ? '#fff' : 'var(--text)', boxShadow: !String(form?.paidToId || '').trim() ? '0 4px 10px rgba(37,99,235,0.3)' : 'none', transition: 'all 0.15s' }}>{ownerLabel}</button>
+          </div>
+
+          {form.method === 'transfer' ? (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div style={{ display: 'grid', gap: 6, gridTemplateColumns: 'repeat(auto-fit,minmax(130px,1fr))' }}>
+                <KeyValue label="Method" value={String(company?.method || 'bank').toUpperCase()} />
+                <KeyValue label="Account" value={company?.accountName || company?.phoneNumber || '—'} />
+                <KeyValue label="IBAN" value={company?.bankName || company?.iban || company?.accountNumber || '—'} />
+              </div>
+              <input className="input" type="file" accept="image/*" onChange={(e) => setForm((prev) => ({ ...prev, file: e.target.files?.[0] || null }))} />
+              {form?.file ? <div style={{ fontSize: 12, color: '#10b981', fontWeight: 600 }}>📎 {form.file.name}</div> : null}
+            </div>
+          ) : null}
+
+          <textarea className="input" rows={2} value={form.note} onChange={(e) => setForm((prev) => ({ ...prev, note: e.target.value }))} placeholder="Add a note…" style={{ resize: 'none', fontSize: 14 }} />
+
+          <button
+            disabled={submitting || pendingToCompany <= 0 || !!pendingApprovalRemittance}
+            onClick={() => {
+              if (pendingToCompany <= 0) { toast.warn('No pending amount to send'); return }
+              if (pendingApprovalRemittance) { toast.warn('Already have a pending request'); return }
+              if (form.method === 'transfer' && !form.file) { toast.error('Upload a proof image'); return }
+              setConfirmOpen(true)
+            }}
+            style={{ padding: '14px', borderRadius: 14, border: 'none', cursor: submitting || pendingToCompany <= 0 || !!pendingApprovalRemittance ? 'default' : 'pointer', background: submitting || pendingToCompany <= 0 || !!pendingApprovalRemittance ? '#e5e7eb' : 'linear-gradient(135deg,#10b981,#059669)', color: submitting || pendingToCompany <= 0 || !!pendingApprovalRemittance ? '#9ca3af' : '#fff', fontWeight: 800, fontSize: 15, boxShadow: pendingToCompany > 0 && !pendingApprovalRemittance ? '0 6px 18px rgba(16,185,129,0.38)' : 'none', transition: 'all 0.2s' }}
+          >
+            {submitting ? 'Sending…' : 'Send Payment'}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Recent Payments ── */}
+      <div style={{ background: 'var(--panel)', borderRadius: 20, border: '1px solid var(--border)', overflow: 'hidden' }}>
+        <div style={{ padding: '13px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
+          <span style={{ fontWeight: 800, fontSize: 14 }}>Recent Payments</span>
+          <button onClick={() => nav('/driver/payout')} style={{ fontSize: 11, fontWeight: 700, color: '#3b82f6', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: 10, padding: '4px 12px', cursor: 'pointer' }}>View All</button>
+        </div>
+        <div style={{ padding: '10px 10px', display: 'grid', gap: 6 }}>
+          {loading ? (
+            <div style={{ padding: '16px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>Loading...</div>
+          ) : remittances.length === 0 ? (
+            <div style={{ padding: '18px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 13 }}>No payments yet</div>
+          ) : remittances.slice(0, 4).map((item) => {
+            const meta = getRemittanceStatusMeta(item?.status)
+            return (
+              <div key={String(item?._id || item?.id || `${item?.createdAt || ''}:${item?.amount || 0}`)} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', borderRadius: 13, background: 'var(--bg)', border: '1px solid var(--border)' }}>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 13 }}>{formatMoney(item?.currency || currencyCode, item?.amount || 0)}</div>
+                  <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 2 }}>{item?.createdAt ? new Date(item.createdAt).toLocaleDateString() : '—'}</div>
+                </div>
+                <div style={{ padding: '4px 10px', borderRadius: 20, background: meta.background, border: meta.border, fontSize: 11, fontWeight: 700, color: meta.color }}>{meta.label}</div>
+              </div>
+            )
+          })}
         </div>
       </div>
 
@@ -678,20 +627,16 @@ export default function DriverDashboard() {
         onClose={() => setConfirmOpen(false)}
         footer={
           <>
-            <button className="btn secondary" onClick={() => setConfirmOpen(false)} disabled={submitting}>
-              Cancel
-            </button>
-            <button className="btn success" onClick={submitRemittance} disabled={submitting}>
-              {submitting ? 'Submitting...' : 'Confirm & Send'}
-            </button>
+            <button className="btn secondary" onClick={() => setConfirmOpen(false)} disabled={submitting}>Cancel</button>
+            <button className="btn success" onClick={submitRemittance} disabled={submitting}>{submitting ? 'Submitting…' : 'Confirm & Send'}</button>
           </>
         }
       >
         <div style={{ display: 'grid', gap: 10 }}>
-          <KeyValue label="Amount" value={formatMoney(summary.currency || 'SAR', pendingToCompany)} />
+          <KeyValue label="Amount" value={formatMoney(currencyCode, pendingToCompany)} />
           <KeyValue label="Method" value={String(form?.method || 'hand').toUpperCase()} />
           <KeyValue label="Approver" value={String(form?.paidToName || '').trim() || ownerLabel} />
-          {form?.file ? <KeyValue label="Proof File" value={form.file.name || 'Attached'} /> : null}
+          {form?.file ? <KeyValue label="Proof" value={form.file.name || 'Attached'} /> : null}
           {form?.note ? <KeyValue label="Note" value={form.note} /> : null}
         </div>
       </Modal>
