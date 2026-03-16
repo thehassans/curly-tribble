@@ -137,6 +137,36 @@ export default function LiveMap({ orders = [], driverLocation, onSelectOrder, mi
     })
   }
 
+  function isGoogleMapsReady() {
+    const maps = window.google?.maps
+    return Boolean(
+      maps &&
+      (
+        typeof maps.importLibrary === 'function' ||
+        typeof maps.Map === 'function'
+      )
+    )
+  }
+
+  async function waitForGoogleMapsReady(timeoutMs = 10000) {
+    if (isGoogleMapsReady()) return true
+    const startedAt = Date.now()
+    return await new Promise((resolve) => {
+      const tick = () => {
+        if (isGoogleMapsReady()) {
+          resolve(true)
+          return
+        }
+        if (Date.now() - startedAt >= timeoutMs) {
+          resolve(false)
+          return
+        }
+        window.setTimeout(tick, 60)
+      }
+      tick()
+    })
+  }
+
   // Load Google Maps API key from backend
   useEffect(() => {
     async function loadApiKey() {
@@ -169,15 +199,20 @@ export default function LiveMap({ orders = [], driverLocation, onSelectOrder, mi
           await window.google.maps.importLibrary('marker').catch(() => null)
         } catch {}
       }
-      if (window.google?.maps) {
+      const ready = await waitForGoogleMapsReady()
+      if (ready) {
         setError(null)
         setMapLoaded(true)
+      } else {
+        setMapLoaded(false)
+        setError('Failed to load Google Maps. Check your API key and network.')
       }
     }
 
     const existingScript = document.getElementById(GOOGLE_MAPS_SCRIPT_ID)
+      || document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]')
     if (existingScript) {
-      if (window.google?.maps) {
+      if (isGoogleMapsReady() || window.google?.maps) {
         readyUp()
       } else {
         const onReady = () => readyUp()
@@ -192,7 +227,7 @@ export default function LiveMap({ orders = [], driverLocation, onSelectOrder, mi
       return
     }
 
-    if (window.google?.maps) {
+    if (isGoogleMapsReady() || window.google?.maps) {
       readyUp()
       return
     }
@@ -218,6 +253,11 @@ export default function LiveMap({ orders = [], driverLocation, onSelectOrder, mi
     async function initMap() {
       try {
         if (cancelled || !mapRef.current) return
+        const ready = await waitForGoogleMapsReady(8000)
+        if (!ready) {
+          if (!cancelled) setError('Google Maps failed to load. Please refresh.')
+          return
+        }
 
         const hasDynamicLibraryImport = typeof window.google?.maps?.importLibrary === 'function'
         const mapsLib = hasDynamicLibraryImport
