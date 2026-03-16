@@ -81,6 +81,7 @@ const ProductSchema = new mongoose.Schema(
     trending: { type: Boolean, default: false },
     isTrending: { type: Boolean, default: false },
     isBestSelling: { type: Boolean, default: false },
+    isNewArrival: { type: Boolean, default: false },
     displayOnWebsite: { type: Boolean, default: false },
     isForMobile: { type: Boolean, default: false }, // Show on mobile application
     displayOnShopify: { type: Boolean, default: false }, // Sync to Shopify store
@@ -139,6 +140,7 @@ const ProductSchema = new mongoose.Schema(
     isBestSelling: { type: Boolean, default: false },
     isFeatured: { type: Boolean, default: false },
     isTrending: { type: Boolean, default: false },
+    isNewArrival: { type: Boolean, default: false },
     isRecommended: { type: Boolean, default: false },
     isLimitedStock: { type: Boolean, default: false },
     exploreMoreId: { type: mongoose.Schema.Types.ObjectId, ref: 'ExploreMore', default: null },

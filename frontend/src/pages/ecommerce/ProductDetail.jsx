@@ -12,6 +12,7 @@ import FormattedPrice from '../../components/ui/FormattedPrice'
 import { resolveWarehouse, getLocalStockByCountry } from '../../utils/warehouse'
 import { readWishlistIds, toggleWishlist } from '../../util/wishlist'
 import { getProductRating, getProductReviews, getStarArray } from '../../utils/autoReviews'
+import { readCartItems, writeCartItems } from '../../utils/cartStorage'
 
 const SITE_URL = 'https://buysial.com'
 
@@ -371,8 +372,7 @@ const ProductDetail = () => {
   const handleAddToCart = () => {
     if (!product) return
     try {
-      const savedCart = localStorage.getItem('shopping_cart')
-      let cartItems = savedCart ? JSON.parse(savedCart) : []
+      let cartItems = readCartItems()
       const normalizedVariants2 = normalizeVariants(product.variants)
       let variantMax = Number.POSITIVE_INFINITY
       for (const [k, opts] of Object.entries(normalizedVariants2)) {
@@ -419,12 +419,9 @@ const ProductDetail = () => {
         const wh2 = resolveWarehouse(product, selectedCountry, cartItems[existingItemIndex].quantity)
         Object.assign(cartItems[existingItemIndex], { stockByCountry: product.stockByCountry || cartItems[existingItemIndex].stockByCountry || {}, warehouseType: wh2.type, etaMinDays: wh2.etaMinDays, etaMaxDays: wh2.etaMaxDays, warehouseCountry: selectedCountry })
       } else { cartItems.push(cartItem) }
-      const cartJson = JSON.stringify(cartItems)
-      localStorage.setItem('shopping_cart', cartJson)
-      try { sessionStorage.setItem('shopping_cart_bak', cartJson) } catch {}
+      writeCartItems(cartItems)
       try { localStorage.setItem('last_added_product', String(product._id)) } catch {}
       trackAddToCart(product._id, product.name, addQty, unitPrice)
-      window.dispatchEvent(new CustomEvent('cartUpdated'))
       setCartSuccessModal({
         image: selectedImagePath || (Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : (product.imagePath || '')),
         name: product.name,

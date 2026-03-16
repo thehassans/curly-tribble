@@ -5,8 +5,9 @@ import { getCachedCurrencyConfig, getCurrencyConfig, convert as fxConvert, curre
 import SarIcon from '../ui/SarIcon'
 import { readWishlistIds, toggleWishlist } from '../../util/wishlist'
 import { useToast } from '../../ui/Toast'
-import { resolveWarehouse } from '../../utils/warehouse'
+import { resolveWarehouse, getLocalStockByCountry } from '../../utils/warehouse'
 import { getProductRating, getStarArray } from '../../utils/autoReviews'
+import { readCartItems, writeCartItems } from '../../utils/cartStorage'
 
 const PRODUCT_CARD_MINI_STYLE_ID = 'product-card-mini-styles'
 const PRODUCT_CARD_MINI_STYLES = `
@@ -315,16 +316,15 @@ const ProductCardMini = memo(function ProductCardMini({ product, selectedCountry
     setAddingToCart(true)
 
     try {
-      const savedCart = localStorage.getItem('shopping_cart')
-      let cartItems = []
-      if (savedCart) cartItems = JSON.parse(savedCart)
+      let cartItems = readCartItems()
 
       const basePriceVal = Number(product?.price) || 0
       const salePriceVal = Number(product?.salePrice) || 0
       const hasSale = salePriceVal > 0 && salePriceVal < basePriceVal
       const unitPrice = hasSale ? salePriceVal : basePriceVal
       const addQty = 1
-      const max = Number(product?.stockQty || 0)
+      const localStock = getLocalStockByCountry(product?.stockByCountry, selectedCountry)
+      const max = localStock > 0 ? localStock : Number(product?.stockQty || 0)
 
       const wh = resolveWarehouse(product, selectedCountry, addQty)
 
@@ -350,7 +350,7 @@ const ProductCardMini = memo(function ProductCardMini({ product, selectedCountry
           currency: product.baseCurrency || 'SAR',
           image: (Array.isArray(product.images) && product.images.length > 0 ? product.images[0] : (product.imagePath || '')),
           quantity: addQty,
-          maxStock: product.stockQty,
+          maxStock: max,
           variants: {},
           stockByCountry: product.stockByCountry || {},
           warehouseType: wh.type,
@@ -360,9 +360,8 @@ const ProductCardMini = memo(function ProductCardMini({ product, selectedCountry
         })
       }
 
-      localStorage.setItem('shopping_cart', JSON.stringify(cartItems))
+      writeCartItems(cartItems)
       try { localStorage.setItem('last_added_product', String(product._id)) } catch {}
-      window.dispatchEvent(new CustomEvent('cartUpdated'))
       toast.success('Added to Cart')
     } catch (err) {
       console.error('Error adding to cart:', err)

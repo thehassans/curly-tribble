@@ -143,6 +143,7 @@ export default function ProductDetail() {
       isBestSelling: product?.isBestSelling || false,
       isFeatured: product?.isFeatured || false,
       isTrending: product?.isTrending || false,
+      isNewArrival: product?.isNewArrival || false,
       isRecommended: product?.isRecommended || false,
       images: product?.images || [],
       imagePath: product?.imagePath || '',
@@ -380,6 +381,7 @@ export default function ProductDetail() {
         fd.append('isBestSelling', String(editForm.isBestSelling || false))
         fd.append('isFeatured', String(editForm.isFeatured || false))
         fd.append('isTrending', String(editForm.isTrending || false))
+        fd.append('isNewArrival', String(editForm.isNewArrival || false))
         fd.append('isRecommended', String(editForm.isRecommended || false))
         
         // Keep existing images (minus deleted ones)
@@ -421,6 +423,7 @@ export default function ProductDetail() {
           isBestSelling: editForm.isBestSelling,
           isFeatured: editForm.isFeatured,
           isTrending: editForm.isTrending,
+          isNewArrival: editForm.isNewArrival,
           isRecommended: editForm.isRecommended,
           seoTitle: (editForm.seo || {}).seoTitle || '',
           seoDescription: (editForm.seo || {}).seoDescription || '',
@@ -2743,6 +2746,18 @@ export default function ProductDetail() {
                   <div>
                     <div style={{ fontWeight: 600 }}>⭐ Featured</div>
                     <div style={{ fontSize: 12, opacity: 0.7 }}>Featured section</div>
+                  </div>
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: 16, background: editForm.isNewArrival ? '#dcfce7' : '#f9fafb', borderRadius: 12, border: editForm.isNewArrival ? '2px solid #22c55e' : '1px solid #e5e7eb' }}>
+                  <input
+                    type="checkbox"
+                    checked={editForm.isNewArrival || false}
+                    onChange={(e) => setEditForm({ ...editForm, isNewArrival: e.target.checked })}
+                    style={{ width: 18, height: 18 }}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 600 }}>✨ New Arrival</div>
+                    <div style={{ fontSize: 12, opacity: 0.7 }}>Homepage new arrivals</div>
                   </div>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: 16, background: editForm.isRecommended ? '#e0f2fe' : '#f9fafb', borderRadius: 12, border: editForm.isRecommended ? '2px solid #0ea5e9' : '1px solid #e5e7eb' }}>

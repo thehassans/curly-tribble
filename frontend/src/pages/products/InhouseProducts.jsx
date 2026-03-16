@@ -118,6 +118,7 @@ export default function InhouseProducts() {
     isBestSelling: false,
     isFeatured: false,
     isTrending: false,
+    isNewArrival: false,
     isLimitedStock: false,
     variants: {},
     shops: [],
@@ -1260,6 +1261,7 @@ export default function InhouseProducts() {
     fd.append('isBestSelling', String(!!form.isBestSelling))
     fd.append('isFeatured', String(!!form.isFeatured))
     fd.append('isTrending', String(!!form.isTrending))
+    fd.append('isNewArrival', String(!!form.isNewArrival))
     fd.append('isLimitedStock', String(!!form.isLimitedStock))
     for (const f of form.images || []) fd.append('images', f)
     if (form.video) fd.append('video', form.video)
@@ -1348,6 +1350,7 @@ export default function InhouseProducts() {
       isBestSelling: false,
       isFeatured: false,
       isTrending: false,
+      isNewArrival: false,
       isLimitedStock: false,
       variants: {},
       shops: [],
@@ -2651,6 +2654,41 @@ export default function InhouseProducts() {
                       style={{ display: 'none' }}
                     />
                     <span style={{ fontWeight: 600, fontSize: 13 }}>⭐ Featured</span>
+                  </label>
+
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                    <div
+                      style={{
+                        position: 'relative',
+                        width: 40,
+                        height: 24,
+                        background: form.isNewArrival ? '#22c55e' : '#e5e7eb',
+                        borderRadius: 12,
+                        transition: '0.3s',
+                      }}
+                    >
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: form.isNewArrival ? 18 : 2,
+                          top: 2,
+                          width: 20,
+                          height: 20,
+                          background: 'white',
+                          borderRadius: '50%',
+                          transition: '0.3s',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                        }}
+                      />
+                    </div>
+                    <input
+                      type="checkbox"
+                      name="isNewArrival"
+                      checked={!!form.isNewArrival}
+                      onChange={onChange}
+                      style={{ display: 'none' }}
+                    />
+                    <span style={{ fontWeight: 600, fontSize: 13 }}>✨ New Arrival</span>
                   </label>
 
                   {/* Limited Stock */}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { readWishlistIds } from '../../util/wishlist'
+import { readCartItems } from '../../utils/cartStorage'
 
 export default function MobileBottomNav({ onCartClick }) {
   const navigate = useNavigate()
@@ -13,13 +14,7 @@ export default function MobileBottomNav({ onCartClick }) {
   useEffect(() => {
     const updateCartCount = () => {
       try {
-        let cart = JSON.parse(localStorage.getItem('shopping_cart') || '[]')
-        if (!cart.length) {
-          try {
-            const bak = sessionStorage.getItem('shopping_cart_bak')
-            if (bak) cart = JSON.parse(bak)
-          } catch {}
-        }
+        const cart = readCartItems()
         const count = cart.reduce((sum, item) => sum + (item.quantity || 1), 0)
         setCartCount(count)
       } catch { /* preserve existing count */ }

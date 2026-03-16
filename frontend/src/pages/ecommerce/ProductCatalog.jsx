@@ -12,6 +12,7 @@ import CategoryFilter from '../../components/ecommerce/CategoryFilter'
 import MobileBottomNav from '../../components/ecommerce/MobileBottomNav'
 import DiscoverSearchSurface from '../../components/ecommerce/DiscoverSearchSurface'
 import { getCachedCurrencyConfig, getCurrencyConfig } from '../../util/currency'
+import { readCartItems } from '../../utils/cartStorage'
 
 function safeParseCatalogHeadlineSlides(raw, fallback) {
   try {
@@ -327,6 +328,10 @@ export default function ProductCatalog() {
     const sp = new URLSearchParams(window.location.search)
     return sp.get('filter') || ''
   })
+  const [selectedBrand, setSelectedBrand] = useState(() => {
+    const sp = new URLSearchParams(window.location.search)
+    return sp.get('brand') || 'all'
+  })
   const [selectedCountry, setSelectedCountry] = useState(() => {
     try { return localStorage.getItem('selected_country') || 'GB' } catch { return 'GB' }
   }) // Default to KSA
@@ -356,10 +361,11 @@ export default function ProductCatalog() {
   const [mobileCountryOpen, setMobileCountryOpen] = useState(false)
   const [discoverCategories, setDiscoverCategories] = useState([])
   const [placeholderIdx, setPlaceholderIdx] = useState(0)
-  const [cartCount, setCartCount] = useState(() => { try { const c = JSON.parse(localStorage.getItem('shopping_cart') || '[]'); return c.reduce((s, i) => s + (i.quantity || 1), 0) } catch { return 0 } })
+  const [cartCount, setCartCount] = useState(() => { try { const c = readCartItems(); return c.reduce((s, i) => s + (i.quantity || 1), 0) } catch { return 0 } })
   const [annBar, setAnnBar] = useState(null)
   const [visualSearchResult, setVisualSearchResult] = useState(null)
   const [currencyConfig, setCurrencyConfig] = useState(() => getCachedCurrencyConfig())
+  const [availableBrands, setAvailableBrands] = useState([])
   const COUNTRY_LIST_LOCAL = [
     { code: 'GB', name: 'UK', flag: '🇬🇧' }, { code: 'US', name: 'USA', flag: '🇺🇸' },
     { code: 'AE', name: 'UAE', flag: '🇦🇪' }, { code: 'SA', name: 'KSA', flag: '🇸🇦' },
@@ -370,6 +376,14 @@ export default function ProductCatalog() {
   ]
   const currentFlag = COUNTRY_LIST_LOCAL.find(c => c.code === selectedCountry)?.flag || '🇬🇧'
   const currentCountryName = COUNTRY_LIST_LOCAL.find(c => c.code === selectedCountry)?.name || 'UK'
+  const discoverQuickFilters = [
+    { id: '', label: 'All Picks' },
+    { id: 'sale', label: 'Deals' },
+    { id: 'newArrival', label: 'New Arrivals' },
+    { id: 'bestSelling', label: 'Best Sellers' },
+    { id: 'featured', label: 'Featured' },
+    { id: 'trending', label: 'Trending' },
+  ]
 
   const discoverCategoryCards = React.useMemo(() => {
     const map = new Map()
@@ -400,62 +414,11 @@ export default function ProductCatalog() {
     setVisualSearchResult(next)
     const query = String(next?.query || '').trim()
     const matchedProducts = Array.isArray(next?.products) ? next.products : []
-    const normalizedTerms = [
-      query,
-      String(next?.brand || '').trim(),
-      String(next?.category || '').trim(),
-      ...((Array.isArray(next?.attributes) ? next.attributes : []).map((entry) => String(entry || '').trim())),
-    ]
-      .filter(Boolean)
-      .map((entry) => entry.toLowerCase())
-    const rankedMatches = matchedProducts
-      .map((product) => {
-        const name = String(product?.name || '').trim().toLowerCase()
-        const brand = String(product?.brand || '').trim().toLowerCase()
-        const category = String(product?.category || '').trim().toLowerCase()
-        const subcategory = String(product?.subcategory || '').trim().toLowerCase()
-        const description = String(product?.description || '').trim().toLowerCase()
-        const haystack = [name, brand, category, subcategory, description].filter(Boolean).join(' ')
-        let score = 0
-        for (const term of normalizedTerms) {
-          if (!term) continue
-          if (name === term) score += 10
-          else if (name.includes(term)) score += 7
-          else if (haystack.includes(term)) score += 3
-          if (brand && term === brand) score += 4
-          if (category && term === category) score += 4
-          if (subcategory && term === subcategory) score += 2
-        }
-        if (query) {
-          const q = query.toLowerCase()
-          if (name === q) score += 10
-          else if (name.includes(q)) score += 8
-          else if (haystack.includes(q)) score += 4
-        }
-        return { product, score }
-      })
-      .sort((a, b) => b.score - a.score)
-    const bestMatch = rankedMatches[0]?.product || null
-    const bestScore = Number(rankedMatches[0]?.score || 0)
-    const runnerUpScore = Number(rankedMatches[1]?.score || 0)
-    const bestMatchUrl = (() => {
-      const slug = String(bestMatch?.slug || '').trim()
-      const id = String(bestMatch?._id || bestMatch?.id || '').trim()
-      if (slug) return `/products/${slug}`
-      if (id) return `/product/${id}`
-      return ''
-    })()
 
     setSelectedCategory('all')
     setSelectedSubcategory('all')
-
-    const confidence = Number(next?.confidence || 0)
-    const shouldOpenBestMatch = !!bestMatchUrl && (
-      matchedProducts.length === 1 ||
-      bestScore >= 12 ||
-      (bestScore >= 9 && bestScore >= runnerUpScore + 3) ||
-      (confidence >= 0.82 && bestScore >= 7)
-    )
+    setFilterType('')
+    setSelectedBrand(String(next?.brand || '').trim() || 'all')
 
     if (query) {
       if (matchedProducts.length) skipNextCatalogReloadRef.current = true
@@ -463,12 +426,6 @@ export default function ProductCatalog() {
       try {
         trackSearch(query, matchedProducts.length)
       } catch {}
-    }
-
-    if (shouldOpenBestMatch) {
-      toast.success(query ? `Opening best match for “${query}”` : 'Opening best visual match')
-      navigate(bestMatchUrl)
-      return
     }
 
     if (matchedProducts.length) {
@@ -481,11 +438,11 @@ export default function ProductCatalog() {
     }
 
     if (query) {
-      toast.info(`Visual search found “${query}”. Loading matching products...`)
+      toast.info(`Visual search found matches for “${query}”. Showing the product list.`)
     }
-  }, [navigate, toast])
+  }, [toast])
   useEffect(() => {
-    const update = () => { try { const c = JSON.parse(localStorage.getItem('shopping_cart') || '[]'); setCartCount(c.reduce((s, i) => s + (i.quantity || 1), 0)) } catch { setCartCount(0) } }
+    const update = () => { try { const c = readCartItems(); setCartCount(c.reduce((s, i) => s + (i.quantity || 1), 0)) } catch { setCartCount(0) } }
     window.addEventListener('cartUpdated', update); window.addEventListener('storage', update)
     return () => { window.removeEventListener('cartUpdated', update); window.removeEventListener('storage', update) }
   }, [])
@@ -589,6 +546,7 @@ export default function ProductCatalog() {
       if (selectedCountry) params.append('country', selectedCountry)
       if (selectedCategory !== 'all') params.append('category', selectedCategory)
       if (selectedCategory !== 'all' && selectedSubcategory !== 'all') params.append('subcategory', selectedSubcategory)
+      if (selectedBrand && selectedBrand !== 'all') params.append('brand', selectedBrand)
       if (searchQuery.trim()) params.append('search', searchQuery.trim())
       if (sortBy) params.append('sort', sortBy)
       const ft = String(filterType || '')
@@ -596,6 +554,7 @@ export default function ProductCatalog() {
       else if (ft === 'featured') params.append('filter', 'featured')
       else if (ft === 'trending') params.append('filter', 'trending')
       else if (ft === 'recommended') params.append('filter', 'recommended')
+      else if (ft === 'newArrival') params.append('filter', 'newArrival')
       params.append('page', String(pageNum))
       params.append('limit', String(productsPerPage))
 
@@ -638,7 +597,7 @@ export default function ProductCatalog() {
       if (replace) setLoading(false)
       setLoadingMore(false)
     }
-  }, [filterType, mixByCategory, productsPerPage, rotateToAvoidSameCategory, searchQuery, selectedCategory, selectedCountry, selectedSubcategory, sortBy, toast])
+  }, [filterType, mixByCategory, productsPerPage, rotateToAvoidSameCategory, searchQuery, selectedBrand, selectedCategory, selectedCountry, selectedSubcategory, sortBy, toast])
 
   // Load category usage counts (public)
   useEffect(() => {
@@ -654,6 +613,26 @@ export default function ProductCatalog() {
     })()
     return ()=>{ alive = false }
   }, [selectedCountry])
+
+  useEffect(() => {
+    let alive = true
+    ;(async () => {
+      try {
+        const res = await apiGet('/api/brands/public')
+        const brands = Array.isArray(res?.brands) ? res.brands : []
+        if (!alive) return
+        setAvailableBrands(
+          brands
+            .map((entry) => String(entry?.name || '').trim())
+            .filter(Boolean)
+            .sort((a, b) => a.localeCompare(b))
+        )
+      } catch {
+        if (alive) setAvailableBrands([])
+      }
+    })()
+    return () => { alive = false }
+  }, [])
 
   // Load subcategory usage counts for the selected category (public)
   useEffect(() => {
@@ -780,7 +759,7 @@ export default function ProductCatalog() {
     loadProducts(1, true)
     trackPageView('/products', 'Product Catalog')
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory, selectedSubcategory, searchQuery, sortBy, filterType, loadProducts])
+  }, [selectedBrand, selectedCategory, selectedSubcategory, searchQuery, sortBy, filterType, loadProducts])
 
   // Read initial category/search/filter from URL (and on URL change)
   useEffect(() => {
@@ -789,11 +768,13 @@ export default function ProductCatalog() {
     const subcat = sp.get('subcategory') || 'all'
     const q = sp.get('search') || ''
     const filter = sp.get('filter') || ''
+    const brand = sp.get('brand') || 'all'
     const sort = sp.get('sort') || 'name'
     if (cat !== selectedCategory) setSelectedCategory(cat)
     if (subcat !== selectedSubcategory) setSelectedSubcategory(subcat)
     if (q !== searchQuery) setSearchQuery(q)
     if (filter !== filterType) setFilterType(filter)
+    if (brand !== selectedBrand) setSelectedBrand(brand)
     if (sort !== sortBy) setSortBy(sort)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.search])
@@ -807,6 +788,7 @@ export default function ProductCatalog() {
     const currQ = sp.get('search') || ''
     const currSort = sp.get('sort') || ''
     const currFilter = sp.get('filter') || ''
+    const currBrand = sp.get('brand') || 'all'
     if ((selectedCategory || 'all') !== currCat){
       if (selectedCategory && selectedCategory !== 'all') sp.set('category', selectedCategory)
       else sp.delete('category')
@@ -842,11 +824,20 @@ export default function ProductCatalog() {
       sp.delete('filter')
       changed = true
     }
+    if (selectedBrand && selectedBrand !== 'all') {
+      if (currBrand !== selectedBrand) {
+        sp.set('brand', selectedBrand)
+        changed = true
+      }
+    } else if (currBrand !== 'all' && currBrand) {
+      sp.delete('brand')
+      changed = true
+    }
     if (changed){
       navigate(`/catalog?${sp.toString()}`, { replace: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory, selectedSubcategory, searchQuery, sortBy, filterType])
+  }, [selectedBrand, selectedCategory, selectedSubcategory, searchQuery, sortBy, filterType])
 
   // Persist selected country for use on product detail/cart
   useEffect(() => {
@@ -914,6 +905,13 @@ export default function ProductCatalog() {
       const q = String(query || '').trim()
       if (q && q.length >= 4) trackSearch(q, products.length)
     } catch {}
+  }
+
+  const handleBrandChange = (brand) => {
+    setVisualSearchResult(null)
+    setSelectedBrand(brand || 'all')
+    setCurrentPage(1)
+    trackFilterUsage('brand', brand || 'all')
   }
 
   const handleAddToCart = (product) => {
@@ -1409,6 +1407,68 @@ export default function ProductCatalog() {
               })()
             ) : null}
 
+            <div className="mb-5 space-y-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-[11px] font-black uppercase tracking-[0.24em] text-slate-400">Discover filters</div>
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setShowFilters((prev) => !prev)} className="lg:hidden px-3 py-1.5 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold">
+                    {showFilters ? 'Hide categories' : 'Show categories'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFilterType('')
+                      setSelectedBrand('all')
+                      setSelectedCategory('all')
+                      setSelectedSubcategory('all')
+                      setCurrentPage(1)
+                    }}
+                    className="px-3 py-1.5 rounded-full border border-slate-200 bg-white text-slate-600 text-xs font-semibold"
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-x-auto no-scrollbar">
+                <div className="flex gap-2 pb-1 min-w-max">
+                  {discoverQuickFilters.map((entry) => (
+                    <button
+                      key={entry.id || 'all-picks'}
+                      type="button"
+                      onClick={() => { setFilterType(entry.id); setCurrentPage(1); trackFilterUsage('discover_filter', entry.id || 'all') }}
+                      className={`px-3.5 py-2 rounded-full text-[12px] font-semibold whitespace-nowrap transition-all ${filterType === entry.id ? 'bg-slate-900 text-white shadow-[0_10px_24px_rgba(15,23,42,0.16)]' : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-300'}`}
+                    >
+                      {entry.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="sm:min-w-[220px]">
+                  <select
+                    value={selectedBrand}
+                    onChange={(e) => handleBrandChange(e.target.value)}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm outline-none focus:border-slate-400"
+                  >
+                    <option value="all">All brands</option>
+                    {availableBrands.map((brand) => <option key={brand} value={brand}>{brand}</option>)}
+                  </select>
+                </div>
+                <div className="sm:min-w-[180px]">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => { setSortBy(e.target.value); setCurrentPage(1) }}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 shadow-sm outline-none focus:border-slate-400"
+                  >
+                    <option value="name">Sort: Featured Mix</option>
+                    <option value="newest">Newest</option>
+                    <option value="price">Price: Low to High</option>
+                    <option value="price-desc">Price: High to Low</option>
+                    <option value="rating">Top Rated</option>
+                  </select>
+                </div>
+              </div>
+            </div>
 
             {showFilters && (
               <div className="mb-6 lg:hidden">
@@ -1463,10 +1523,14 @@ export default function ProductCatalog() {
             {/* Premium Results Summary */}
             <div className="mb-4">
               <p className="text-[13px] font-medium text-gray-400 tracking-wide uppercase mb-2" style={{ letterSpacing: '0.08em' }}>All Products</p>
-              {(selectedCategory !== 'all' || searchQuery) && (
+              {(selectedCategory !== 'all' || selectedBrand !== 'all' || filterType || searchQuery) && (
                 <p className="text-sm font-medium text-gray-700 mb-2">
                   {selectedCategory !== 'all' && <span className="text-orange-600">{selectedCategory}</span>}
-                  {selectedCategory !== 'all' && searchQuery && <span className="text-gray-300 mx-1.5">•</span>}
+                  {selectedCategory !== 'all' && (selectedBrand !== 'all' || filterType || searchQuery) && <span className="text-gray-300 mx-1.5">•</span>}
+                  {selectedBrand !== 'all' && <span className="text-slate-600">{selectedBrand}</span>}
+                  {selectedBrand !== 'all' && (filterType || searchQuery) && <span className="text-gray-300 mx-1.5">•</span>}
+                  {filterType && <span className="text-emerald-600">{discoverQuickFilters.find((entry) => entry.id === filterType)?.label || filterType}</span>}
+                  {filterType && searchQuery && <span className="text-gray-300 mx-1.5">•</span>}
                   {searchQuery && <span className="text-gray-500">"{searchQuery}"</span>}
                 </p>
               )}

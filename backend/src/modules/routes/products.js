@@ -259,7 +259,7 @@ function scoreVisualSearchProduct(product, intent = {}, terms = []) {
   return score
 }
 
-function buildPublicProductQuery({ country, category, subcategory, search, filter } = {}) {
+function buildPublicProductQuery({ country, category, subcategory, search, filter, brand } = {}) {
   const stockCountry = normalizePublicCountryValue(country)
   const and = [
     { $or: [{ displayOnWebsite: true }, { displayOnWebsite: { $exists: false } }] },
@@ -290,10 +290,14 @@ function buildPublicProductQuery({ country, category, subcategory, search, filte
       case 'recommended':
         query.isRecommended = true
         break
+      case 'newArrival':
+        query.isNewArrival = true
+        break
     }
   }
   if (category && category !== 'all') query.category = category
   if (subcategory && String(subcategory).trim()) query.subcategory = String(subcategory).trim()
+  if (brand && String(brand).trim()) query.brand = new RegExp(`^${escapeRegex(String(brand).trim())}$`, 'i')
   if (search && String(search).trim()) {
     const clauses = buildSearchFieldClauses(search)
     if (clauses.length) query.$or = clauses
@@ -901,6 +905,7 @@ router.post('/', auth, allowRoles('admin','user','manager'), upload.any(), async
       isBestSelling: String(req.body?.isBestSelling||'').toLowerCase() === 'true' || req.body?.isBestSelling === true,
       isFeatured: String(req.body?.isFeatured||'').toLowerCase() === 'true' || req.body?.isFeatured === true,
       isTrending: String(req.body?.isTrending||'').toLowerCase() === 'true' || req.body?.isTrending === true,
+      isNewArrival: String(req.body?.isNewArrival||'').toLowerCase() === 'true' || req.body?.isNewArrival === true,
       isRecommended: String(req.body?.isRecommended||'').toLowerCase() === 'true' || req.body?.isRecommended === true,
       isLimitedStock: String(req.body?.isLimitedStock||'').toLowerCase() === 'true' || req.body?.isLimitedStock === true
     })
@@ -1180,7 +1185,7 @@ router.get('/public/:id', async (req, res) => {
 })
 router.get('/public', async (req, res) => {
   try {
-    const { category, subcategory, search, sort, limit = 50, page = 1, filter } = req.query
+    const { category, subcategory, search, sort, limit = 50, page = 1, filter, brand } = req.query
 
     const normalizePublicCountry = (input) => {
       const raw = String(input || '').trim()
@@ -1229,6 +1234,9 @@ router.get('/public', async (req, res) => {
         case 'recommended':
           query.isRecommended = true
           break
+        case 'newArrival':
+          query.isNewArrival = true
+          break
       }
     }
     
@@ -1241,10 +1249,14 @@ router.get('/public', async (req, res) => {
     if (subcategory && String(subcategory).trim()) {
       query.subcategory = String(subcategory).trim()
     }
+
+    if (brand && String(brand).trim()) {
+      query.brand = new RegExp(`^${escapeRegex(String(brand).trim())}$`, 'i')
+    }
     
     // Search filter
     if (search) {
-      const searchRegex = new RegExp(search, 'i')
+      const searchRegex = new RegExp(escapeRegex(search), 'i')
       query.$or = [
         { name: searchRegex },
         { description: searchRegex },
@@ -1846,6 +1858,7 @@ router.patch('/:id', auth, allowRoles('admin','user','manager'), upload.any(), a
   if (req.body?.isBestSelling != null) prod.isBestSelling = (req.body.isBestSelling === true || String(req.body.isBestSelling).toLowerCase() === 'true')
   if (req.body?.isFeatured != null) prod.isFeatured = (req.body.isFeatured === true || String(req.body.isFeatured).toLowerCase() === 'true')
   if (req.body?.isTrending != null) prod.isTrending = (req.body.isTrending === true || String(req.body.isTrending).toLowerCase() === 'true')
+  if (req.body?.isNewArrival != null) prod.isNewArrival = (req.body.isNewArrival === true || String(req.body.isNewArrival).toLowerCase() === 'true')
   if (req.body?.isRecommended != null) prod.isRecommended = (req.body.isRecommended === true || String(req.body.isRecommended).toLowerCase() === 'true')
   // SEO fields
   if (req.body?.seoTitle != null) prod.seoTitle = String(req.body.seoTitle || '')
