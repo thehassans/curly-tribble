@@ -98,6 +98,139 @@ function toAED(amount, currency, perAED) {
   return v / r;
 }
 
+function canonicalCountryName(value) {
+  const raw = String(value || "").trim();
+  const upper = raw.toUpperCase();
+  if (!upper) return "Other";
+  if (["KSA", "SAUDI ARABIA", "SA"].includes(upper)) return "KSA";
+  if (["UAE", "UNITED ARAB EMIRATES", "AE"].includes(upper)) return "UAE";
+  if (["OMAN", "OM"].includes(upper)) return "Oman";
+  if (["BAHRAIN", "BH"].includes(upper)) return "Bahrain";
+  if (["INDIA", "IN"].includes(upper)) return "India";
+  if (["KUWAIT", "KW"].includes(upper)) return "Kuwait";
+  if (["QATAR", "QA"].includes(upper)) return "Qatar";
+  if (["PAKISTAN", "PK"].includes(upper)) return "Pakistan";
+  if (["JORDAN", "JO"].includes(upper)) return "Jordan";
+  if (["USA", "US", "UNITED STATES", "UNITED STATES OF AMERICA"].includes(upper))
+    return "USA";
+  if (["UK", "GB", "UNITED KINGDOM"].includes(upper)) return "UK";
+  if (["CANADA", "CA"].includes(upper)) return "Canada";
+  if (["AUSTRALIA", "AU"].includes(upper)) return "Australia";
+  return raw;
+}
+
+function currencyFromCountry(country) {
+  switch (canonicalCountryName(country)) {
+    case "KSA":
+      return "SAR";
+    case "UAE":
+      return "AED";
+    case "Oman":
+      return "OMR";
+    case "Bahrain":
+      return "BHD";
+    case "India":
+      return "INR";
+    case "Kuwait":
+      return "KWD";
+    case "Qatar":
+      return "QAR";
+    case "Pakistan":
+      return "PKR";
+    case "Jordan":
+      return "JOD";
+    case "USA":
+      return "USD";
+    case "UK":
+      return "GBP";
+    case "Canada":
+      return "CAD";
+    case "Australia":
+      return "AUD";
+    default:
+      return "AED";
+  }
+}
+
+function buildCountryCanonExpr(fieldPath = "$orderCountry") {
+  return {
+    $let: {
+      vars: { c: { $ifNull: [fieldPath, ""] } },
+      in: {
+        $switch: {
+          branches: [
+            {
+              case: { $in: [{ $toUpper: "$$c" }, ["KSA", "SAUDI ARABIA", "SA"]] },
+              then: "KSA",
+            },
+            {
+              case: {
+                $in: [
+                  { $toUpper: "$$c" },
+                  ["UAE", "UNITED ARAB EMIRATES", "AE"],
+                ],
+              },
+              then: "UAE",
+            },
+            {
+              case: { $in: [{ $toUpper: "$$c" }, ["OMAN", "OM"]] },
+              then: "Oman",
+            },
+            {
+              case: { $in: [{ $toUpper: "$$c" }, ["BAHRAIN", "BH"]] },
+              then: "Bahrain",
+            },
+            {
+              case: { $in: [{ $toUpper: "$$c" }, ["INDIA", "IN"]] },
+              then: "India",
+            },
+            {
+              case: { $in: [{ $toUpper: "$$c" }, ["KUWAIT", "KW"]] },
+              then: "Kuwait",
+            },
+            {
+              case: { $in: [{ $toUpper: "$$c" }, ["QATAR", "QA"]] },
+              then: "Qatar",
+            },
+            {
+              case: { $in: [{ $toUpper: "$$c" }, ["PAKISTAN", "PK"]] },
+              then: "Pakistan",
+            },
+            {
+              case: { $in: [{ $toUpper: "$$c" }, ["JORDAN", "JO"]] },
+              then: "Jordan",
+            },
+            {
+              case: {
+                $in: [
+                  { $toUpper: "$$c" },
+                  ["USA", "US", "UNITED STATES", "UNITED STATES OF AMERICA"],
+                ],
+              },
+              then: "USA",
+            },
+            {
+              case: { $in: [{ $toUpper: "$$c" }, ["UK", "GB", "UNITED KINGDOM"]] },
+              then: "UK",
+            },
+            {
+              case: { $in: [{ $toUpper: "$$c" }, ["CANADA", "CA"]] },
+              then: "Canada",
+            },
+            {
+              case: { $in: [{ $toUpper: "$$c" }, ["AUSTRALIA", "AU"]] },
+              then: "Australia",
+            },
+          ],
+          default: {
+            $cond: [{ $eq: ["$$c", ""] }, "Other", "$$c"],
+          },
+        },
+      },
+    },
+  };
+}
+
 // Generate a reasonably strong temporary password for resend flows
 function generateTempPassword(len = 10) {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#";
@@ -3339,6 +3472,325 @@ router.post("/:id/impersonate", auth, allowRoles("admin", "user"), async (req, r
 // ============================================
 // CUSTOMER MANAGEMENT ENDPOINTS
 // ============================================
+
+router.get(
+  "/total-amounts",
+  auth,
+  allowRoles("user"),
+  async (req, res) => {
+    try {
+      const ownerId = new mongoose.Types.ObjectId(req.user.id);
+      const [agents, managers, dropshippers, products] = await Promise.all([
+        User.find({ role: "agent", createdBy: ownerId }, { _id: 1 }).lean(),
+        User.find({ role: "manager", createdBy: ownerId }, { _id: 1 }).lean(),
+        User.find({ role: "dropshipper", createdBy: ownerId }, { _id: 1 }).lean(),
+        Product.find({ createdBy: ownerId }).select("_id").lean(),
+      ]);
+
+      const creatorIdStrings = Array.from(
+        new Set([
+          String(ownerId),
+          ...agents.map((row) => String(row._id)),
+          ...managers.map((row) => String(row._id)),
+          ...dropshippers.map((row) => String(row._id)),
+        ])
+      );
+      const creatorIds = creatorIdStrings.map((id) => new mongoose.Types.ObjectId(id));
+      const ownedProductIds = products.map((p) => p._id).filter(Boolean);
+      const WebOrder = (await import("../models/WebOrder.js")).default;
+
+      const [internalRows, webRows] = await Promise.all([
+        Order.aggregate([
+          {
+            $match: {
+              createdBy: { $in: creatorIds },
+            },
+          },
+          {
+            $project: {
+              orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+              amount: { $ifNull: ["$total", 0] },
+              shipmentStatus: { $ifNull: ["$shipmentStatus", "pending"] },
+              createdByRole: { $ifNull: ["$createdByRole", "user"] },
+              hasDriver: {
+                $ne: [{ $ifNull: ["$deliveryBoy", null] }, null],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: "$orderCountryCanon",
+              totalAmount: { $sum: "$amount" },
+              deliveredAmount: {
+                $sum: {
+                  $cond: [{ $eq: ["$shipmentStatus", "delivered"] }, "$amount", 0],
+                },
+              },
+              agentAmount: {
+                $sum: {
+                  $cond: [{ $eq: ["$createdByRole", "agent"] }, "$amount", 0],
+                },
+              },
+              agentDeliveredAmount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $eq: ["$createdByRole", "agent"] },
+                        { $eq: ["$shipmentStatus", "delivered"] },
+                      ],
+                    },
+                    "$amount",
+                    0,
+                  ],
+                },
+              },
+              dropshipperAmount: {
+                $sum: {
+                  $cond: [{ $eq: ["$createdByRole", "dropshipper"] }, "$amount", 0],
+                },
+              },
+              dropshipperDeliveredAmount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        { $eq: ["$createdByRole", "dropshipper"] },
+                        { $eq: ["$shipmentStatus", "delivered"] },
+                      ],
+                    },
+                    "$amount",
+                    0,
+                  ],
+                },
+              },
+              driverTotalAmount: {
+                $sum: {
+                  $cond: ["$hasDriver", "$amount", 0],
+                },
+              },
+              driverDeliveredAmount: {
+                $sum: {
+                  $cond: [
+                    {
+                      $and: [
+                        "$hasDriver",
+                        { $eq: ["$shipmentStatus", "delivered"] },
+                      ],
+                    },
+                    "$amount",
+                    0,
+                  ],
+                },
+              },
+            },
+          },
+        ]),
+        ownedProductIds.length
+          ? WebOrder.aggregate([
+              {
+                $match: {
+                  "items.productId": { $in: ownedProductIds },
+                },
+              },
+              {
+                $project: {
+                  orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+                  amount: { $ifNull: ["$total", 0] },
+                  shipmentStatus: { $ifNull: ["$shipmentStatus", "pending"] },
+                  hasDriver: {
+                    $ne: [{ $ifNull: ["$deliveryBoy", null] }, null],
+                  },
+                },
+              },
+              {
+                $group: {
+                  _id: "$orderCountryCanon",
+                  totalAmount: { $sum: "$amount" },
+                  deliveredAmount: {
+                    $sum: {
+                      $cond: [{ $eq: ["$shipmentStatus", "delivered"] }, "$amount", 0],
+                    },
+                  },
+                  onlineOrderAmount: { $sum: "$amount" },
+                  onlineOrderDeliveredAmount: {
+                    $sum: {
+                      $cond: [{ $eq: ["$shipmentStatus", "delivered"] }, "$amount", 0],
+                    },
+                  },
+                  driverTotalAmount: {
+                    $sum: {
+                      $cond: ["$hasDriver", "$amount", 0],
+                    },
+                  },
+                  driverDeliveredAmount: {
+                    $sum: {
+                      $cond: [
+                        {
+                          $and: [
+                            "$hasDriver",
+                            { $eq: ["$shipmentStatus", "delivered"] },
+                          ],
+                        },
+                        "$amount",
+                        0,
+                      ],
+                    },
+                  },
+                },
+              },
+            ])
+          : [],
+      ]);
+
+      const countryOrder = [
+        "KSA",
+        "UAE",
+        "Oman",
+        "Bahrain",
+        "India",
+        "Kuwait",
+        "Qatar",
+        "Pakistan",
+        "Jordan",
+        "USA",
+        "UK",
+        "Canada",
+        "Australia",
+        "Other",
+      ];
+      const countrySortIndex = (country) => {
+        const idx = countryOrder.indexOf(canonicalCountryName(country));
+        return idx === -1 ? countryOrder.length + 1 : idx;
+      };
+
+      const rowMap = new Map();
+      const ensureRow = (country) => {
+        const key = canonicalCountryName(country);
+        if (!rowMap.has(key)) {
+          rowMap.set(key, {
+            country: key,
+            currency: currencyFromCountry(key),
+            totalAmount: 0,
+            deliveredAmount: 0,
+            agentAmount: 0,
+            agentDeliveredAmount: 0,
+            dropshipperAmount: 0,
+            dropshipperDeliveredAmount: 0,
+            driverTotalAmount: 0,
+            driverDeliveredAmount: 0,
+            onlineOrderAmount: 0,
+            onlineOrderDeliveredAmount: 0,
+          });
+        }
+        return rowMap.get(key);
+      };
+
+      for (const row of internalRows || []) {
+        const entry = ensureRow(row?._id || "Other");
+        entry.totalAmount += Number(row?.totalAmount || 0);
+        entry.deliveredAmount += Number(row?.deliveredAmount || 0);
+        entry.agentAmount += Number(row?.agentAmount || 0);
+        entry.agentDeliveredAmount += Number(row?.agentDeliveredAmount || 0);
+        entry.dropshipperAmount += Number(row?.dropshipperAmount || 0);
+        entry.dropshipperDeliveredAmount += Number(row?.dropshipperDeliveredAmount || 0);
+        entry.driverTotalAmount += Number(row?.driverTotalAmount || 0);
+        entry.driverDeliveredAmount += Number(row?.driverDeliveredAmount || 0);
+      }
+
+      for (const row of webRows || []) {
+        const entry = ensureRow(row?._id || "Other");
+        entry.totalAmount += Number(row?.totalAmount || 0);
+        entry.deliveredAmount += Number(row?.deliveredAmount || 0);
+        entry.onlineOrderAmount += Number(row?.onlineOrderAmount || 0);
+        entry.onlineOrderDeliveredAmount += Number(row?.onlineOrderDeliveredAmount || 0);
+        entry.driverTotalAmount += Number(row?.driverTotalAmount || 0);
+        entry.driverDeliveredAmount += Number(row?.driverDeliveredAmount || 0);
+      }
+
+      const countries = Array.from(rowMap.values())
+        .map((row) => ({
+          ...row,
+          totalAmount: Math.round((Number(row.totalAmount || 0) + Number.EPSILON) * 100) / 100,
+          deliveredAmount:
+            Math.round((Number(row.deliveredAmount || 0) + Number.EPSILON) * 100) / 100,
+          agentAmount: Math.round((Number(row.agentAmount || 0) + Number.EPSILON) * 100) / 100,
+          agentDeliveredAmount:
+            Math.round((Number(row.agentDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
+          dropshipperAmount:
+            Math.round((Number(row.dropshipperAmount || 0) + Number.EPSILON) * 100) / 100,
+          dropshipperDeliveredAmount:
+            Math.round((Number(row.dropshipperDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
+          driverTotalAmount:
+            Math.round((Number(row.driverTotalAmount || 0) + Number.EPSILON) * 100) / 100,
+          driverDeliveredAmount:
+            Math.round((Number(row.driverDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
+          onlineOrderAmount:
+            Math.round((Number(row.onlineOrderAmount || 0) + Number.EPSILON) * 100) / 100,
+          onlineOrderDeliveredAmount:
+            Math.round((Number(row.onlineOrderDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
+        }))
+        .sort((a, b) => {
+          const byCountry = countrySortIndex(a.country) - countrySortIndex(b.country);
+          if (byCountry !== 0) return byCountry;
+          return Number(b.totalAmount || 0) - Number(a.totalAmount || 0);
+        });
+
+      const perAED = await getPerAEDConfig();
+      const summary = countries.reduce(
+        (acc, row) => {
+          const currency = row.currency || "AED";
+          acc.totalAmount += toAED(Number(row.totalAmount || 0), currency, perAED);
+          acc.deliveredAmount += toAED(Number(row.deliveredAmount || 0), currency, perAED);
+          acc.agentAmount += toAED(Number(row.agentAmount || 0), currency, perAED);
+          acc.agentDeliveredAmount += toAED(Number(row.agentDeliveredAmount || 0), currency, perAED);
+          acc.dropshipperAmount += toAED(Number(row.dropshipperAmount || 0), currency, perAED);
+          acc.dropshipperDeliveredAmount += toAED(Number(row.dropshipperDeliveredAmount || 0), currency, perAED);
+          acc.driverTotalAmount += toAED(Number(row.driverTotalAmount || 0), currency, perAED);
+          acc.driverDeliveredAmount += toAED(Number(row.driverDeliveredAmount || 0), currency, perAED);
+          acc.onlineOrderAmount += toAED(Number(row.onlineOrderAmount || 0), currency, perAED);
+          acc.onlineOrderDeliveredAmount += toAED(Number(row.onlineOrderDeliveredAmount || 0), currency, perAED);
+          return acc;
+        },
+        {
+          totalAmount: 0,
+          deliveredAmount: 0,
+          agentAmount: 0,
+          agentDeliveredAmount: 0,
+          dropshipperAmount: 0,
+          dropshipperDeliveredAmount: 0,
+          driverTotalAmount: 0,
+          driverDeliveredAmount: 0,
+          onlineOrderAmount: 0,
+          onlineOrderDeliveredAmount: 0,
+        }
+      );
+
+      return res.json({
+        countries,
+        summary: {
+          totalAmount: Math.round((Number(summary.totalAmount || 0) + Number.EPSILON) * 100) / 100,
+          deliveredAmount: Math.round((Number(summary.deliveredAmount || 0) + Number.EPSILON) * 100) / 100,
+          agentAmount: Math.round((Number(summary.agentAmount || 0) + Number.EPSILON) * 100) / 100,
+          agentDeliveredAmount: Math.round((Number(summary.agentDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
+          dropshipperAmount: Math.round((Number(summary.dropshipperAmount || 0) + Number.EPSILON) * 100) / 100,
+          dropshipperDeliveredAmount: Math.round((Number(summary.dropshipperDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
+          driverTotalAmount: Math.round((Number(summary.driverTotalAmount || 0) + Number.EPSILON) * 100) / 100,
+          driverDeliveredAmount: Math.round((Number(summary.driverDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
+          onlineOrderAmount: Math.round((Number(summary.onlineOrderAmount || 0) + Number.EPSILON) * 100) / 100,
+          onlineOrderDeliveredAmount: Math.round((Number(summary.onlineOrderDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
+          currency: "AED",
+        },
+      });
+    } catch (err) {
+      console.error("Failed to load total amounts:", err);
+      return res.status(500).json({
+        message: "Failed to load total amounts",
+        error: err?.message,
+      });
+    }
+  }
+);
 
 // GET /api/users/customers - List all customers with order stats
 router.get(

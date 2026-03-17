@@ -102,6 +102,7 @@ const AgentHistoryAll = lazy(() => import('./pages/user/AgentHistoryAll.jsx'))
 const CommissionerAmounts = lazy(() => import('./pages/user/CommissionerAmounts.jsx'))
 const Confirmers = lazy(() => import('./pages/user/Confirmers.jsx'))
 const DriverAmounts = lazy(() => import('./pages/user/DriverAmounts.jsx'))
+const TotalAmounts = lazy(() => import('./pages/user/TotalAmounts.jsx'))
 const CurrencySettings = lazy(() => import('./pages/user/CurrencySettings.jsx'))
 const PaymentSettings = lazy(() => import('./pages/user/PaymentSettings.jsx'))
 const EmailSettings = lazy(() => import('./pages/user/EmailSettings.jsx'))
@@ -891,6 +892,7 @@ export default function App() {
               <Route path="commissioner-amounts" element={<CommissionerAmounts />} />
               <Route path="confirmers" element={<Confirmers />} />
               <Route path="driver-amounts" element={<DriverAmounts />} />
+              <Route path="total-amounts" element={<TotalAmounts />} />
               <Route path="manager-salary" element={<ManagerSalary />} />
               <Route path="finances" element={<UserFinances />} />
               <Route path="currency" element={<CurrencySettings />} />
