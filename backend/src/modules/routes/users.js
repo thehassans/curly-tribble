@@ -336,18 +336,30 @@ function buildCountryCanonExpr(fieldPath = "$orderCountry") {
       User.find({ role: "agent", createdBy: ownerId }, { _id: 1, country: 1 }).lean(),
       User.find({ role: "manager", createdBy: ownerId }, { _id: 1 }).lean(),
       User.find({ role: "dropshipper", createdBy: ownerId }, { _id: 1, country: 1 }).lean(),
-      User.find({ role: "driver", createdBy: ownerId }, { _id: 1, country: 1 }).lean(),
+      User.find({ role: "driver", createdBy: ownerId }, { _id: 1, country: 1, driverProfile: 1 }).lean(),
       Product.find({ createdBy: ownerId }).select("_id").lean(),
     ]);
 
     const agentIds = agents.map((row) => row._id).filter(Boolean);
     const dropshipperIds = dropshippers.map((row) => row._id).filter(Boolean);
     const driverIds = drivers.map((row) => row._id).filter(Boolean);
+    const agentIdSet = new Set(agentIds.map((row) => String(row)));
+    const dropshipperIdSet = new Set(dropshipperIds.map((row) => String(row)));
+    const driverIdSet = new Set(driverIds.map((row) => String(row)));
     const agentCountryById = new Map(
       agents.map((row) => [String(row._id), canonicalCountryName(row.country)])
     );
     const driverCountryById = new Map(
       drivers.map((row) => [String(row._id), canonicalCountryName(row.country)])
+    );
+    const driverMetaById = new Map(
+      drivers.map((row) => [
+        String(row._id),
+        {
+          commissionPerOrder: Number(row?.driverProfile?.commissionPerOrder || 0),
+          commissionCurrency: String(row?.driverProfile?.commissionCurrency || currencyFromCountry(row.country) || "SAR").toUpperCase(),
+        },
+      ])
     );
 
     const creatorIdStrings = Array.from(
@@ -507,26 +519,13 @@ function buildCountryCanonExpr(fieldPath = "$orderCountry") {
         {
           $project: {
             orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+            createdBy: 1,
             createdByRole: { $toLower: { $ifNull: ["$createdByRole", "user"] } },
+            totalAmount: { $ifNull: ["$total", 0] },
             agentCommissionPKR: { $ifNull: ["$agentCommissionPKR", 0] },
+            deliveryBoy: 1,
             driverCommission: { $ifNull: ["$driverCommission", 0] },
             dropshipperProfitAmount: { $ifNull: ["$dropshipperProfit.amount", 0] },
-          },
-        },
-        {
-          $group: {
-            _id: "$orderCountryCanon",
-            agentTotalCommissionPKR: {
-              $sum: {
-                $cond: [{ $eq: ["$createdByRole", "agent"] }, "$agentCommissionPKR", 0],
-              },
-            },
-            dropshipperTotalCommission: {
-              $sum: {
-                $cond: [{ $eq: ["$createdByRole", "dropshipper"] }, "$dropshipperProfitAmount", 0],
-              },
-            },
-            driverTotalCommission: { $sum: "$driverCommission" },
           },
         },
       ]),
@@ -640,12 +639,24 @@ function buildCountryCanonExpr(fieldPath = "$orderCountry") {
       return idx === -1 ? countryOrder.length + 1 : idx;
     };
 
+    const addMapAmount = (holder, id, country, amountAED) => {
+      const safeId = String(id || "");
+      const safeCountry = canonicalCountryName(country);
+      const safeAmount = Number(amountAED || 0);
+      if (!safeId || !Number.isFinite(safeAmount) || safeAmount <= 0) return;
+      if (!holder.has(safeId)) holder.set(safeId, new Map());
+      const byCountry = holder.get(safeId);
+      byCountry.set(safeCountry, Number(byCountry.get(safeCountry) || 0) + safeAmount);
+    };
+
     const rowMap = new Map();
     const ensureRow = (country) => {
       const key = canonicalCountryName(country);
       if (!rowMap.has(key)) rowMap.set(key, createEmptyTotals(key));
       return rowMap.get(key);
     };
+    const agentEarnedByCountry = new Map();
+    const driverEarnedByCountry = new Map();
 
     for (const row of internalRows || []) {
       const entry = ensureRow(row?._id || "Other");
@@ -692,37 +703,83 @@ function buildCountryCanonExpr(fieldPath = "$orderCountry") {
     }
 
     for (const row of deliveredCommissionRows || []) {
-      const entry = ensureRow(row?._id || "Other");
+      const country = row?.orderCountryCanon || "Other";
+      const entry = ensureRow(country);
       const entryCurrency = entry.currency || "AED";
-      entry.agentTotalCommission += fromAED(
-        toAED(Number(row?.agentTotalCommissionPKR || 0), "PKR", rateConfig),
-        entryCurrency,
-        rateConfig
-      );
-      entry.dropshipperTotalCommission += Number(row?.dropshipperTotalCommission || 0);
-      entry.driverTotalCommission += Number(row?.driverTotalCommission || 0);
+      const creatorId = String(row?.createdBy || "");
+      const createdByRole = String(row?.createdByRole || "").toLowerCase();
+      const driverId = String(row?.deliveryBoy || "");
+      const totalAmount = Number(row?.totalAmount || 0);
+
+      const isAgentOrder = createdByRole === "agent" || agentIdSet.has(creatorId);
+      if (isAgentOrder) {
+        let agentCommissionPKR = Number(row?.agentCommissionPKR || 0);
+        if (!(agentCommissionPKR > 0) && totalAmount > 0) {
+          const totalAED = toAED(totalAmount, entryCurrency, rateConfig);
+          agentCommissionPKR = fromAED(totalAED * 0.12, "PKR", rateConfig);
+        }
+        const agentCommissionAED = toAED(agentCommissionPKR, "PKR", rateConfig);
+        entry.agentTotalCommission += fromAED(agentCommissionAED, entryCurrency, rateConfig);
+        addMapAmount(agentEarnedByCountry, creatorId, country, agentCommissionAED);
+      }
+
+      const isDropshipperOrder = createdByRole === "dropshipper" || dropshipperIdSet.has(creatorId);
+      if (isDropshipperOrder) {
+        entry.dropshipperTotalCommission += Number(row?.dropshipperProfitAmount || 0);
+      }
+
+      if (driverId && driverIdSet.has(driverId)) {
+        let driverCommissionValue = Number(row?.driverCommission || 0);
+        if (!(driverCommissionValue > 0)) {
+          const driverMeta = driverMetaById.get(driverId);
+          const fallbackCommission = Number(driverMeta?.commissionPerOrder || 0);
+          const fallbackCurrency = String(driverMeta?.commissionCurrency || entryCurrency || "SAR").toUpperCase();
+          driverCommissionValue = fromAED(toAED(fallbackCommission, fallbackCurrency, rateConfig), entryCurrency, rateConfig);
+        }
+        const driverCommissionAED = toAED(driverCommissionValue, entryCurrency, rateConfig);
+        entry.driverTotalCommission += fromAED(driverCommissionAED, entryCurrency, rateConfig);
+        addMapAmount(driverEarnedByCountry, driverId, country, driverCommissionAED);
+      }
     }
 
     for (const row of agentPaidRows || []) {
       const agentId = String(row?._id?.agent || "");
-      const entry = ensureRow(agentCountryById.get(agentId) || "Other");
-      const entryCurrency = entry.currency || "AED";
-      entry.agentPaidCommission += fromAED(
-        toAED(Number(row?.total || 0), row?._id?.currency || "PKR", rateConfig),
-        entryCurrency,
-        rateConfig
-      );
+      const totalPaidAED = toAED(Number(row?.total || 0), row?._id?.currency || "PKR", rateConfig);
+      const earnedMap = agentEarnedByCountry.get(agentId);
+      if (!earnedMap || earnedMap.size === 0 || totalPaidAED <= 0) {
+        const entry = ensureRow(agentCountryById.get(agentId) || "Other");
+        const entryCurrency = entry.currency || "AED";
+        entry.agentPaidCommission += fromAED(totalPaidAED, entryCurrency, rateConfig);
+        continue;
+      }
+      const totalEarnedAED = Array.from(earnedMap.values()).reduce((sum, value) => sum + Number(value || 0), 0);
+      if (!(totalEarnedAED > 0)) continue;
+      for (const [country, earnedAED] of earnedMap.entries()) {
+        const shareAED = totalPaidAED * (Number(earnedAED || 0) / totalEarnedAED);
+        const entry = ensureRow(country);
+        const entryCurrency = entry.currency || "AED";
+        entry.agentPaidCommission += fromAED(shareAED, entryCurrency, rateConfig);
+      }
     }
 
     for (const row of driverPaidRows || []) {
       const driverId = String(row?._id?.driver || "");
-      const entry = ensureRow(driverCountryById.get(driverId) || "Other");
-      const entryCurrency = entry.currency || "AED";
-      entry.driverPaidCommission += fromAED(
-        toAED(Number(row?.total || 0), row?._id?.currency || "SAR", rateConfig),
-        entryCurrency,
-        rateConfig
-      );
+      const totalPaidAED = toAED(Number(row?.total || 0), row?._id?.currency || "SAR", rateConfig);
+      const earnedMap = driverEarnedByCountry.get(driverId);
+      if (!earnedMap || earnedMap.size === 0 || totalPaidAED <= 0) {
+        const entry = ensureRow(driverCountryById.get(driverId) || "Other");
+        const entryCurrency = entry.currency || "AED";
+        entry.driverPaidCommission += fromAED(totalPaidAED, entryCurrency, rateConfig);
+        continue;
+      }
+      const totalEarnedAED = Array.from(earnedMap.values()).reduce((sum, value) => sum + Number(value || 0), 0);
+      if (!(totalEarnedAED > 0)) continue;
+      for (const [country, earnedAED] of earnedMap.entries()) {
+        const shareAED = totalPaidAED * (Number(earnedAED || 0) / totalEarnedAED);
+        const entry = ensureRow(country);
+        const entryCurrency = entry.currency || "AED";
+        entry.driverPaidCommission += fromAED(shareAED, entryCurrency, rateConfig);
+      }
     }
 
     for (const row of dropshipperPaidRows || []) {
