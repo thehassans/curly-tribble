@@ -9,7 +9,7 @@ export default function UserLogin() {
   const [loginMode, setLoginMode] = useState('staff')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [health, setHealth] = useState({ ok: false, dbLabel: 'unknown' })
+  const [health, setHealth] = useState({ checked: false, reachable: false, ready: false, dbLabel: 'unknown' })
   const [branding, setBranding] = useState({ headerLogo: null, loginLogo: null })
   const [mounted, setMounted] = useState(false)
   const [emailFocus, setEmailFocus] = useState(false)
@@ -50,19 +50,19 @@ export default function UserLogin() {
     const delays = [3000, 7000, 15000, 30000]
     async function run() {
       try {
-        const j = await apiGet('/api/health')
+        const j = await apiGet('/api/health', { skipCache: true })
         if (cancelled) return
         const dbLabel = j?.db?.label || 'unknown'
-        const ok = j?.status === 'ok'
-        setHealth({ ok, dbLabel })
-        if (!ok) {
+        const ready = Boolean(j?.ready) || (j?.status === 'ok' && String(dbLabel).toLowerCase() === 'connected')
+        setHealth({ checked: true, reachable: true, ready, dbLabel })
+        if (!ready) {
           const d = delays[Math.min(attempt, delays.length - 1)]
           attempt++
           setTimeout(() => { if (!cancelled) run() }, d)
         }
       } catch {
         if (cancelled) return
-        setHealth({ ok: false, dbLabel: 'unreachable' })
+        setHealth({ checked: true, reachable: false, ready: false, dbLabel: 'unreachable' })
         const d = delays[Math.min(attempt, delays.length - 1)]
         attempt++
         setTimeout(() => { if (!cancelled) run() }, d)
@@ -118,9 +118,11 @@ export default function UserLogin() {
   const logoSrc = branding.loginLogo ? `${API_BASE}${branding.loginLogo}` : fallbackLogo
 
   const healthBad = (() => {
-    const dbLabel = String(health.dbLabel || '').toLowerCase()
-    return !(health.ok && dbLabel === 'connected')
+    return Boolean(health.checked && (!health.reachable || !health.ready))
   })()
+  const healthMessage = !health.reachable
+    ? 'Connection issue — tap to retry'
+    : 'Server is starting — tap to retry'
 
   return (
     <div className="pl-root">
@@ -218,7 +220,7 @@ export default function UserLogin() {
           {healthBad && (
             <button type="button" className="pl-health" onClick={() => window.location.reload()}>
               <span className="pl-health-dot" />
-              Connection issue — tap to retry
+              {healthMessage}
             </button>
           )}
 

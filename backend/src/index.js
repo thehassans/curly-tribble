@@ -163,10 +163,12 @@ app.get("/api/health", (_req, res) => {
         status: "ok",
       }
     : { status: "not_initialized" };
+  const ready = dbState === 1;
   res.json({
     name: "BuySial Commerce API",
     status: "ok",
-    db: { state: dbState, label: stateMap[dbState] || String(dbState) },
+    ready,
+    db: { state: dbState, label: stateMap[dbState] || String(dbState), ready },
     websocket: socketHealth,
     timestamp: new Date().toISOString(),
   });
