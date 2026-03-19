@@ -1,9 +1,10 @@
 import React from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { PANEL_SIDEBAR_LINKS } from '../pages/partner/shared.jsx'
 import SarIcon from '../components/ui/SarIcon.jsx'
 
 export default function PartnerLayout() {
+  const navigate = useNavigate()
   const me = (() => {
     try {
       return JSON.parse(localStorage.getItem('me') || '{}')
@@ -40,6 +41,22 @@ export default function PartnerLayout() {
   const partnerName = `${me?.firstName || ''} ${me?.lastName || ''}`.trim() || 'Partner'
   const partnerCountry = me?.assignedCountry || me?.country || 'Country locked partner workspace'
 
+  function doLogout() {
+    try {
+      localStorage.removeItem('token')
+      localStorage.removeItem('me')
+      localStorage.removeItem('navColors')
+    } catch {}
+    try {
+      navigate('/login', { replace: true })
+    } catch {}
+    setTimeout(() => {
+      try {
+        window.location.assign('/login')
+      } catch {}
+    }, 30)
+  }
+
   return (
     <div className="partner-shell">
       <div className="partner-mobile-header">
@@ -52,7 +69,26 @@ export default function PartnerLayout() {
             <div className="partner-mobile-header__name">{partnerName}</div>
           </div>
         </div>
-        <div className="partner-mobile-header__country">{partnerCountry}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+          <div className="partner-mobile-header__country">{partnerCountry}</div>
+          <button
+            type="button"
+            onClick={doLogout}
+            style={{
+              border: '1px solid rgba(239,68,68,0.2)',
+              background: '#fff',
+              color: '#b91c1c',
+              borderRadius: 999,
+              padding: '8px 14px',
+              fontSize: 12,
+              fontWeight: 800,
+              cursor: 'pointer',
+              boxShadow: '0 10px 26px rgba(15,23,42,0.08)',
+            }}
+          >
+            Logout
+          </button>
+        </div>
       </div>
 
       <div className="partner-shell__inner">
@@ -77,6 +113,13 @@ export default function PartnerLayout() {
                 </NavLink>
               ))}
             </nav>
+            <button
+              type="button"
+              className="partner-sidebar__logout"
+              onClick={doLogout}
+            >
+              Logout
+            </button>
           </aside>
           <main className="partner-main">
             <Outlet />
@@ -156,6 +199,23 @@ export default function PartnerLayout() {
           display: grid;
           gap: 8px;
           padding-top: 18px;
+        }
+        .partner-sidebar__logout {
+          width: 100%;
+          margin-top: 14px;
+          border: 1px solid rgba(248,113,113,0.28);
+          border-radius: 16px;
+          background: rgba(127,29,29,0.18);
+          color: #fecaca;
+          padding: 13px 14px;
+          font-weight: 800;
+          letter-spacing: -0.01em;
+          cursor: pointer;
+          transition: all 160ms ease;
+        }
+        .partner-sidebar__logout:hover {
+          background: rgba(127,29,29,0.26);
+          border-color: rgba(248,113,113,0.42);
         }
         .partner-sidebar__link {
           text-decoration: none;

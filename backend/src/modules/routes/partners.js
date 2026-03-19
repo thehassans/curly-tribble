@@ -4,6 +4,8 @@ import { auth, allowRoles } from "../middleware/auth.js";
 import User from "../models/User.js";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
+import Setting from "../models/Setting.js";
+import Expense from "../models/Expense.js";
 import PartnerPurchasing from "../models/PartnerPurchasing.js";
 import PartnerDriverPayment from "../models/PartnerDriverPayment.js";
 import { getIO } from "../config/socket.js";
@@ -52,6 +54,82 @@ function currencyFromCountry(country) {
   if (c === "Canada") return "CAD";
   if (c === "Australia") return "AUD";
   return "SAR";
+}
+
+function defaultPerAED() {
+  return {
+    AED: 1,
+    SAR: 1,
+    QAR: 1,
+    BHD: 0.1,
+    OMR: 0.1,
+    KWD: 0.083,
+    USD: 0.27,
+    CNY: 1.94,
+    INR: 24.16,
+    PKR: 76.56,
+    JOD: 0.19,
+    GBP: 0.22,
+    CAD: 0.37,
+    AUD: 0.42,
+    EUR: 0.25,
+  };
+}
+
+async function getPerAEDConfig() {
+  try {
+    const doc = await Setting.findOne({ key: "currency" }).lean();
+    const cfg = (doc && doc.value) || {};
+    if (cfg.perAED && typeof cfg.perAED === "object") {
+      const out = { ...defaultPerAED() };
+      for (const [k, v] of Object.entries(cfg.perAED || {})) {
+        const key = String(k).toUpperCase();
+        const num = Number(v);
+        if (Number.isFinite(num) && num > 0) out[key] = num;
+      }
+      out.AED = 1;
+      return out;
+    }
+    if (cfg.sarPerUnit && typeof cfg.sarPerUnit === "object") {
+      const s = {};
+      for (const [k, v] of Object.entries(cfg.sarPerUnit || {})) {
+        s[String(k).toUpperCase()] = Number(v) || 0;
+      }
+      const sAED = Number(s.AED) || 1;
+      const out = { ...defaultPerAED(), AED: 1 };
+      for (const [k, sarPerUnit] of Object.entries(s)) {
+        if (k === "AED") continue;
+        const sK = Number(sarPerUnit) || 0;
+        if (sAED > 0 && sK > 0) out[k] = sAED / sK;
+      }
+      return out;
+    }
+    return defaultPerAED();
+  } catch {
+    return defaultPerAED();
+  }
+}
+
+function toAED(amount, currency, perAED) {
+  const value = Number(amount || 0);
+  const code = String(currency || "AED").toUpperCase();
+  if (code === "AED") return value;
+  const rate = Number(perAED?.[code]) || 0;
+  if (!rate) return value;
+  return value / rate;
+}
+
+function fromAED(amount, currency, perAED) {
+  const value = Number(amount || 0);
+  const code = String(currency || "AED").toUpperCase();
+  if (code === "AED") return value;
+  const rate = Number(perAED?.[code]) || 0;
+  if (!rate) return value;
+  return value * rate;
+}
+
+function convertCurrency(amount, fromCurrency, toCurrency, perAED) {
+  return fromAED(toAED(amount, fromCurrency, perAED), toCurrency, perAED);
 }
 
 function splitName(name) {
@@ -554,51 +632,191 @@ router.get("/me/total-amounts", auth, allowRoles("partner"), async (req, res) =>
     const scope = await getPartnerScope(req.user.id);
     if (!scope) return res.status(404).json({ message: "Partner not found" });
     const creatorObjectIds = scope.creatorIds.map((id) => new mongoose.Types.ObjectId(id));
+    const summaryCurrency = currencyFromCountry(scope.assignedCountry);
     const baseMatch = {
       createdBy: { $in: creatorObjectIds },
       orderCountry: { $in: scope.countries },
     };
     const createdAt = buildPartnerCreatedAtMatch(scope, req.query, baseMatch.createdAt);
     if (createdAt) baseMatch.createdAt = createdAt;
-    const summaryRows = await Order.aggregate([
-      { $match: baseMatch },
-      {
-        $group: {
-          _id: { year: { $year: "$createdAt" }, month: { $month: "$createdAt" } },
-          totalOrders: { $sum: 1 },
-          totalAmount: { $sum: { $ifNull: ["$total", 0] } },
-          deliveredOrders: { $sum: { $cond: [{ $eq: ["$shipmentStatus", "delivered"] }, 1, 0] } },
-          deliveredAmount: { $sum: { $cond: [{ $eq: ["$shipmentStatus", "delivered"] }, { $ifNull: ["$total", 0] }, 0] } },
-          cancelledOrders: { $sum: { $cond: [{ $in: ["$shipmentStatus", ["cancelled", "returned"]] }, 1, 0] } },
-          cancelledAmount: { $sum: { $cond: [{ $in: ["$shipmentStatus", ["cancelled", "returned"]] }, { $ifNull: ["$total", 0] }, 0] } },
-        },
-      },
-      { $sort: { "_id.year": -1, "_id.month": -1 } },
+    const expenseRange = buildPartnerCreatedAtMatch(scope, req.query);
+    const expenseMatch = {
+      createdBy: { $in: creatorObjectIds },
+      country: { $in: scope.countries },
+      status: "approved",
+    };
+    if (expenseRange) expenseMatch.incurredAt = expenseRange;
+    const [rateConfig, agentRows, driverRows, orders, purchaseRows, expenseRows] = await Promise.all([
+      getPerAEDConfig(),
+      User.find({ role: "agent", createdBy: scope.ownerId }, { _id: 1 }).lean(),
+      User.find({ role: "driver", createdBy: req.user.id }, { _id: 1, country: 1, driverProfile: 1 }).lean(),
+      Order.find(
+        baseMatch,
+        "createdAt shipmentStatus status confirmationStatus total createdBy createdByRole deliveryBoy driverCommission agentCommissionPKR dropshipperProfit productId quantity items"
+      ).lean(),
+      PartnerPurchasing.find({ partnerId: req.user.id, country: scope.assignedCountry }, "productId stock pricePerPiece currency").lean(),
+      Expense.find(expenseMatch, "amount currency").lean(),
     ]);
-    const summary = summaryRows.reduce(
+    const agentIdSet = new Set(agentRows.map((row) => String(row._id || "")));
+    const driverMetaById = new Map(
+      driverRows.map((row) => [
+        String(row._id || ""),
+        {
+          paymentModel: row?.driverProfile?.paymentModel || "per_order",
+          commissionPerOrder: Number(row?.driverProfile?.commissionPerOrder || 0),
+          commissionCurrency: String(row?.driverProfile?.commissionCurrency || currencyFromCountry(row.country || scope.assignedCountry) || summaryCurrency).toUpperCase(),
+        },
+      ])
+    );
+    const productIdSet = new Set(purchaseRows.map((row) => String(row.productId || "")).filter(Boolean));
+    const deliveredQtyByProduct = new Map();
+    const monthMap = new Map();
+    const summary = {
+      totalOrders: 0,
+      totalAmount: 0,
+      deliveredOrders: 0,
+      deliveredAmount: 0,
+      cancelledOrders: 0,
+      cancelledAmount: 0,
+      purchasing: {
+        totalStockPurchasedAmount: 0,
+        totalStockPurchasedQty: 0,
+        totalStockQuantity: 0,
+        stockDeliveredQty: 0,
+        totalOrders: 0,
+      },
+      profitLoss: {
+        deliveredOrders: 0,
+        cancelledOrders: 0,
+        deliveredAmount: 0,
+        agentCommission: 0,
+        driverCommission: 0,
+        dropshipperCommission: 0,
+        purchasing: 0,
+        expense: 0,
+        netAmount: 0,
+        status: "profit",
+      },
+    };
+    const ensureMonth = (dateValue) => {
+      const date = dateValue ? new Date(dateValue) : new Date();
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const key = `${year}-${month}`;
+      if (!monthMap.has(key)) {
+        monthMap.set(key, {
+          year,
+          month,
+          totalOrders: 0,
+          totalAmount: 0,
+          deliveredOrders: 0,
+          deliveredAmount: 0,
+          cancelledOrders: 0,
+          cancelledAmount: 0,
+        });
+      }
+      return monthMap.get(key);
+    };
+    for (const order of orders) {
+      const totalAmount = Number(order?.total || 0);
+      const shipmentStatus = String(order?.shipmentStatus || "").toLowerCase();
+      const status = String(order?.status || "").toLowerCase();
+      const confirmationStatus = String(order?.confirmationStatus || "").toLowerCase();
+      const isDelivered = shipmentStatus === "delivered";
+      const isCancelled = ["cancelled", "returned"].includes(shipmentStatus) || status === "cancelled" || confirmationStatus === "cancelled";
+      const monthEntry = ensureMonth(order?.createdAt);
+      summary.totalOrders += 1;
+      summary.totalAmount += totalAmount;
+      monthEntry.totalOrders += 1;
+      monthEntry.totalAmount += totalAmount;
+      if (isDelivered) {
+        summary.deliveredOrders += 1;
+        summary.deliveredAmount += totalAmount;
+        summary.profitLoss.deliveredOrders += 1;
+        summary.profitLoss.deliveredAmount += totalAmount;
+        monthEntry.deliveredOrders += 1;
+        monthEntry.deliveredAmount += totalAmount;
+        const creatorId = String(order?.createdBy || "");
+        const createdByRole = String(order?.createdByRole || "").toLowerCase();
+        let agentCommission = 0;
+        if (createdByRole === "agent" || agentIdSet.has(creatorId)) {
+          const storedAgentCommission = Number(order?.agentCommissionPKR || 0);
+          agentCommission = storedAgentCommission > 0
+            ? fromAED(toAED(storedAgentCommission, "PKR", rateConfig), summaryCurrency, rateConfig)
+            : totalAmount * 0.12;
+        }
+        let driverCommission = 0;
+        if (order?.deliveryBoy) {
+          const driverMeta = driverMetaById.get(String(order.deliveryBoy || ""));
+          if ((driverMeta?.paymentModel || "per_order") !== "salary") {
+            const storedDriverCommission = Number(order?.driverCommission || 0);
+            driverCommission = storedDriverCommission > 0
+              ? storedDriverCommission
+              : convertCurrency(Number(driverMeta?.commissionPerOrder || 0), driverMeta?.commissionCurrency || summaryCurrency, summaryCurrency, rateConfig);
+          }
+        }
+        const dropshipperCommission = Number(order?.dropshipperProfit?.amount || 0);
+        summary.profitLoss.agentCommission += agentCommission;
+        summary.profitLoss.driverCommission += driverCommission;
+        summary.profitLoss.dropshipperCommission += dropshipperCommission;
+        const items = Array.isArray(order?.items) && order.items.length
+          ? order.items
+          : order?.productId
+          ? [{ productId: order.productId, quantity: order.quantity || 1 }]
+          : [];
+        for (const item of items) {
+          const productId = String(item?.productId || "");
+          if (!productIdSet.has(productId)) continue;
+          deliveredQtyByProduct.set(productId, Number(deliveredQtyByProduct.get(productId) || 0) + Number(item?.quantity || 0));
+        }
+      }
+      if (isCancelled) {
+        summary.cancelledOrders += 1;
+        summary.cancelledAmount += totalAmount;
+        summary.profitLoss.cancelledOrders += 1;
+        monthEntry.cancelledOrders += 1;
+        monthEntry.cancelledAmount += totalAmount;
+      }
+    }
+    const purchasing = purchaseRows.reduce(
       (acc, row) => {
-        acc.totalOrders += Number(row.totalOrders || 0);
-        acc.totalAmount += Number(row.totalAmount || 0);
-        acc.deliveredOrders += Number(row.deliveredOrders || 0);
-        acc.deliveredAmount += Number(row.deliveredAmount || 0);
-        acc.cancelledOrders += Number(row.cancelledOrders || 0);
-        acc.cancelledAmount += Number(row.cancelledAmount || 0);
+        const productId = String(row?.productId || "");
+        const stockQty = Number(row?.stock || 0);
+        const deliveredQty = Number(deliveredQtyByProduct.get(productId) || 0);
+        const purchasedQty = stockQty + deliveredQty;
+        const rowCurrency = String(row?.currency || summaryCurrency).toUpperCase();
+        acc.totalStockPurchasedQty += purchasedQty;
+        acc.totalStockQuantity += stockQty;
+        acc.stockDeliveredQty += deliveredQty;
+        acc.totalStockPurchasedAmount += convertCurrency(purchasedQty * Number(row?.pricePerPiece || 0), rowCurrency, summaryCurrency, rateConfig);
         return acc;
       },
-      { totalOrders: 0, totalAmount: 0, deliveredOrders: 0, deliveredAmount: 0, cancelledOrders: 0, cancelledAmount: 0 }
+      {
+        totalStockPurchasedAmount: 0,
+        totalStockPurchasedQty: 0,
+        totalStockQuantity: 0,
+        stockDeliveredQty: 0,
+        totalOrders: summary.totalOrders,
+      }
     );
+    const totalExpense = expenseRows.reduce(
+      (sum, row) => sum + convertCurrency(Number(row?.amount || 0), String(row?.currency || summaryCurrency).toUpperCase(), summaryCurrency, rateConfig),
+      0
+    );
+    summary.purchasing = purchasing;
+    summary.profitLoss.purchasing = Number(purchasing.totalStockPurchasedAmount || 0);
+    summary.profitLoss.expense = totalExpense;
+    summary.profitLoss.netAmount =
+      Number(summary.profitLoss.deliveredAmount || 0) -
+      Number(summary.profitLoss.agentCommission || 0) -
+      Number(summary.profitLoss.driverCommission || 0) -
+      Number(summary.profitLoss.dropshipperCommission || 0) -
+      Number(summary.profitLoss.purchasing || 0) -
+      Number(summary.profitLoss.expense || 0);
+    summary.profitLoss.status = summary.profitLoss.netAmount >= 0 ? "profit" : "loss";
     res.json({
-      summary: { ...summary, currency: currencyFromCountry(scope.assignedCountry), country: scope.assignedCountry },
-      months: summaryRows.map((row) => ({
-        year: row._id.year,
-        month: row._id.month,
-        totalOrders: Number(row.totalOrders || 0),
-        totalAmount: Number(row.totalAmount || 0),
-        deliveredOrders: Number(row.deliveredOrders || 0),
-        deliveredAmount: Number(row.deliveredAmount || 0),
-        cancelledOrders: Number(row.cancelledOrders || 0),
-        cancelledAmount: Number(row.cancelledAmount || 0),
-      })),
+      summary: { ...summary, currency: summaryCurrency, country: scope.assignedCountry },
+      months: Array.from(monthMap.values()).sort((a, b) => (b.year - a.year) || (b.month - a.month)),
     });
   } catch (error) {
     res.status(500).json({ message: "Failed to load total amounts", error: error.message });
