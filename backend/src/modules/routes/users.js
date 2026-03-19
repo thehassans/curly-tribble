@@ -27,6 +27,9 @@ import WalletTransaction from "../models/WalletTransaction.js";
 import PayoutRequest from "../models/PayoutRequest.js";
 import InvestorBonus from "../models/InvestorBonus.js";
 import TotalAmountClosing from "../models/TotalAmountClosing.js";
+import AgentRemit from "../models/AgentRemit.js";
+import DriverCommissionRequest from "../models/DriverCommissionRequest.js";
+import Expense from "../models/Expense.js";
 import mongoose from "mongoose";
 import { createNotification } from "../routes/notifications.js";
 
@@ -97,6 +100,15 @@ function toAED(amount, currency, perAED) {
   const r = Number(perAED?.[c]) || 0;
   if (!r) return v;
   return v / r;
+}
+
+function fromAED(amount, currency, perAED) {
+  const v = Number(amount || 0);
+  const c = String(currency || "AED").toUpperCase();
+  if (c === "AED") return v;
+  const r = Number(perAED?.[c]) || 0;
+  if (!r) return v;
+  return v * r;
 }
 
 function canonicalCountryName(value) {
@@ -299,6 +311,13 @@ function buildCountryCanonExpr(fieldPath = "$orderCountry") {
       onlinePaidOrders: 0,
       onlineDeliveredOrders: 0,
       onlineCancelledOrders: 0,
+      agentTotalCommission: 0,
+      agentPaidCommission: 0,
+      dropshipperTotalCommission: 0,
+      dropshipperPaidCommission: 0,
+      driverTotalCommission: 0,
+      driverPaidCommission: 0,
+      totalExpense: 0,
     };
   }
 
@@ -313,12 +332,23 @@ function buildCountryCanonExpr(fieldPath = "$orderCountry") {
   async function buildTotalAmountSnapshot({ ownerId, monthKey }) {
     const normalizedMonthKey = normalizeMonthKey(monthKey);
     const { start, end } = getMonthRange(normalizedMonthKey);
-    const [agents, managers, dropshippers, products] = await Promise.all([
-      User.find({ role: "agent", createdBy: ownerId }, { _id: 1 }).lean(),
+    const [agents, managers, dropshippers, drivers, products] = await Promise.all([
+      User.find({ role: "agent", createdBy: ownerId }, { _id: 1, country: 1 }).lean(),
       User.find({ role: "manager", createdBy: ownerId }, { _id: 1 }).lean(),
-      User.find({ role: "dropshipper", createdBy: ownerId }, { _id: 1 }).lean(),
+      User.find({ role: "dropshipper", createdBy: ownerId }, { _id: 1, country: 1 }).lean(),
+      User.find({ role: "driver", createdBy: ownerId }, { _id: 1, country: 1 }).lean(),
       Product.find({ createdBy: ownerId }).select("_id").lean(),
     ]);
+
+    const agentIds = agents.map((row) => row._id).filter(Boolean);
+    const dropshipperIds = dropshippers.map((row) => row._id).filter(Boolean);
+    const driverIds = drivers.map((row) => row._id).filter(Boolean);
+    const agentCountryById = new Map(
+      agents.map((row) => [String(row._id), canonicalCountryName(row.country)])
+    );
+    const driverCountryById = new Map(
+      drivers.map((row) => [String(row._id), canonicalCountryName(row.country)])
+    );
 
     const creatorIdStrings = Array.from(
       new Set([
@@ -331,8 +361,9 @@ function buildCountryCanonExpr(fieldPath = "$orderCountry") {
     const creatorIds = creatorIdStrings.map((id) => new mongoose.Types.ObjectId(id));
     const ownedProductIds = products.map((p) => p._id).filter(Boolean);
     const WebOrder = (await import("../models/WebOrder.js")).default;
+    const rateConfig = await getPerAEDConfig();
 
-    const [internalRows, webRows] = await Promise.all([
+    const [internalRows, webRows, deliveredCommissionRows, agentPaidRows, driverPaidRows, dropshipperPaidRows, expenseRows] = await Promise.all([
       Order.aggregate([
         {
           $match: {
@@ -465,6 +496,142 @@ function buildCountryCanonExpr(fieldPath = "$orderCountry") {
             },
           ])
         : [],
+      Order.aggregate([
+        {
+          $match: {
+            createdBy: { $in: creatorIds },
+            shipmentStatus: "delivered",
+            deliveredAt: { $gte: start, $lt: end },
+          },
+        },
+        {
+          $project: {
+            orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+            createdByRole: { $toLower: { $ifNull: ["$createdByRole", "user"] } },
+            agentCommissionPKR: { $ifNull: ["$agentCommissionPKR", 0] },
+            driverCommission: { $ifNull: ["$driverCommission", 0] },
+            dropshipperProfitAmount: { $ifNull: ["$dropshipperProfit.amount", 0] },
+          },
+        },
+        {
+          $group: {
+            _id: "$orderCountryCanon",
+            agentTotalCommissionPKR: {
+              $sum: {
+                $cond: [{ $eq: ["$createdByRole", "agent"] }, "$agentCommissionPKR", 0],
+              },
+            },
+            dropshipperTotalCommission: {
+              $sum: {
+                $cond: [{ $eq: ["$createdByRole", "dropshipper"] }, "$dropshipperProfitAmount", 0],
+              },
+            },
+            driverTotalCommission: { $sum: "$driverCommission" },
+          },
+        },
+      ]),
+      agentIds.length
+        ? AgentRemit.aggregate([
+            {
+              $project: {
+                owner: 1,
+                status: 1,
+                agent: 1,
+                currency: { $ifNull: ["$currency", "PKR"] },
+                amount: { $ifNull: ["$amount", 0] },
+                paidAt: { $ifNull: ["$sentAt", "$createdAt"] },
+              },
+            },
+            {
+              $match: {
+                owner: ownerId,
+                status: "sent",
+                agent: { $in: agentIds },
+                paidAt: { $gte: start, $lt: end },
+              },
+            },
+            {
+              $group: {
+                _id: { agent: "$agent", currency: "$currency" },
+                total: { $sum: "$amount" },
+              },
+            },
+          ])
+        : [],
+      driverIds.length
+        ? DriverCommissionRequest.aggregate([
+            {
+              $project: {
+                owner: 1,
+                status: 1,
+                driver: 1,
+                currency: { $ifNull: ["$currency", "SAR"] },
+                amount: { $ifNull: ["$amount", 0] },
+                paidAt: { $ifNull: ["$paidAt", "$createdAt"] },
+              },
+            },
+            {
+              $match: {
+                owner: ownerId,
+                status: "paid",
+                driver: { $in: driverIds },
+                paidAt: { $gte: start, $lt: end },
+              },
+            },
+            {
+              $group: {
+                _id: { driver: "$driver", currency: "$currency" },
+                total: { $sum: "$amount" },
+              },
+            },
+          ])
+        : [],
+      dropshipperIds.length
+        ? Order.aggregate([
+            {
+              $match: {
+                createdBy: { $in: dropshipperIds },
+                shipmentStatus: "delivered",
+                "dropshipperProfit.isPaid": true,
+                "dropshipperProfit.paidAt": { $gte: start, $lt: end },
+              },
+            },
+            {
+              $project: {
+                orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+                amount: { $ifNull: ["$dropshipperProfit.amount", 0] },
+              },
+            },
+            {
+              $group: {
+                _id: "$orderCountryCanon",
+                total: { $sum: "$amount" },
+              },
+            },
+          ])
+        : [],
+      Expense.aggregate([
+        {
+          $match: {
+            createdBy: { $in: creatorIds },
+            incurredAt: { $gte: start, $lt: end },
+            status: "approved",
+          },
+        },
+        {
+          $project: {
+            expenseCountryCanon: buildCountryCanonExpr("$country"),
+            currency: { $toUpper: { $ifNull: ["$currency", "AED"] } },
+            amount: { $ifNull: ["$amount", 0] },
+          },
+        },
+        {
+          $group: {
+            _id: { country: "$expenseCountryCanon", currency: "$currency" },
+            total: { $sum: "$amount" },
+          },
+        },
+      ]),
     ]);
 
     const countryOrder = ["KSA", "UAE", "Oman", "Bahrain", "India", "Kuwait", "Qatar", "Pakistan", "Jordan", "USA", "UK", "Canada", "Australia", "Other"];
@@ -524,7 +691,56 @@ function buildCountryCanonExpr(fieldPath = "$orderCountry") {
       entry.driverCancelledOrders += Number(row?.driverCancelledOrders || 0);
     }
 
-    const amountKeys = ["totalAmount", "deliveredAmount", "agentAmount", "agentDeliveredAmount", "dropshipperAmount", "dropshipperDeliveredAmount", "driverTotalAmount", "driverDeliveredAmount", "onlineOrderAmount", "onlineOrderDeliveredAmount"];
+    for (const row of deliveredCommissionRows || []) {
+      const entry = ensureRow(row?._id || "Other");
+      const entryCurrency = entry.currency || "AED";
+      entry.agentTotalCommission += fromAED(
+        toAED(Number(row?.agentTotalCommissionPKR || 0), "PKR", rateConfig),
+        entryCurrency,
+        rateConfig
+      );
+      entry.dropshipperTotalCommission += Number(row?.dropshipperTotalCommission || 0);
+      entry.driverTotalCommission += Number(row?.driverTotalCommission || 0);
+    }
+
+    for (const row of agentPaidRows || []) {
+      const agentId = String(row?._id?.agent || "");
+      const entry = ensureRow(agentCountryById.get(agentId) || "Other");
+      const entryCurrency = entry.currency || "AED";
+      entry.agentPaidCommission += fromAED(
+        toAED(Number(row?.total || 0), row?._id?.currency || "PKR", rateConfig),
+        entryCurrency,
+        rateConfig
+      );
+    }
+
+    for (const row of driverPaidRows || []) {
+      const driverId = String(row?._id?.driver || "");
+      const entry = ensureRow(driverCountryById.get(driverId) || "Other");
+      const entryCurrency = entry.currency || "AED";
+      entry.driverPaidCommission += fromAED(
+        toAED(Number(row?.total || 0), row?._id?.currency || "SAR", rateConfig),
+        entryCurrency,
+        rateConfig
+      );
+    }
+
+    for (const row of dropshipperPaidRows || []) {
+      const entry = ensureRow(row?._id || "Other");
+      entry.dropshipperPaidCommission += Number(row?.total || 0);
+    }
+
+    for (const row of expenseRows || []) {
+      const entry = ensureRow(row?._id?.country || "Other");
+      const entryCurrency = entry.currency || "AED";
+      entry.totalExpense += fromAED(
+        toAED(Number(row?.total || 0), row?._id?.currency || "AED", rateConfig),
+        entryCurrency,
+        rateConfig
+      );
+    }
+
+    const amountKeys = ["totalAmount", "deliveredAmount", "agentAmount", "agentDeliveredAmount", "dropshipperAmount", "dropshipperDeliveredAmount", "driverTotalAmount", "driverDeliveredAmount", "onlineOrderAmount", "onlineOrderDeliveredAmount", "agentTotalCommission", "agentPaidCommission", "dropshipperTotalCommission", "dropshipperPaidCommission", "driverTotalCommission", "driverPaidCommission", "totalExpense"];
     const countKeys = ["totalOrders", "deliveredOrders", "cancelledOrders", "agentTotalOrders", "agentDeliveredOrders", "agentCancelledOrders", "dropshipperTotalOrders", "dropshipperDeliveredOrders", "dropshipperCancelledOrders", "driverTotalOrders", "driverDeliveredOrders", "driverCancelledOrders", "onlineTotalOrders", "onlinePaidOrders", "onlineDeliveredOrders", "onlineCancelledOrders"];
 
     const countries = Array.from(rowMap.values())
@@ -540,19 +756,25 @@ function buildCountryCanonExpr(fieldPath = "$orderCountry") {
         return Number(b.totalAmount || 0) - Number(a.totalAmount || 0);
       });
 
-    const perAED = await getPerAEDConfig();
     const summary = countries.reduce((acc, row) => {
       const currency = row.currency || "AED";
-      acc.totalAmount += toAED(Number(row.totalAmount || 0), currency, perAED);
-      acc.deliveredAmount += toAED(Number(row.deliveredAmount || 0), currency, perAED);
-      acc.agentAmount += toAED(Number(row.agentAmount || 0), currency, perAED);
-      acc.agentDeliveredAmount += toAED(Number(row.agentDeliveredAmount || 0), currency, perAED);
-      acc.dropshipperAmount += toAED(Number(row.dropshipperAmount || 0), currency, perAED);
-      acc.dropshipperDeliveredAmount += toAED(Number(row.dropshipperDeliveredAmount || 0), currency, perAED);
-      acc.driverTotalAmount += toAED(Number(row.driverTotalAmount || 0), currency, perAED);
-      acc.driverDeliveredAmount += toAED(Number(row.driverDeliveredAmount || 0), currency, perAED);
-      acc.onlineOrderAmount += toAED(Number(row.onlineOrderAmount || 0), currency, perAED);
-      acc.onlineOrderDeliveredAmount += toAED(Number(row.onlineOrderDeliveredAmount || 0), currency, perAED);
+      acc.totalAmount += toAED(Number(row.totalAmount || 0), currency, rateConfig);
+      acc.deliveredAmount += toAED(Number(row.deliveredAmount || 0), currency, rateConfig);
+      acc.agentAmount += toAED(Number(row.agentAmount || 0), currency, rateConfig);
+      acc.agentDeliveredAmount += toAED(Number(row.agentDeliveredAmount || 0), currency, rateConfig);
+      acc.dropshipperAmount += toAED(Number(row.dropshipperAmount || 0), currency, rateConfig);
+      acc.dropshipperDeliveredAmount += toAED(Number(row.dropshipperDeliveredAmount || 0), currency, rateConfig);
+      acc.driverTotalAmount += toAED(Number(row.driverTotalAmount || 0), currency, rateConfig);
+      acc.driverDeliveredAmount += toAED(Number(row.driverDeliveredAmount || 0), currency, rateConfig);
+      acc.onlineOrderAmount += toAED(Number(row.onlineOrderAmount || 0), currency, rateConfig);
+      acc.onlineOrderDeliveredAmount += toAED(Number(row.onlineOrderDeliveredAmount || 0), currency, rateConfig);
+      acc.agentTotalCommission += toAED(Number(row.agentTotalCommission || 0), currency, rateConfig);
+      acc.agentPaidCommission += toAED(Number(row.agentPaidCommission || 0), currency, rateConfig);
+      acc.dropshipperTotalCommission += toAED(Number(row.dropshipperTotalCommission || 0), currency, rateConfig);
+      acc.dropshipperPaidCommission += toAED(Number(row.dropshipperPaidCommission || 0), currency, rateConfig);
+      acc.driverTotalCommission += toAED(Number(row.driverTotalCommission || 0), currency, rateConfig);
+      acc.driverPaidCommission += toAED(Number(row.driverPaidCommission || 0), currency, rateConfig);
+      acc.totalExpense += toAED(Number(row.totalExpense || 0), currency, rateConfig);
       for (const key of countKeys) acc[key] += Number(row[key] || 0);
       return acc;
     }, createEmptySummaryTotals());
@@ -3852,6 +4074,26 @@ router.post("/:id/impersonate", auth, allowRoles("admin", "user"), async (req, r
             })),
           });
         }
+
+        const { start, end } = getMonthRange(monthKey);
+        return res.json({
+          monthKey,
+          monthLabel: formatMonthLabel(monthKey),
+          rangeStart: start,
+          rangeEnd: end,
+          countries: [],
+          summary: createEmptySummaryTotals(),
+          source: "closed",
+          closing: null,
+          history: historyDocs.map((item) => ({
+            monthKey: item.monthKey,
+            monthLabel: item.monthLabel || formatMonthLabel(item.monthKey),
+            note: item.note || "",
+            closedAt: item.closedAt,
+            updatedAt: item.updatedAt,
+          })),
+          message: "No saved monthly closing for this month",
+        });
       }
 
       const snapshot = await buildTotalAmountSnapshot({ ownerId, monthKey });

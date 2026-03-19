@@ -42,33 +42,24 @@ function formatDateTime(value) {
   }).format(date)
 }
 
-function SummaryStat({ label, value, tone }) {
-  const tones = {
-    blue: { bg: 'rgba(59,130,246,0.10)', border: 'rgba(59,130,246,0.18)', color: '#1d4ed8' },
-    green: { bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.18)', color: '#047857' },
-    amber: { bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.18)', color: '#b45309' },
-    violet: { bg: 'rgba(139,92,246,0.10)', border: 'rgba(139,92,246,0.18)', color: '#7c3aed' },
-    pink: { bg: 'rgba(236,72,153,0.10)', border: 'rgba(236,72,153,0.18)', color: '#be185d' },
-    slate: { bg: 'rgba(15,23,42,0.06)', border: 'rgba(148,163,184,0.18)', color: 'var(--text)' },
-  }
-  const t = tones[tone] || tones.slate
+function SummaryStat({ label, value }) {
   return (
-    <div className="card" style={{ padding: 16, borderRadius: 18, border: `1px solid ${t.border}`, background: t.bg, display: 'grid', gap: 6 }}>
+    <div className="card" style={{ padding: 14, borderRadius: 16, border: '1px solid rgba(148,163,184,0.18)', background: 'rgba(255,255,255,0.7)', display: 'grid', gap: 6, boxShadow: 'none' }}>
       <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 900, color: t.color, lineHeight: 1.1 }}>{value}</div>
+      <div style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', lineHeight: 1.1 }}>{value}</div>
     </div>
   )
 }
 
-function BreakdownRow({ title, accent, fields }) {
+function ReportLine({ title, fields }) {
   return (
-    <div style={{ border: '1px solid rgba(148,163,184,0.18)', borderRadius: 18, overflow: 'hidden', background: 'rgba(255,255,255,0.03)' }}>
-      <div style={{ padding: '12px 14px', borderBottom: '1px solid rgba(148,163,184,0.15)', background: `${accent}12`, color: accent, fontWeight: 900, fontSize: 13, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 0 }}>
+    <div style={{ borderBottom: '1px solid rgba(148,163,184,0.14)', padding: '12px 0', display: 'grid', gap: 10 }}>
+      <div style={{ fontSize: 12, fontWeight: 900, color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{title}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10 }}>
         {fields.map((field) => (
-          <div key={field.label} style={{ padding: '12px 14px', borderRight: '1px solid rgba(148,163,184,0.12)', borderBottom: '1px solid rgba(148,163,184,0.12)' }}>
-            <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, marginBottom: 6 }}>{field.label}</div>
-            <div style={{ fontSize: 15, fontWeight: 900, color: field.color || 'var(--text)' }}>{field.value}</div>
+          <div key={field.label} style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 700, marginBottom: 4 }}>{field.label}</div>
+            <div style={{ fontSize: 15, fontWeight: 900, color: '#0f172a', overflowWrap: 'anywhere' }}>{field.value}</div>
           </div>
         ))}
       </div>
@@ -79,73 +70,84 @@ function BreakdownRow({ title, accent, fields }) {
 function CountryBlock({ row, summary = false }) {
   const moneyCode = row?.currency || 'AED'
   return (
-    <div className="card" style={{ display: 'grid', gap: 12, padding: 16, borderRadius: 22, border: summary ? '1px solid rgba(59,130,246,0.28)' : '1px solid rgba(148,163,184,0.18)', background: summary ? 'linear-gradient(180deg, rgba(59,130,246,0.08), rgba(255,255,255,0.03))' : 'linear-gradient(180deg, rgba(255,255,255,0.04), rgba(148,163,184,0.04))' }}>
+    <div className="card" style={{ display: 'grid', gap: 2, padding: 18, borderRadius: 18, border: summary ? '1px solid rgba(15,23,42,0.18)' : '1px solid rgba(148,163,184,0.18)', background: '#ffffff', boxShadow: 'none' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.03em' }}>{row?.country || 'Other'}</div>
-          <div className="helper">Primary currency: {moneyCode}</div>
+          <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: '-0.03em' }}>{row?.country || 'Other'}</div>
+          <div className="helper">{summary ? 'Monthly summary' : 'Country summary'} • {moneyCode}</div>
         </div>
-        <span className="chip" style={{ fontWeight: 900 }}>{formatMoney(row?.totalAmount, moneyCode)}</span>
+        <div style={{ textAlign: 'right' }}>
+          <div className="helper">Total Amount</div>
+          <div style={{ fontWeight: 900, fontSize: 18 }}>{formatMoney(row?.totalAmount, moneyCode)}</div>
+        </div>
       </div>
 
-      <BreakdownRow
+      <ReportLine
         title="All Orders"
-        accent="#1d4ed8"
         fields={[
-          { label: 'Total Amount', value: formatMoney(row?.totalAmount, moneyCode), color: '#1d4ed8' },
-          { label: 'Delivered Amount', value: formatMoney(row?.deliveredAmount, moneyCode), color: '#047857' },
+          { label: 'Total Amount', value: formatMoney(row?.totalAmount, moneyCode) },
+          { label: 'Delivered Amount', value: formatMoney(row?.deliveredAmount, moneyCode) },
           { label: 'Total Orders', value: formatCount(row?.totalOrders) },
           { label: 'Delivered Orders', value: formatCount(row?.deliveredOrders) },
           { label: 'Cancelled Orders', value: formatCount(row?.cancelledOrders) },
         ]}
       />
 
-      <BreakdownRow
+      <ReportLine
         title="Agent"
-        accent="#b45309"
         fields={[
-          { label: 'Agent Total Amount', value: formatMoney(row?.agentAmount, moneyCode), color: '#b45309' },
-          { label: 'Agent Delivered Amount', value: formatMoney(row?.agentDeliveredAmount, moneyCode), color: '#d97706' },
+          { label: 'Agent Total Amount', value: formatMoney(row?.agentAmount, moneyCode) },
+          { label: 'Agent Delivered Amount', value: formatMoney(row?.agentDeliveredAmount, moneyCode) },
           { label: 'Agent Total Order', value: formatCount(row?.agentTotalOrders) },
           { label: 'Agent Delivered Order', value: formatCount(row?.agentDeliveredOrders) },
           { label: 'Agent Cancelled Order', value: formatCount(row?.agentCancelledOrders) },
+          { label: 'Agent Total Commission', value: formatMoney(row?.agentTotalCommission, moneyCode) },
+          { label: 'Agent Commission Paid', value: formatMoney(row?.agentPaidCommission, moneyCode) },
         ]}
       />
 
-      <BreakdownRow
+      <ReportLine
         title="Dropshipper"
-        accent="#7c3aed"
         fields={[
-          { label: 'Dropshipper Total Amount', value: formatMoney(row?.dropshipperAmount, moneyCode), color: '#7c3aed' },
-          { label: 'Dropshipper Delivered Amount', value: formatMoney(row?.dropshipperDeliveredAmount, moneyCode), color: '#8b5cf6' },
+          { label: 'Dropshipper Total Amount', value: formatMoney(row?.dropshipperAmount, moneyCode) },
+          { label: 'Dropshipper Delivered Amount', value: formatMoney(row?.dropshipperDeliveredAmount, moneyCode) },
           { label: 'Dropshipper Total Order', value: formatCount(row?.dropshipperTotalOrders) },
           { label: 'Dropshipper Delivered Order', value: formatCount(row?.dropshipperDeliveredOrders) },
           { label: 'Dropshipper Cancelled Order', value: formatCount(row?.dropshipperCancelledOrders) },
+          { label: 'Dropshipper Total Commission', value: formatMoney(row?.dropshipperTotalCommission, moneyCode) },
+          { label: 'Dropshipper Commission Paid', value: formatMoney(row?.dropshipperPaidCommission, moneyCode) },
         ]}
       />
 
-      <BreakdownRow
+      <ReportLine
         title="Driver"
-        accent="#be185d"
         fields={[
-          { label: 'Driver Total Amount', value: formatMoney(row?.driverTotalAmount, moneyCode), color: '#be185d' },
-          { label: 'Driver Delivered Amount', value: formatMoney(row?.driverDeliveredAmount, moneyCode), color: '#db2777' },
+          { label: 'Driver Total Amount', value: formatMoney(row?.driverTotalAmount, moneyCode) },
+          { label: 'Driver Delivered Amount', value: formatMoney(row?.driverDeliveredAmount, moneyCode) },
           { label: 'Driver Total Order', value: formatCount(row?.driverTotalOrders) },
           { label: 'Driver Delivered Order', value: formatCount(row?.driverDeliveredOrders) },
           { label: 'Driver Cancelled Order', value: formatCount(row?.driverCancelledOrders) },
+          { label: 'Driver Total Commission', value: formatMoney(row?.driverTotalCommission, moneyCode) },
+          { label: 'Driver Commission Paid', value: formatMoney(row?.driverPaidCommission, moneyCode) },
         ]}
       />
 
-      <BreakdownRow
+      <ReportLine
         title="Online"
-        accent="#0f766e"
         fields={[
-          { label: 'Online Total Amount', value: formatMoney(row?.onlineOrderAmount, moneyCode), color: '#0f766e' },
-          { label: 'Online Delivered Amount', value: formatMoney(row?.onlineOrderDeliveredAmount, moneyCode), color: '#0f766e' },
+          { label: 'Online Total Amount', value: formatMoney(row?.onlineOrderAmount, moneyCode) },
+          { label: 'Online Delivered Amount', value: formatMoney(row?.onlineOrderDeliveredAmount, moneyCode) },
           { label: 'Online Total Orders', value: formatCount(row?.onlineTotalOrders) },
           { label: 'Online Paid Orders', value: formatCount(row?.onlinePaidOrders) },
           { label: 'Online Delivered Orders', value: formatCount(row?.onlineDeliveredOrders) },
           { label: 'Online Cancelled Orders', value: formatCount(row?.onlineCancelledOrders) },
+        ]}
+      />
+
+      <ReportLine
+        title="Expense"
+        fields={[
+          { label: 'Total Expense', value: formatMoney(row?.totalExpense, moneyCode) },
         ]}
       />
     </div>
@@ -156,34 +158,38 @@ export default function TotalAmounts() {
   const [loading, setLoading] = useState(true)
   const [closingBusy, setClosingBusy] = useState(false)
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
   const [rows, setRows] = useState([])
   const [summary, setSummary] = useState(null)
   const [history, setHistory] = useState([])
   const [query, setQuery] = useState('')
+  const [countryFilter, setCountryFilter] = useState('all')
   const [month, setMonth] = useState(currentMonthKey())
   const [monthLabel, setMonthLabel] = useState(formatMonthLabel(currentMonthKey()))
-  const [source, setSource] = useState('live')
+  const [source, setSource] = useState('saved')
   const [closing, setClosing] = useState(null)
-  const [useLive, setUseLive] = useState(false)
   const [note, setNote] = useState(`Closing of ${formatMonthLabel(currentMonthKey())}`)
 
-  async function load({ keepLive = useLive, selectedMonth = month } = {}) {
+  async function load({ selectedMonth = month, selectedSource = source } = {}) {
     setLoading(true)
     try {
-      const res = await apiGet(`/api/users/total-amounts?month=${encodeURIComponent(selectedMonth)}${keepLive ? '&live=1' : ''}`)
+      const liveFlag = selectedSource === 'live' ? '&live=1' : ''
+      const res = await apiGet(`/api/users/total-amounts?month=${encodeURIComponent(selectedMonth)}${liveFlag}`)
       setRows(Array.isArray(res?.countries) ? res.countries : [])
       setSummary(res?.summary || null)
       setHistory(Array.isArray(res?.history) ? res.history : [])
       setMonth(String(res?.monthKey || selectedMonth || currentMonthKey()))
       setMonthLabel(String(res?.monthLabel || formatMonthLabel(selectedMonth)))
-      setSource(String(res?.source || 'live'))
+      setSource(selectedSource)
       setClosing(res?.closing || null)
+      setMessage(String(res?.message || ''))
       setError('')
     } catch (err) {
       setRows([])
       setSummary(null)
       setHistory([])
       setClosing(null)
+      setMessage('')
       setError(err?.message || 'Failed to load total amounts')
     } finally {
       setLoading(false)
@@ -202,9 +208,9 @@ export default function TotalAmounts() {
       setHistory(Array.isArray(res?.history) ? res.history : [])
       setMonth(String(res?.monthKey || month))
       setMonthLabel(String(res?.monthLabel || formatMonthLabel(month)))
-      setSource(String(res?.source || 'closed'))
+      setSource('saved')
       setClosing(res?.closing || null)
-      setUseLive(false)
+      setMessage(String(res?.message || ''))
       setError('')
     } catch (err) {
       setError(err?.message || 'Failed to close month')
@@ -214,8 +220,8 @@ export default function TotalAmounts() {
   }
 
   useEffect(() => {
-    load({ keepLive: useLive, selectedMonth: month })
-  }, [month, useLive])
+    load({ selectedMonth: month, selectedSource: source })
+  }, [month, source])
 
   useEffect(() => {
     setNote(`Closing of ${formatMonthLabel(month)}`)
@@ -223,9 +229,20 @@ export default function TotalAmounts() {
 
   const filteredRows = useMemo(() => {
     const q = String(query || '').trim().toLowerCase()
-    if (!q) return rows
-    return rows.filter((row) => String(row?.country || '').toLowerCase().includes(q))
-  }, [rows, query])
+    return rows.filter((row) => {
+      const country = String(row?.country || '')
+      const matchesQuery = !q || country.toLowerCase().includes(q)
+      const matchesCountry = countryFilter === 'all' || country === countryFilter
+      return matchesQuery && matchesCountry
+    })
+  }, [rows, query, countryFilter])
+
+  const historyOptions = useMemo(() => Array.isArray(history) ? history : [], [history])
+
+  const countryOptions = useMemo(() => {
+    const set = new Set(rows.map((row) => String(row?.country || '')).filter(Boolean))
+    return Array.from(set)
+  }, [rows])
 
   const cards = useMemo(() => {
     const src = summary || {
@@ -233,16 +250,20 @@ export default function TotalAmounts() {
       deliveredAmount: 0,
       totalOrders: 0,
       cancelledOrders: 0,
-      agentAmount: 0,
-      onlineTotalOrders: 0,
+      agentPaidCommission: 0,
+      driverPaidCommission: 0,
+      totalExpense: 0,
+      dropshipperPaidCommission: 0,
     }
     return [
-      { label: 'All Countries Total', value: formatMoney(src.totalAmount, 'AED'), tone: 'blue' },
-      { label: 'Delivered Amount', value: formatMoney(src.deliveredAmount, 'AED'), tone: 'green' },
-      { label: 'Total Orders', value: formatCount(src.totalOrders), tone: 'amber' },
-      { label: 'Cancelled Orders', value: formatCount(src.cancelledOrders), tone: 'violet' },
-      { label: 'Agent Amount', value: formatMoney(src.agentAmount, 'AED'), tone: 'pink' },
-      { label: 'Online Orders', value: formatCount(src.onlineTotalOrders), tone: 'slate' },
+      { label: 'Total Amount', value: formatMoney(src.totalAmount, 'AED') },
+      { label: 'Delivered Amount', value: formatMoney(src.deliveredAmount, 'AED') },
+      { label: 'Total Orders', value: formatCount(src.totalOrders) },
+      { label: 'Cancelled Orders', value: formatCount(src.cancelledOrders) },
+      { label: 'Agent Paid Commission', value: formatMoney(src.agentPaidCommission, 'AED') },
+      { label: 'Dropshipper Paid', value: formatMoney(src.dropshipperPaidCommission, 'AED') },
+      { label: 'Driver Paid Commission', value: formatMoney(src.driverPaidCommission, 'AED') },
+      { label: 'Total Expense', value: formatMoney(src.totalExpense, 'AED') },
     ]
   }, [summary])
 
@@ -251,22 +272,51 @@ export default function TotalAmounts() {
       <div className="page-header" style={{ alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
           <div className="page-title gradient heading-blue">Total Amount</div>
-          <div className="page-subtitle">Monthly country-wise closing for total, agent, dropshipper, driver, and online orders with order counts and history.</div>
+          <div className="page-subtitle">Minimal monthly report with saved closings, live month view, country filters, commissions, and expenses.</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn secondary" type="button" onClick={() => load({ keepLive: useLive, selectedMonth: month })} disabled={loading}>
+          <button className="btn secondary" type="button" onClick={() => load({ selectedMonth: month, selectedSource: source })} disabled={loading}>
             {loading ? 'Loading...' : 'Refresh'}
           </button>
         </div>
       </div>
 
       {error ? <div className="card error">{error}</div> : null}
+      {message ? <div className="card" style={{ border: '1px solid rgba(148,163,184,0.18)', background: '#ffffff', boxShadow: 'none' }}>{message}</div> : null}
 
-      <div className="card" style={{ display: 'grid', gap: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+      <div className="card" style={{ display: 'grid', gap: 12, padding: 16, borderRadius: 18, border: '1px solid rgba(148,163,184,0.18)', background: '#ffffff', boxShadow: 'none' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
           <label style={{ display: 'grid', gap: 6 }}>
             <span className="helper">Month</span>
             <input className="input" type="month" value={month} onChange={(e) => setMonth(e.target.value || currentMonthKey())} />
+          </label>
+
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span className="helper">Report Source</span>
+            <select className="input" value={source} onChange={(e) => setSource(e.target.value || 'saved')}>
+              <option value="saved">Saved Monthly Report</option>
+              <option value="live">Live Monthly Report</option>
+            </select>
+          </label>
+
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span className="helper">Saved Month</span>
+            <select className="input" value={historyOptions.some((item) => item.monthKey === month) ? month : ''} onChange={(e) => { if (e.target.value) { setMonth(e.target.value); setSource('saved') } }}>
+              <option value="">Select saved month</option>
+              {historyOptions.map((item) => (
+                <option key={item.monthKey} value={item.monthKey}>{item.monthLabel || item.monthKey}</option>
+              ))}
+            </select>
+          </label>
+
+          <label style={{ display: 'grid', gap: 6 }}>
+            <span className="helper">Country Filter</span>
+            <select className="input" value={countryFilter} onChange={(e) => setCountryFilter(e.target.value || 'all')}>
+              <option value="all">All Countries</option>
+              {countryOptions.map((country) => (
+                <option key={country} value={country}>{country}</option>
+              ))}
+            </select>
           </label>
 
           <label style={{ display: 'grid', gap: 6 }}>
@@ -280,45 +330,41 @@ export default function TotalAmounts() {
           </label>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <button className={`btn ${useLive ? 'secondary' : 'action-btn'}`} type="button" onClick={() => setUseLive(false)}>
-            Closed / Latest Saved
-          </button>
-          <button className={`btn ${useLive ? 'action-btn' : 'secondary'}`} type="button" onClick={() => setUseLive(true)}>
-            Live Month
-          </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="chip" style={{ fontWeight: 800 }}>{source === 'saved' ? 'Saved Monthly Report' : 'Live Monthly Report'}</span>
+            {closing?.closedAt ? <span className="helper">Closed at {formatDateTime(closing.closedAt)}</span> : null}
+          </div>
           <button className="btn action-btn" type="button" onClick={closeMonth} disabled={closingBusy}>
             {closingBusy ? 'Closing...' : `Close ${monthLabel}`}
           </button>
-          <span className="chip" style={{ fontWeight: 800 }}>{source === 'closed' ? 'Closed Month View' : 'Live Month View'}</span>
-          {closing?.closedAt ? <span className="helper">Closed at {formatDateTime(closing.closedAt)}</span> : null}
         </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 10 }}>
         {cards.map((item) => (
-          <SummaryStat key={item.label} label={item.label} value={item.value} tone={item.tone} />
+          <SummaryStat key={item.label} label={item.label} value={item.value} />
         ))}
       </div>
 
       {summary ? <CountryBlock row={{ ...summary, country: 'All Countries', currency: 'AED' }} summary /> : null}
 
-      <div className="card" style={{ display: 'grid', gap: 10 }}>
+      <div className="card" style={{ display: 'grid', gap: 10, padding: 16, borderRadius: 18, border: '1px solid rgba(148,163,184,0.18)', background: '#ffffff', boxShadow: 'none' }}>
         <div className="card-header">
-          <div className="card-title">Monthly Closing History</div>
-          <div className="helper">{history.length} months saved</div>
+          <div className="card-title">Saved Monthly History</div>
+          <div className="helper">{history.length} saved months</div>
         </div>
         {history.length === 0 ? (
           <div className="helper">No month closing history yet.</div>
         ) : (
           <div style={{ display: 'grid', gap: 8 }}>
             {history.map((item) => (
-              <div key={item.monthKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', border: '1px solid rgba(148,163,184,0.18)', borderRadius: 14, padding: '10px 12px' }}>
+              <div key={item.monthKey} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', borderBottom: '1px solid rgba(148,163,184,0.14)', padding: '8px 0' }}>
                 <div>
                   <div style={{ fontWeight: 900 }}>{item.monthLabel || item.monthKey}</div>
                   <div className="helper">{item.note || 'Closing saved'}{item.closedAt ? ` • ${formatDateTime(item.closedAt)}` : ''}</div>
                 </div>
-                <button className="btn secondary" type="button" onClick={() => { setMonth(item.monthKey); setUseLive(false) }}>
+                <button className="btn secondary" type="button" onClick={() => { setMonth(item.monthKey); setSource('saved') }}>
                   Open
                 </button>
               </div>
