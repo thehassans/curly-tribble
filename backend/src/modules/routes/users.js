@@ -26,6 +26,7 @@ import DailyProfit from "../models/DailyProfit.js";
 import WalletTransaction from "../models/WalletTransaction.js";
 import PayoutRequest from "../models/PayoutRequest.js";
 import InvestorBonus from "../models/InvestorBonus.js";
+import TotalAmountClosing from "../models/TotalAmountClosing.js";
 import mongoose from "mongoose";
 import { createNotification } from "../routes/notifications.js";
 
@@ -229,7 +230,345 @@ function buildCountryCanonExpr(fieldPath = "$orderCountry") {
       },
     },
   };
+
 }
+
+  function round2(value) {
+    return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100;
+  }
+
+  function normalizeMonthKey(value) {
+    const raw = String(value || "").trim();
+    if (/^\d{4}-\d{2}$/.test(raw)) return raw;
+    const date = raw ? new Date(raw) : new Date();
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    return `${year}-${month}`;
+  }
+
+  function getMonthRange(monthKey) {
+    const [yearStr, monthStr] = normalizeMonthKey(monthKey).split("-");
+    const year = Number(yearStr);
+    const monthIndex = Number(monthStr) - 1;
+    const start = new Date(Date.UTC(year, monthIndex, 1, 0, 0, 0, 0));
+    const end = new Date(Date.UTC(year, monthIndex + 1, 1, 0, 0, 0, 0));
+    return { start, end };
+  }
+
+  function formatMonthLabel(monthKey) {
+    const { start } = getMonthRange(monthKey);
+    try {
+      return new Intl.DateTimeFormat("en-US", {
+        month: "long",
+        year: "numeric",
+        timeZone: "UTC",
+      }).format(start);
+    } catch {
+      return monthKey;
+    }
+  }
+
+  function createEmptyTotals(country = "Other") {
+    const normalizedCountry = canonicalCountryName(country);
+    return {
+      country: normalizedCountry,
+      currency: currencyFromCountry(normalizedCountry),
+      totalAmount: 0,
+      deliveredAmount: 0,
+      totalOrders: 0,
+      deliveredOrders: 0,
+      cancelledOrders: 0,
+      agentAmount: 0,
+      agentDeliveredAmount: 0,
+      agentTotalOrders: 0,
+      agentDeliveredOrders: 0,
+      agentCancelledOrders: 0,
+      dropshipperAmount: 0,
+      dropshipperDeliveredAmount: 0,
+      dropshipperTotalOrders: 0,
+      dropshipperDeliveredOrders: 0,
+      dropshipperCancelledOrders: 0,
+      driverTotalAmount: 0,
+      driverDeliveredAmount: 0,
+      driverTotalOrders: 0,
+      driverDeliveredOrders: 0,
+      driverCancelledOrders: 0,
+      onlineOrderAmount: 0,
+      onlineOrderDeliveredAmount: 0,
+      onlineTotalOrders: 0,
+      onlinePaidOrders: 0,
+      onlineDeliveredOrders: 0,
+      onlineCancelledOrders: 0,
+    };
+  }
+
+  function createEmptySummaryTotals() {
+    return {
+      ...createEmptyTotals("All"),
+      country: "All Countries",
+      currency: "AED",
+    };
+  }
+
+  async function buildTotalAmountSnapshot({ ownerId, monthKey }) {
+    const normalizedMonthKey = normalizeMonthKey(monthKey);
+    const { start, end } = getMonthRange(normalizedMonthKey);
+    const [agents, managers, dropshippers, products] = await Promise.all([
+      User.find({ role: "agent", createdBy: ownerId }, { _id: 1 }).lean(),
+      User.find({ role: "manager", createdBy: ownerId }, { _id: 1 }).lean(),
+      User.find({ role: "dropshipper", createdBy: ownerId }, { _id: 1 }).lean(),
+      Product.find({ createdBy: ownerId }).select("_id").lean(),
+    ]);
+
+    const creatorIdStrings = Array.from(
+      new Set([
+        String(ownerId),
+        ...agents.map((row) => String(row._id)),
+        ...managers.map((row) => String(row._id)),
+        ...dropshippers.map((row) => String(row._id)),
+      ])
+    );
+    const creatorIds = creatorIdStrings.map((id) => new mongoose.Types.ObjectId(id));
+    const ownedProductIds = products.map((p) => p._id).filter(Boolean);
+    const WebOrder = (await import("../models/WebOrder.js")).default;
+
+    const [internalRows, webRows] = await Promise.all([
+      Order.aggregate([
+        {
+          $match: {
+            createdBy: { $in: creatorIds },
+            createdAt: { $gte: start, $lt: end },
+          },
+        },
+        {
+          $project: {
+            orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+            amount: { $ifNull: ["$total", 0] },
+            shipmentStatusLower: { $toLower: { $ifNull: ["$shipmentStatus", "pending"] } },
+            statusLower: { $toLower: { $ifNull: ["$status", "pending"] } },
+            confirmationStatusLower: { $toLower: { $ifNull: ["$confirmationStatus", "pending"] } },
+            createdByRole: { $toLower: { $ifNull: ["$createdByRole", "user"] } },
+            hasDriver: { $ne: [{ $ifNull: ["$deliveryBoy", null] }, null] },
+          },
+        },
+        {
+          $project: {
+            orderCountryCanon: 1,
+            amount: 1,
+            createdByRole: 1,
+            hasDriver: 1,
+            isDelivered: { $eq: ["$shipmentStatusLower", "delivered"] },
+            isCancelled: {
+              $or: [
+                { $eq: ["$shipmentStatusLower", "cancelled"] },
+                { $eq: ["$statusLower", "cancelled"] },
+                { $eq: ["$confirmationStatusLower", "cancelled"] },
+              ],
+            },
+          },
+        },
+        {
+          $group: {
+            _id: "$orderCountryCanon",
+            totalAmount: { $sum: "$amount" },
+            deliveredAmount: { $sum: { $cond: ["$isDelivered", "$amount", 0] } },
+            totalOrders: { $sum: 1 },
+            deliveredOrders: { $sum: { $cond: ["$isDelivered", 1, 0] } },
+            cancelledOrders: { $sum: { $cond: ["$isCancelled", 1, 0] } },
+            agentAmount: { $sum: { $cond: [{ $eq: ["$createdByRole", "agent"] }, "$amount", 0] } },
+            agentDeliveredAmount: {
+              $sum: {
+                $cond: [{ $and: [{ $eq: ["$createdByRole", "agent"] }, "$isDelivered"] }, "$amount", 0],
+              },
+            },
+            agentTotalOrders: { $sum: { $cond: [{ $eq: ["$createdByRole", "agent"] }, 1, 0] } },
+            agentDeliveredOrders: {
+              $sum: { $cond: [{ $and: [{ $eq: ["$createdByRole", "agent"] }, "$isDelivered"] }, 1, 0] },
+            },
+            agentCancelledOrders: {
+              $sum: { $cond: [{ $and: [{ $eq: ["$createdByRole", "agent"] }, "$isCancelled"] }, 1, 0] },
+            },
+            dropshipperAmount: { $sum: { $cond: [{ $eq: ["$createdByRole", "dropshipper"] }, "$amount", 0] } },
+            dropshipperDeliveredAmount: {
+              $sum: {
+                $cond: [{ $and: [{ $eq: ["$createdByRole", "dropshipper"] }, "$isDelivered"] }, "$amount", 0],
+              },
+            },
+            dropshipperTotalOrders: { $sum: { $cond: [{ $eq: ["$createdByRole", "dropshipper"] }, 1, 0] } },
+            dropshipperDeliveredOrders: {
+              $sum: { $cond: [{ $and: [{ $eq: ["$createdByRole", "dropshipper"] }, "$isDelivered"] }, 1, 0] },
+            },
+            dropshipperCancelledOrders: {
+              $sum: { $cond: [{ $and: [{ $eq: ["$createdByRole", "dropshipper"] }, "$isCancelled"] }, 1, 0] },
+            },
+            driverTotalAmount: { $sum: { $cond: ["$hasDriver", "$amount", 0] } },
+            driverDeliveredAmount: { $sum: { $cond: [{ $and: ["$hasDriver", "$isDelivered"] }, "$amount", 0] } },
+            driverTotalOrders: { $sum: { $cond: ["$hasDriver", 1, 0] } },
+            driverDeliveredOrders: { $sum: { $cond: [{ $and: ["$hasDriver", "$isDelivered"] }, 1, 0] } },
+            driverCancelledOrders: { $sum: { $cond: [{ $and: ["$hasDriver", "$isCancelled"] }, 1, 0] } },
+          },
+        },
+      ]),
+      ownedProductIds.length
+        ? WebOrder.aggregate([
+            {
+              $match: {
+                "items.productId": { $in: ownedProductIds },
+                createdAt: { $gte: start, $lt: end },
+              },
+            },
+            {
+              $project: {
+                orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+                amount: { $ifNull: ["$total", 0] },
+                shipmentStatusLower: { $toLower: { $ifNull: ["$shipmentStatus", "pending"] } },
+                statusLower: { $toLower: { $ifNull: ["$status", "new"] } },
+                paymentStatusLower: { $toLower: { $ifNull: ["$paymentStatus", "pending"] } },
+                hasDriver: { $ne: [{ $ifNull: ["$deliveryBoy", null] }, null] },
+              },
+            },
+            {
+              $project: {
+                orderCountryCanon: 1,
+                amount: 1,
+                hasDriver: 1,
+                isDelivered: { $eq: ["$shipmentStatusLower", "delivered"] },
+                isCancelled: {
+                  $or: [
+                    { $eq: ["$shipmentStatusLower", "cancelled"] },
+                    { $eq: ["$statusLower", "cancelled"] },
+                  ],
+                },
+                isPaid: { $eq: ["$paymentStatusLower", "paid"] },
+              },
+            },
+            {
+              $group: {
+                _id: "$orderCountryCanon",
+                totalAmount: { $sum: "$amount" },
+                deliveredAmount: { $sum: { $cond: ["$isDelivered", "$amount", 0] } },
+                totalOrders: { $sum: 1 },
+                deliveredOrders: { $sum: { $cond: ["$isDelivered", 1, 0] } },
+                cancelledOrders: { $sum: { $cond: ["$isCancelled", 1, 0] } },
+                onlineOrderAmount: { $sum: "$amount" },
+                onlineOrderDeliveredAmount: { $sum: { $cond: ["$isDelivered", "$amount", 0] } },
+                onlineTotalOrders: { $sum: 1 },
+                onlinePaidOrders: { $sum: { $cond: ["$isPaid", 1, 0] } },
+                onlineDeliveredOrders: { $sum: { $cond: ["$isDelivered", 1, 0] } },
+                onlineCancelledOrders: { $sum: { $cond: ["$isCancelled", 1, 0] } },
+                driverTotalAmount: { $sum: { $cond: ["$hasDriver", "$amount", 0] } },
+                driverDeliveredAmount: { $sum: { $cond: [{ $and: ["$hasDriver", "$isDelivered"] }, "$amount", 0] } },
+                driverTotalOrders: { $sum: { $cond: ["$hasDriver", 1, 0] } },
+                driverDeliveredOrders: { $sum: { $cond: [{ $and: ["$hasDriver", "$isDelivered"] }, 1, 0] } },
+                driverCancelledOrders: { $sum: { $cond: [{ $and: ["$hasDriver", "$isCancelled"] }, 1, 0] } },
+              },
+            },
+          ])
+        : [],
+    ]);
+
+    const countryOrder = ["KSA", "UAE", "Oman", "Bahrain", "India", "Kuwait", "Qatar", "Pakistan", "Jordan", "USA", "UK", "Canada", "Australia", "Other"];
+    const countrySortIndex = (country) => {
+      const idx = countryOrder.indexOf(canonicalCountryName(country));
+      return idx === -1 ? countryOrder.length + 1 : idx;
+    };
+
+    const rowMap = new Map();
+    const ensureRow = (country) => {
+      const key = canonicalCountryName(country);
+      if (!rowMap.has(key)) rowMap.set(key, createEmptyTotals(key));
+      return rowMap.get(key);
+    };
+
+    for (const row of internalRows || []) {
+      const entry = ensureRow(row?._id || "Other");
+      entry.totalAmount += Number(row?.totalAmount || 0);
+      entry.deliveredAmount += Number(row?.deliveredAmount || 0);
+      entry.totalOrders += Number(row?.totalOrders || 0);
+      entry.deliveredOrders += Number(row?.deliveredOrders || 0);
+      entry.cancelledOrders += Number(row?.cancelledOrders || 0);
+      entry.agentAmount += Number(row?.agentAmount || 0);
+      entry.agentDeliveredAmount += Number(row?.agentDeliveredAmount || 0);
+      entry.agentTotalOrders += Number(row?.agentTotalOrders || 0);
+      entry.agentDeliveredOrders += Number(row?.agentDeliveredOrders || 0);
+      entry.agentCancelledOrders += Number(row?.agentCancelledOrders || 0);
+      entry.dropshipperAmount += Number(row?.dropshipperAmount || 0);
+      entry.dropshipperDeliveredAmount += Number(row?.dropshipperDeliveredAmount || 0);
+      entry.dropshipperTotalOrders += Number(row?.dropshipperTotalOrders || 0);
+      entry.dropshipperDeliveredOrders += Number(row?.dropshipperDeliveredOrders || 0);
+      entry.dropshipperCancelledOrders += Number(row?.dropshipperCancelledOrders || 0);
+      entry.driverTotalAmount += Number(row?.driverTotalAmount || 0);
+      entry.driverDeliveredAmount += Number(row?.driverDeliveredAmount || 0);
+      entry.driverTotalOrders += Number(row?.driverTotalOrders || 0);
+      entry.driverDeliveredOrders += Number(row?.driverDeliveredOrders || 0);
+      entry.driverCancelledOrders += Number(row?.driverCancelledOrders || 0);
+    }
+
+    for (const row of webRows || []) {
+      const entry = ensureRow(row?._id || "Other");
+      entry.totalAmount += Number(row?.totalAmount || 0);
+      entry.deliveredAmount += Number(row?.deliveredAmount || 0);
+      entry.totalOrders += Number(row?.totalOrders || 0);
+      entry.deliveredOrders += Number(row?.deliveredOrders || 0);
+      entry.cancelledOrders += Number(row?.cancelledOrders || 0);
+      entry.onlineOrderAmount += Number(row?.onlineOrderAmount || 0);
+      entry.onlineOrderDeliveredAmount += Number(row?.onlineOrderDeliveredAmount || 0);
+      entry.onlineTotalOrders += Number(row?.onlineTotalOrders || 0);
+      entry.onlinePaidOrders += Number(row?.onlinePaidOrders || 0);
+      entry.onlineDeliveredOrders += Number(row?.onlineDeliveredOrders || 0);
+      entry.onlineCancelledOrders += Number(row?.onlineCancelledOrders || 0);
+      entry.driverTotalAmount += Number(row?.driverTotalAmount || 0);
+      entry.driverDeliveredAmount += Number(row?.driverDeliveredAmount || 0);
+      entry.driverTotalOrders += Number(row?.driverTotalOrders || 0);
+      entry.driverDeliveredOrders += Number(row?.driverDeliveredOrders || 0);
+      entry.driverCancelledOrders += Number(row?.driverCancelledOrders || 0);
+    }
+
+    const amountKeys = ["totalAmount", "deliveredAmount", "agentAmount", "agentDeliveredAmount", "dropshipperAmount", "dropshipperDeliveredAmount", "driverTotalAmount", "driverDeliveredAmount", "onlineOrderAmount", "onlineOrderDeliveredAmount"];
+    const countKeys = ["totalOrders", "deliveredOrders", "cancelledOrders", "agentTotalOrders", "agentDeliveredOrders", "agentCancelledOrders", "dropshipperTotalOrders", "dropshipperDeliveredOrders", "dropshipperCancelledOrders", "driverTotalOrders", "driverDeliveredOrders", "driverCancelledOrders", "onlineTotalOrders", "onlinePaidOrders", "onlineDeliveredOrders", "onlineCancelledOrders"];
+
+    const countries = Array.from(rowMap.values())
+      .map((row) => {
+        const out = { ...row };
+        for (const key of amountKeys) out[key] = round2(out[key]);
+        for (const key of countKeys) out[key] = Math.round(Number(out[key] || 0));
+        return out;
+      })
+      .sort((a, b) => {
+        const byCountry = countrySortIndex(a.country) - countrySortIndex(b.country);
+        if (byCountry !== 0) return byCountry;
+        return Number(b.totalAmount || 0) - Number(a.totalAmount || 0);
+      });
+
+    const perAED = await getPerAEDConfig();
+    const summary = countries.reduce((acc, row) => {
+      const currency = row.currency || "AED";
+      acc.totalAmount += toAED(Number(row.totalAmount || 0), currency, perAED);
+      acc.deliveredAmount += toAED(Number(row.deliveredAmount || 0), currency, perAED);
+      acc.agentAmount += toAED(Number(row.agentAmount || 0), currency, perAED);
+      acc.agentDeliveredAmount += toAED(Number(row.agentDeliveredAmount || 0), currency, perAED);
+      acc.dropshipperAmount += toAED(Number(row.dropshipperAmount || 0), currency, perAED);
+      acc.dropshipperDeliveredAmount += toAED(Number(row.dropshipperDeliveredAmount || 0), currency, perAED);
+      acc.driverTotalAmount += toAED(Number(row.driverTotalAmount || 0), currency, perAED);
+      acc.driverDeliveredAmount += toAED(Number(row.driverDeliveredAmount || 0), currency, perAED);
+      acc.onlineOrderAmount += toAED(Number(row.onlineOrderAmount || 0), currency, perAED);
+      acc.onlineOrderDeliveredAmount += toAED(Number(row.onlineOrderDeliveredAmount || 0), currency, perAED);
+      for (const key of countKeys) acc[key] += Number(row[key] || 0);
+      return acc;
+    }, createEmptySummaryTotals());
+
+    for (const key of amountKeys) summary[key] = round2(summary[key]);
+    for (const key of countKeys) summary[key] = Math.round(Number(summary[key] || 0));
+
+    return {
+      monthKey: normalizedMonthKey,
+      monthLabel: formatMonthLabel(normalizedMonthKey),
+      rangeStart: start,
+      rangeEnd: end,
+      countries,
+      summary,
+    };
+  }
 
 // Generate a reasonably strong temporary password for resend flows
 function generateTempPassword(len = 10) {
@@ -3469,318 +3808,64 @@ router.post("/:id/impersonate", auth, allowRoles("admin", "user"), async (req, r
   }
 });
 
-// ============================================
-// CUSTOMER MANAGEMENT ENDPOINTS
-// ============================================
+  // ============================================
+  // CUSTOMER MANAGEMENT ENDPOINTS
+  // ============================================
 
-router.get(
+  router.get(
   "/total-amounts",
   auth,
   allowRoles("user"),
   async (req, res) => {
     try {
       const ownerId = new mongoose.Types.ObjectId(req.user.id);
-      const [agents, managers, dropshippers, products] = await Promise.all([
-        User.find({ role: "agent", createdBy: ownerId }, { _id: 1 }).lean(),
-        User.find({ role: "manager", createdBy: ownerId }, { _id: 1 }).lean(),
-        User.find({ role: "dropshipper", createdBy: ownerId }, { _id: 1 }).lean(),
-        Product.find({ createdBy: ownerId }).select("_id").lean(),
-      ]);
+      const monthKey = normalizeMonthKey(req.query?.month);
+      const live = String(req.query?.live || "") === "1";
+      const historyDocs = await TotalAmountClosing.find({ ownerId })
+        .select("monthKey monthLabel note closedAt createdAt updatedAt")
+        .sort({ monthKey: -1 })
+        .limit(24)
+        .lean();
 
-      const creatorIdStrings = Array.from(
-        new Set([
-          String(ownerId),
-          ...agents.map((row) => String(row._id)),
-          ...managers.map((row) => String(row._id)),
-          ...dropshippers.map((row) => String(row._id)),
-        ])
-      );
-      const creatorIds = creatorIdStrings.map((id) => new mongoose.Types.ObjectId(id));
-      const ownedProductIds = products.map((p) => p._id).filter(Boolean);
-      const WebOrder = (await import("../models/WebOrder.js")).default;
-
-      const [internalRows, webRows] = await Promise.all([
-        Order.aggregate([
-          {
-            $match: {
-              createdBy: { $in: creatorIds },
+      if (!live) {
+        const closedDoc = await TotalAmountClosing.findOne({ ownerId, monthKey }).lean();
+        if (closedDoc) {
+          return res.json({
+            monthKey: closedDoc.monthKey,
+            monthLabel: closedDoc.monthLabel || formatMonthLabel(closedDoc.monthKey),
+            rangeStart: closedDoc.rangeStart,
+            rangeEnd: closedDoc.rangeEnd,
+            countries: Array.isArray(closedDoc.countries) ? closedDoc.countries : [],
+            summary: closedDoc.summary || createEmptySummaryTotals(),
+            source: "closed",
+            closing: {
+              note: closedDoc.note || "",
+              closedAt: closedDoc.closedAt,
+              updatedAt: closedDoc.updatedAt,
             },
-          },
-          {
-            $project: {
-              orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
-              amount: { $ifNull: ["$total", 0] },
-              shipmentStatus: { $ifNull: ["$shipmentStatus", "pending"] },
-              createdByRole: { $ifNull: ["$createdByRole", "user"] },
-              hasDriver: {
-                $ne: [{ $ifNull: ["$deliveryBoy", null] }, null],
-              },
-            },
-          },
-          {
-            $group: {
-              _id: "$orderCountryCanon",
-              totalAmount: { $sum: "$amount" },
-              deliveredAmount: {
-                $sum: {
-                  $cond: [{ $eq: ["$shipmentStatus", "delivered"] }, "$amount", 0],
-                },
-              },
-              agentAmount: {
-                $sum: {
-                  $cond: [{ $eq: ["$createdByRole", "agent"] }, "$amount", 0],
-                },
-              },
-              agentDeliveredAmount: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        { $eq: ["$createdByRole", "agent"] },
-                        { $eq: ["$shipmentStatus", "delivered"] },
-                      ],
-                    },
-                    "$amount",
-                    0,
-                  ],
-                },
-              },
-              dropshipperAmount: {
-                $sum: {
-                  $cond: [{ $eq: ["$createdByRole", "dropshipper"] }, "$amount", 0],
-                },
-              },
-              dropshipperDeliveredAmount: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        { $eq: ["$createdByRole", "dropshipper"] },
-                        { $eq: ["$shipmentStatus", "delivered"] },
-                      ],
-                    },
-                    "$amount",
-                    0,
-                  ],
-                },
-              },
-              driverTotalAmount: {
-                $sum: {
-                  $cond: ["$hasDriver", "$amount", 0],
-                },
-              },
-              driverDeliveredAmount: {
-                $sum: {
-                  $cond: [
-                    {
-                      $and: [
-                        "$hasDriver",
-                        { $eq: ["$shipmentStatus", "delivered"] },
-                      ],
-                    },
-                    "$amount",
-                    0,
-                  ],
-                },
-              },
-            },
-          },
-        ]),
-        ownedProductIds.length
-          ? WebOrder.aggregate([
-              {
-                $match: {
-                  "items.productId": { $in: ownedProductIds },
-                },
-              },
-              {
-                $project: {
-                  orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
-                  amount: { $ifNull: ["$total", 0] },
-                  shipmentStatus: { $ifNull: ["$shipmentStatus", "pending"] },
-                  hasDriver: {
-                    $ne: [{ $ifNull: ["$deliveryBoy", null] }, null],
-                  },
-                },
-              },
-              {
-                $group: {
-                  _id: "$orderCountryCanon",
-                  totalAmount: { $sum: "$amount" },
-                  deliveredAmount: {
-                    $sum: {
-                      $cond: [{ $eq: ["$shipmentStatus", "delivered"] }, "$amount", 0],
-                    },
-                  },
-                  onlineOrderAmount: { $sum: "$amount" },
-                  onlineOrderDeliveredAmount: {
-                    $sum: {
-                      $cond: [{ $eq: ["$shipmentStatus", "delivered"] }, "$amount", 0],
-                    },
-                  },
-                  driverTotalAmount: {
-                    $sum: {
-                      $cond: ["$hasDriver", "$amount", 0],
-                    },
-                  },
-                  driverDeliveredAmount: {
-                    $sum: {
-                      $cond: [
-                        {
-                          $and: [
-                            "$hasDriver",
-                            { $eq: ["$shipmentStatus", "delivered"] },
-                          ],
-                        },
-                        "$amount",
-                        0,
-                      ],
-                    },
-                  },
-                },
-              },
-            ])
-          : [],
-      ]);
-
-      const countryOrder = [
-        "KSA",
-        "UAE",
-        "Oman",
-        "Bahrain",
-        "India",
-        "Kuwait",
-        "Qatar",
-        "Pakistan",
-        "Jordan",
-        "USA",
-        "UK",
-        "Canada",
-        "Australia",
-        "Other",
-      ];
-      const countrySortIndex = (country) => {
-        const idx = countryOrder.indexOf(canonicalCountryName(country));
-        return idx === -1 ? countryOrder.length + 1 : idx;
-      };
-
-      const rowMap = new Map();
-      const ensureRow = (country) => {
-        const key = canonicalCountryName(country);
-        if (!rowMap.has(key)) {
-          rowMap.set(key, {
-            country: key,
-            currency: currencyFromCountry(key),
-            totalAmount: 0,
-            deliveredAmount: 0,
-            agentAmount: 0,
-            agentDeliveredAmount: 0,
-            dropshipperAmount: 0,
-            dropshipperDeliveredAmount: 0,
-            driverTotalAmount: 0,
-            driverDeliveredAmount: 0,
-            onlineOrderAmount: 0,
-            onlineOrderDeliveredAmount: 0,
+            history: historyDocs.map((item) => ({
+              monthKey: item.monthKey,
+              monthLabel: item.monthLabel || formatMonthLabel(item.monthKey),
+              note: item.note || "",
+              closedAt: item.closedAt,
+              updatedAt: item.updatedAt,
+            })),
           });
         }
-        return rowMap.get(key);
-      };
-
-      for (const row of internalRows || []) {
-        const entry = ensureRow(row?._id || "Other");
-        entry.totalAmount += Number(row?.totalAmount || 0);
-        entry.deliveredAmount += Number(row?.deliveredAmount || 0);
-        entry.agentAmount += Number(row?.agentAmount || 0);
-        entry.agentDeliveredAmount += Number(row?.agentDeliveredAmount || 0);
-        entry.dropshipperAmount += Number(row?.dropshipperAmount || 0);
-        entry.dropshipperDeliveredAmount += Number(row?.dropshipperDeliveredAmount || 0);
-        entry.driverTotalAmount += Number(row?.driverTotalAmount || 0);
-        entry.driverDeliveredAmount += Number(row?.driverDeliveredAmount || 0);
       }
 
-      for (const row of webRows || []) {
-        const entry = ensureRow(row?._id || "Other");
-        entry.totalAmount += Number(row?.totalAmount || 0);
-        entry.deliveredAmount += Number(row?.deliveredAmount || 0);
-        entry.onlineOrderAmount += Number(row?.onlineOrderAmount || 0);
-        entry.onlineOrderDeliveredAmount += Number(row?.onlineOrderDeliveredAmount || 0);
-        entry.driverTotalAmount += Number(row?.driverTotalAmount || 0);
-        entry.driverDeliveredAmount += Number(row?.driverDeliveredAmount || 0);
-      }
-
-      const countries = Array.from(rowMap.values())
-        .map((row) => ({
-          ...row,
-          totalAmount: Math.round((Number(row.totalAmount || 0) + Number.EPSILON) * 100) / 100,
-          deliveredAmount:
-            Math.round((Number(row.deliveredAmount || 0) + Number.EPSILON) * 100) / 100,
-          agentAmount: Math.round((Number(row.agentAmount || 0) + Number.EPSILON) * 100) / 100,
-          agentDeliveredAmount:
-            Math.round((Number(row.agentDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
-          dropshipperAmount:
-            Math.round((Number(row.dropshipperAmount || 0) + Number.EPSILON) * 100) / 100,
-          dropshipperDeliveredAmount:
-            Math.round((Number(row.dropshipperDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
-          driverTotalAmount:
-            Math.round((Number(row.driverTotalAmount || 0) + Number.EPSILON) * 100) / 100,
-          driverDeliveredAmount:
-            Math.round((Number(row.driverDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
-          onlineOrderAmount:
-            Math.round((Number(row.onlineOrderAmount || 0) + Number.EPSILON) * 100) / 100,
-          onlineOrderDeliveredAmount:
-            Math.round((Number(row.onlineOrderDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
-        }))
-        .sort((a, b) => {
-          const byCountry = countrySortIndex(a.country) - countrySortIndex(b.country);
-          if (byCountry !== 0) return byCountry;
-          return Number(b.totalAmount || 0) - Number(a.totalAmount || 0);
-        });
-
-      const perAED = await getPerAEDConfig();
-      const summary = countries.reduce(
-        (acc, row) => {
-          const currency = row.currency || "AED";
-          acc.totalAmount += toAED(Number(row.totalAmount || 0), currency, perAED);
-          acc.deliveredAmount += toAED(Number(row.deliveredAmount || 0), currency, perAED);
-          acc.agentAmount += toAED(Number(row.agentAmount || 0), currency, perAED);
-          acc.agentDeliveredAmount += toAED(Number(row.agentDeliveredAmount || 0), currency, perAED);
-          acc.dropshipperAmount += toAED(Number(row.dropshipperAmount || 0), currency, perAED);
-          acc.dropshipperDeliveredAmount += toAED(Number(row.dropshipperDeliveredAmount || 0), currency, perAED);
-          acc.driverTotalAmount += toAED(Number(row.driverTotalAmount || 0), currency, perAED);
-          acc.driverDeliveredAmount += toAED(Number(row.driverDeliveredAmount || 0), currency, perAED);
-          acc.onlineOrderAmount += toAED(Number(row.onlineOrderAmount || 0), currency, perAED);
-          acc.onlineOrderDeliveredAmount += toAED(Number(row.onlineOrderDeliveredAmount || 0), currency, perAED);
-          return acc;
-        },
-        {
-          totalAmount: 0,
-          deliveredAmount: 0,
-          agentAmount: 0,
-          agentDeliveredAmount: 0,
-          dropshipperAmount: 0,
-          dropshipperDeliveredAmount: 0,
-          driverTotalAmount: 0,
-          driverDeliveredAmount: 0,
-          onlineOrderAmount: 0,
-          onlineOrderDeliveredAmount: 0,
-        }
-      );
-
+      const snapshot = await buildTotalAmountSnapshot({ ownerId, monthKey });
       return res.json({
-        countries,
-        summary: {
-          totalAmount: Math.round((Number(summary.totalAmount || 0) + Number.EPSILON) * 100) / 100,
-          deliveredAmount: Math.round((Number(summary.deliveredAmount || 0) + Number.EPSILON) * 100) / 100,
-          agentAmount: Math.round((Number(summary.agentAmount || 0) + Number.EPSILON) * 100) / 100,
-          agentDeliveredAmount: Math.round((Number(summary.agentDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
-          dropshipperAmount: Math.round((Number(summary.dropshipperAmount || 0) + Number.EPSILON) * 100) / 100,
-          dropshipperDeliveredAmount: Math.round((Number(summary.dropshipperDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
-          driverTotalAmount: Math.round((Number(summary.driverTotalAmount || 0) + Number.EPSILON) * 100) / 100,
-          driverDeliveredAmount: Math.round((Number(summary.driverDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
-          onlineOrderAmount: Math.round((Number(summary.onlineOrderAmount || 0) + Number.EPSILON) * 100) / 100,
-          onlineOrderDeliveredAmount: Math.round((Number(summary.onlineOrderDeliveredAmount || 0) + Number.EPSILON) * 100) / 100,
-          currency: "AED",
-        },
+        ...snapshot,
+        source: "live",
+        closing: null,
+        history: historyDocs.map((item) => ({
+          monthKey: item.monthKey,
+          monthLabel: item.monthLabel || formatMonthLabel(item.monthKey),
+          note: item.note || "",
+          closedAt: item.closedAt,
+          updatedAt: item.updatedAt,
+        })),
       });
     } catch (err) {
       console.error("Failed to load total amounts:", err);
@@ -3792,8 +3877,69 @@ router.get(
   }
 );
 
-// GET /api/users/customers - List all customers with order stats
-router.get(
+  router.post(
+    "/total-amounts/close-month",
+    auth,
+    allowRoles("user"),
+    async (req, res) => {
+      try {
+        const ownerId = new mongoose.Types.ObjectId(req.user.id);
+        const monthKey = normalizeMonthKey(req.body?.month);
+        const note = String(req.body?.note || "").trim().slice(0, 300);
+        const snapshot = await buildTotalAmountSnapshot({ ownerId, monthKey });
+
+        const closingDoc = await TotalAmountClosing.findOneAndUpdate(
+          { ownerId, monthKey: snapshot.monthKey },
+          {
+            $set: {
+              monthLabel: snapshot.monthLabel,
+              rangeStart: snapshot.rangeStart,
+              rangeEnd: snapshot.rangeEnd,
+              note,
+              summary: snapshot.summary,
+              countries: snapshot.countries,
+              closedAt: new Date(),
+              closedBy: req.user.id,
+            },
+          },
+          { new: true, upsert: true, setDefaultsOnInsert: true }
+        ).lean();
+
+        const historyDocs = await TotalAmountClosing.find({ ownerId })
+          .select("monthKey monthLabel note closedAt createdAt updatedAt")
+          .sort({ monthKey: -1 })
+          .limit(24)
+          .lean();
+
+        return res.json({
+          ...snapshot,
+          source: "closed",
+          closing: {
+            note: closingDoc?.note || "",
+            closedAt: closingDoc?.closedAt || new Date(),
+            updatedAt: closingDoc?.updatedAt || new Date(),
+          },
+          history: historyDocs.map((item) => ({
+            monthKey: item.monthKey,
+            monthLabel: item.monthLabel || formatMonthLabel(item.monthKey),
+            note: item.note || "",
+            closedAt: item.closedAt,
+            updatedAt: item.updatedAt,
+          })),
+          message: `Closed ${snapshot.monthLabel}`,
+        });
+      } catch (err) {
+        console.error("Failed to close total amounts month:", err);
+        return res.status(500).json({
+          message: "Failed to close total amounts month",
+          error: err?.message,
+        });
+      }
+    }
+  );
+
+  // GET /api/users/customers - List all customers with order stats
+  router.get(
   "/customers",
   auth,
   allowRoles("admin", "user"),
