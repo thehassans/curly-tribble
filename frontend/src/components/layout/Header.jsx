@@ -508,7 +508,7 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
           top: 0;
           z-index: 100;
           box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-          padding-top: env(safe-area-inset-top, 0px);
+          padding-top: max(env(safe-area-inset-top, 0px), var(--native-safe-area-top, 0px));
           backdrop-filter: blur(14px);
           -webkit-backdrop-filter: blur(14px);
         }

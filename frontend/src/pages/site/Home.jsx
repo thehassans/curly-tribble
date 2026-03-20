@@ -293,6 +293,7 @@ export default function Home(){
           color: annBar.color || '#fff',
           textAlign: 'center',
           padding: '8px 16px',
+          paddingTop: 'calc(8px + max(env(safe-area-inset-top, 0px), var(--native-safe-area-top, 0px)))',
           fontSize: 12,
           fontWeight: 500,
           lineHeight: 1.4,
@@ -314,6 +315,8 @@ export default function Home(){
             background: navScrolled ? 'rgba(8,8,18,0.72)' : 'transparent',
             backdropFilter: navScrolled ? 'blur(18px)' : 'none',
             WebkitBackdropFilter: navScrolled ? 'blur(18px)' : 'none',
+            top: annBar?.text ? 0 : 'max(env(safe-area-inset-top, 0px), var(--native-safe-area-top, 0px))',
+            paddingTop: annBar?.text ? 0 : 'max(env(safe-area-inset-top, 0px), var(--native-safe-area-top, 0px))',
             transition: 'background 0.3s, backdrop-filter 0.3s',
           }}
         >

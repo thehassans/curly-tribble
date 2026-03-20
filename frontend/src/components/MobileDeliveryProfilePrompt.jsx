@@ -1,12 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Capacitor } from '@capacitor/core'
 import { apiGet, apiPost } from '../api.js'
 import { useToast } from '../ui/Toast'
 
-const PROMPT_SEEN_KEY = '__buysial_mobile_onboarding_prompt_seen_v2__'
+const PROMPT_SEEN_KEY = '__buysial_mobile_onboarding_prompt_seen_v3__'
 const PROFILE_KEY = '__buysial_mobile_delivery_profile__'
-const SIGNUP_PREFILL_KEY = '__buysial_mobile_signup_prefill__'
 
 function isNativeApp() {
   try {
@@ -31,17 +30,9 @@ export function readMobileDeliveryProfile() {
 export default function MobileDeliveryProfilePrompt() {
   const toast = useToast()
   const [open, setOpen] = useState(false)
-  const [form, setForm] = useState(() => {
-    const profile = readProfile()
-    return {
-      name: String(profile?.name || '').trim(),
-    }
-  })
   const [googleClientId, setGoogleClientId] = useState('')
   const [googleReady, setGoogleReady] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
-
-  const canContinue = useMemo(() => String(form.name || '').trim().length > 0, [form.name])
 
   useEffect(() => {
     if (!isNativeApp()) return undefined
@@ -117,38 +108,22 @@ export default function MobileDeliveryProfilePrompt() {
     setOpen(false)
   }, [])
 
-  const persistProfile = useCallback((extra = {}) => {
-    const existing = readProfile()
-    const payload = {
-      ...existing,
-      name: String(form.name || '').trim() || String(existing?.name || '').trim(),
-      updatedAt: new Date().toISOString(),
-      ...extra,
-    }
-    try {
-      localStorage.setItem(PROFILE_KEY, JSON.stringify(payload))
-      window.dispatchEvent(new CustomEvent('buysialDeliveryProfileUpdated', { detail: payload }))
-    } catch {}
-    return payload
-  }, [form.name])
-
   const handleSkip = useCallback(() => {
-    persistProfile({ skipped: true })
+    try {
+      const existing = readProfile()
+      localStorage.setItem(PROFILE_KEY, JSON.stringify({
+        ...existing,
+        skipped: true,
+        updatedAt: new Date().toISOString(),
+      }))
+    } catch {}
     closePrompt(true)
-  }, [closePrompt, persistProfile])
+  }, [closePrompt])
 
   const handleSignup = useCallback(() => {
-    if (!canContinue) {
-      toast.error('Enter your name to continue')
-      return
-    }
-    const payload = persistProfile({ skipped: false })
-    try {
-      localStorage.setItem(SIGNUP_PREFILL_KEY, JSON.stringify({ name: payload.name }))
-    } catch {}
     closePrompt(true)
     window.location.href = '/register'
-  }, [canContinue, closePrompt, persistProfile, toast])
+  }, [closePrompt])
 
   const handleGoogleLogin = useCallback(async (response) => {
     if (!response?.credential) {
@@ -163,7 +138,6 @@ export default function MobileDeliveryProfilePrompt() {
         clientId: googleClientId
       })
 
-      persistProfile({ skipped: false })
       localStorage.setItem('token', data.token)
       localStorage.setItem('me', JSON.stringify(data.user))
       closePrompt(true)
@@ -173,7 +147,7 @@ export default function MobileDeliveryProfilePrompt() {
     } finally {
       setGoogleLoading(false)
     }
-  }, [closePrompt, googleClientId, persistProfile, toast])
+  }, [closePrompt, googleClientId, toast])
 
   useEffect(() => {
     if (!open || !googleClientId || !googleReady || !window.google?.accounts?.id) return undefined
@@ -189,7 +163,6 @@ export default function MobileDeliveryProfilePrompt() {
   }, [open, googleClientId, googleReady, handleGoogleLogin])
 
   const handleGoogleContinue = useCallback(() => {
-    persistProfile({ skipped: false })
     if (!googleClientId || !window.google?.accounts?.id) {
       toast.error('Google sign-in is not ready yet')
       return
@@ -199,7 +172,7 @@ export default function MobileDeliveryProfilePrompt() {
     } catch {
       toast.error('Google sign-in is not ready yet')
     }
-  }, [googleClientId, persistProfile, toast])
+  }, [googleClientId, toast])
 
   if (!open || typeof document === 'undefined') return null
 
@@ -212,23 +185,11 @@ export default function MobileDeliveryProfilePrompt() {
             <span>Buysial</span>
           </div>
 
-          <h2 id="mobile-delivery-prompt-title">Start with your name</h2>
-          <p>Use a minimal setup now, then finish the rest later.</p>
-
-          <div className="mobile-delivery-prompt-fields">
-            <label className="mobile-delivery-field">
-              <span>Name</span>
-              <input
-                value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-                placeholder="Your name"
-                autoComplete="name"
-              />
-            </label>
-          </div>
+          <h2 id="mobile-delivery-prompt-title">Welcome to Buysial</h2>
+          <p>Sign up to shop faster, save your profile, and continue seamlessly.</p>
 
           <div className="mobile-delivery-prompt-actions stacked">
-            <button type="button" className="mobile-delivery-save" onClick={handleSignup} disabled={!canContinue}>Sign up</button>
+            <button type="button" className="mobile-delivery-save" onClick={handleSignup}>Sign up</button>
             <button type="button" className="mobile-delivery-google" onClick={handleGoogleContinue} disabled={googleLoading || !googleClientId || !googleReady}>
               {googleLoading ? 'Connecting...' : 'Continue with Google'}
             </button>
@@ -280,7 +241,7 @@ export default function MobileDeliveryProfilePrompt() {
         .mobile-delivery-prompt-card h2 {
           margin: 14px 0 6px;
           color: #0f172a;
-          font-size: 22px;
+          font-size: 21px;
           line-height: 1.08;
           letter-spacing: -0.04em;
           font-weight: 700;
@@ -294,45 +255,10 @@ export default function MobileDeliveryProfilePrompt() {
           font-weight: 500;
         }
 
-        .mobile-delivery-prompt-fields {
-          display: grid;
-          gap: 10px;
-          margin-top: 16px;
-        }
-
-        .mobile-delivery-field {
-          display: grid;
-          gap: 6px;
-        }
-
-        .mobile-delivery-field span {
-          color: #475569;
-          font-size: 11px;
-          font-weight: 700;
-          letter-spacing: 0.02em;
-        }
-
-        .mobile-delivery-field input {
-          height: 44px;
-          border-radius: 14px;
-          border: 1px solid rgba(148,163,184,0.18);
-          background: #ffffff;
-          padding: 0 13px;
-          color: #0f172a;
-          font-size: 13px;
-          font-weight: 600;
-          outline: none;
-        }
-
-        .mobile-delivery-field input:focus {
-          border-color: rgba(249,115,22,0.40);
-          box-shadow: 0 0 0 4px rgba(249,115,22,0.10);
-        }
-
         .mobile-delivery-prompt-actions.stacked {
           display: grid;
           gap: 8px;
-          margin-top: 14px;
+          margin-top: 18px;
         }
 
         .mobile-delivery-save,
