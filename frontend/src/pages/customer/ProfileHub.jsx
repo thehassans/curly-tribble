@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { apiGet, mediaUrl } from '../../api'
+import MobileBottomNav from '../../components/ecommerce/MobileBottomNav'
+import Header from '../../components/layout/Header'
 import { readWishlistIds, syncWishlistFromServer } from '../../util/wishlist'
 
 function formatMoney(amount, currency = 'SAR') {
@@ -45,6 +47,7 @@ const STATUS_THEME = {
 }
 
 export default function CustomerProfileHub() {
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [profile, setProfile] = useState(null)
   const [orders, setOrders] = useState([])
@@ -140,6 +143,26 @@ export default function CustomerProfileHub() {
   const walletEntries = useMemo(() => Object.entries(walletSummary?.byCurrency || {}), [walletSummary])
   const primaryWallet = walletEntries[0] || ['SAR', 0]
   const activeCoupons = useMemo(() => (coupons || []).filter((coupon) => coupon?.isActive !== false), [coupons])
+  const displayName = `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Customer'
+  const customerEmail = customer.email || 'Manage your orders, wishlist, wallet, and offers in one place.'
+  const customerInitial = (customer.firstName?.[0] || displayName?.[0] || 'C').toUpperCase()
+  const previewCoupons = activeCoupons.slice(0, 2)
+  const previewWishlist = wishlistProducts.slice(0, 2)
+  const statCards = [
+    { label: 'Orders', value: stats.totalOrders },
+    { label: 'Pending', value: stats.pendingOrders },
+    { label: 'Delivered', value: stats.deliveredOrders },
+    { label: 'Spent', value: formatMoney(stats.totalSpent, orders[0]?.currency || 'SAR') },
+  ]
+
+  function doLogout() {
+    try {
+      localStorage.removeItem('token')
+      localStorage.removeItem('me')
+      localStorage.removeItem('navColors')
+    } catch {}
+    navigate('/customer/login', { replace: true })
+  }
 
   const actionCards = [
     {
@@ -179,13 +202,29 @@ export default function CustomerProfileHub() {
   if (loading) {
     return (
       <>
-        <div className="customer-profile-hub loading-state">
-          <div className="profile-loader"></div>
-          <div className="profile-loader-text">Loading your profile...</div>
+        <div className="customer-profile-page">
+          <Header />
+          <main className="profile-shell">
+            <div className="customer-profile-hub loading-state">
+              <div className="profile-loader"></div>
+              <div className="profile-loader-text">Loading your profile...</div>
+            </div>
+          </main>
+          <MobileBottomNav />
         </div>
         <style>{`
+          .customer-profile-page {
+            min-height: 100vh;
+            background: linear-gradient(180deg, #f8fafc 0%, #ffffff 30%, #fff7ed 100%);
+          }
+          .profile-shell {
+            width: 100%;
+            max-width: 1120px;
+            margin: 0 auto;
+            padding: 18px 16px 0;
+          }
           .customer-profile-hub.loading-state {
-            min-height: 56vh;
+            min-height: calc(100vh - 240px);
             display: grid;
             place-items: center;
             gap: 14px;
@@ -213,569 +252,556 @@ export default function CustomerProfileHub() {
 
   return (
     <>
-      <div className="customer-profile-hub">
-        <section className="profile-hero-card">
-          <div className="hero-top-row">
-            <div className="hero-identity">
-              <div className="hero-avatar">{(customer.firstName?.[0] || 'C').toUpperCase()}</div>
-              <div className="hero-copy">
-                <div className="hero-kicker">Customer profile</div>
-                <h1>{customer.firstName || 'Customer'} {customer.lastName || ''}</h1>
-                <p>{customer.email || 'Manage your orders, wishlist, wallet, and coupons from one place.'}</p>
-              </div>
-            </div>
-            <div className="hero-actions">
-              <Link to="/catalog" className="hero-primary-btn">Continue Shopping</Link>
-              <Link to="/customer/orders" className="hero-secondary-btn">Track Orders</Link>
-            </div>
-          </div>
+      <div className="customer-profile-page">
+        <Header />
 
-          <div className="hero-metrics-grid">
-            <div className="hero-metric-card">
-              <span className="metric-label">Total orders</span>
-              <span className="metric-value">{stats.totalOrders}</span>
-            </div>
-            <div className="hero-metric-card">
-              <span className="metric-label">Pending</span>
-              <span className="metric-value">{stats.pendingOrders}</span>
-            </div>
-            <div className="hero-metric-card">
-              <span className="metric-label">Delivered</span>
-              <span className="metric-value">{stats.deliveredOrders}</span>
-            </div>
-            <div className="hero-metric-card">
-              <span className="metric-label">Total spent</span>
-              <span className="metric-value metric-money">{formatMoney(stats.totalSpent, orders[0]?.currency || 'SAR')}</span>
-            </div>
-          </div>
-        </section>
-
-        <section className="profile-main-grid">
-          <div className="profile-card span-two">
-            <div className="card-head-row">
-              <div>
-                <div className="card-title">Everything in one place</div>
-                <div className="card-subtitle">Wishlist, wallet, orders, coupons, and shopping shortcuts in a single minimal hub.</div>
-              </div>
-              <Link to="/catalog" className="card-link">Shop</Link>
-            </div>
-            <div className="action-grid">
-              {actionCards.map((item) => (
-                <Link key={item.title} to={item.to} className="action-tile" style={{ '--accent': item.accent }}>
-                  <div className="action-tile-icon">{item.icon}</div>
-                  <div className="action-tile-copy">
-                    <div className="action-tile-title">{item.title}</div>
-                    <div className="action-tile-value">{item.value}</div>
-                    <div className="action-tile-meta">{item.meta}</div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-
-          <div className="profile-card wallet-card">
-            <div className="card-head-row compact">
-              <div>
-                <div className="card-title">Wallet</div>
-                <div className="card-subtitle">Instant balance overview</div>
-              </div>
-              <Link to="/customer/wallet" className="card-link">Open</Link>
-            </div>
-            {walletEntries.length ? (
-              <div className="wallet-chip-list">
-                {walletEntries.map(([currency, amount]) => (
-                  <div key={currency} className="wallet-chip">
-                    <span>{currency}</span>
-                    <strong>{Number(amount || 0).toFixed(2)}</strong>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="empty-mini-state">No wallet balance yet.</div>
-            )}
-          </div>
-
-          <div className="profile-card">
-            <div className="card-head-row compact">
-              <div>
-                <div className="card-title">Coupons</div>
-                <div className="card-subtitle">Ready-to-use offers</div>
-              </div>
-              <Link to="/customer/coupons" className="card-link">View all</Link>
-            </div>
-            <div className="mini-list">
-              {activeCoupons.slice(0, 3).map((coupon) => (
-                <div key={coupon._id} className="coupon-row">
-                  <div>
-                    <div className="coupon-code">{coupon.code}</div>
-                    <div className="coupon-copy">{coupon.description || 'Use this code at checkout.'}</div>
-                  </div>
-                  <div className="coupon-discount">
-                    {coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : `${coupon.discountValue} OFF`}
+        <main className="profile-shell">
+          <div className="customer-profile-hub">
+            <section className="profile-hero-card">
+              <div className="profile-overline">Profile</div>
+              <div className="profile-top-row">
+                <div className="profile-identity">
+                  <div className="profile-avatar">{customerInitial}</div>
+                  <div className="profile-copy">
+                    <h1>{displayName}</h1>
+                    <p>{customerEmail}</p>
                   </div>
                 </div>
-              ))}
-              {!activeCoupons.length && <div className="empty-mini-state">No active coupons right now.</div>}
-            </div>
-          </div>
-        </section>
 
-        <section className="profile-content-grid">
-          <div className="profile-card orders-panel">
-            <div className="card-head-row">
-              <div>
-                <div className="card-title">Recent orders</div>
-                <div className="card-subtitle">Track your latest deliveries and statuses.</div>
+                <div className="profile-hero-actions">
+                  <Link to="/catalog" className="profile-primary-btn">Continue shopping</Link>
+                  <Link to="/customer/orders" className="profile-secondary-btn">Track orders</Link>
+                  <button type="button" className="profile-secondary-btn profile-logout-btn" onClick={doLogout}>Logout</button>
+                </div>
               </div>
-              <Link to="/customer/orders" className="card-link">View all</Link>
-            </div>
-            <div className="order-list">
-              {orders.map((order) => {
-                const statusKey = order?.shipmentStatus || order?.status || 'pending'
-                const theme = STATUS_THEME[statusKey] || STATUS_THEME.pending
-                return (
-                  <Link key={order._id} to={`/customer/orders/${order._id}`} className="order-row">
-                    <div className="order-row-main">
-                      <div className="order-row-id">#{order._id?.slice(-8).toUpperCase()}</div>
-                      <div className="order-row-date">{new Date(order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
-                    </div>
-                    <div className="order-row-side">
-                      <span className="order-status-pill" style={{ color: theme.color, background: theme.background }}>
-                        {formatStatus(statusKey)}
-                      </span>
-                      <strong>{formatMoney(order?.total, order?.currency || 'SAR')}</strong>
-                    </div>
-                  </Link>
-                )
-              })}
-              {!orders.length && <div className="empty-mini-state">No recent orders yet.</div>}
-            </div>
-          </div>
 
-          <div className="profile-card wishlist-panel">
-            <div className="card-head-row">
-              <div>
-                <div className="card-title">Wishlist</div>
-                <div className="card-subtitle">Products you saved for later.</div>
+              <div className="profile-stat-strip">
+                {statCards.map((item) => (
+                  <div key={item.label} className="profile-stat-card">
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </div>
+                ))}
               </div>
-              <Link to="/customer/wishlist" className="card-link">Open</Link>
-            </div>
-            {wishlistProducts.length ? (
-              <div className="wishlist-grid">
-                {wishlistProducts.slice(0, 4).map((product) => (
-                  <Link key={product._id} to={`/product/${product._id}`} className="wishlist-item-card">
-                    <div className="wishlist-image-shell">
-                      {getProductImage(product) ? (
-                        <img src={getProductImage(product)} alt={product?.name || 'Product'} className="wishlist-image" />
-                      ) : (
-                        <div className="wishlist-image-fallback">BuySial</div>
-                      )}
+            </section>
+
+            <section className="profile-panel wide-panel">
+              <div className="section-row">
+                <div>
+                  <div className="section-label">Shortcuts</div>
+                  <div className="section-title">Everything in one place</div>
+                </div>
+                <Link to="/catalog" className="section-link">Open store</Link>
+              </div>
+
+              <div className="shortcut-grid">
+                {actionCards.map((item) => (
+                  <Link key={item.title} to={item.to} className="shortcut-card" style={{ '--accent': item.accent }}>
+                    <div className="shortcut-icon">{item.icon}</div>
+                    <div className="shortcut-copy">
+                      <div className="shortcut-title">{item.title}</div>
+                      <div className="shortcut-value">{item.value}</div>
+                      <div className="shortcut-meta">{item.meta}</div>
                     </div>
-                    <div className="wishlist-item-name">{product?.name || 'Untitled product'}</div>
                   </Link>
                 ))}
               </div>
-            ) : (
-              <div className="empty-mini-state">Your wishlist is empty for now.</div>
-            )}
+            </section>
+
+            <section className="profile-grid-two">
+              <div className="profile-panel">
+                <div className="section-row compact-row">
+                  <div>
+                    <div className="section-label">Balance</div>
+                    <div className="section-title">Wallet</div>
+                  </div>
+                  <Link to="/customer/wallet" className="section-link">Open</Link>
+                </div>
+                {walletEntries.length ? (
+                  <div className="mini-stack">
+                    {walletEntries.map(([currency, amount]) => (
+                      <div key={currency} className="info-row">
+                        <span>{currency}</span>
+                        <strong>{Number(amount || 0).toFixed(2)}</strong>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty-mini-state">No wallet balance yet.</div>
+                )}
+              </div>
+
+              <div className="profile-panel">
+                <div className="section-row compact-row">
+                  <div>
+                    <div className="section-label">Offers</div>
+                    <div className="section-title">Coupons</div>
+                  </div>
+                  <Link to="/customer/coupons" className="section-link">View all</Link>
+                </div>
+                <div className="mini-stack">
+                  {previewCoupons.map((coupon) => (
+                    <div key={coupon._id} className="coupon-row">
+                      <div>
+                        <div className="coupon-code">{coupon.code}</div>
+                        <div className="coupon-copy">{coupon.description || 'Use this code at checkout.'}</div>
+                      </div>
+                      <div className="coupon-discount">
+                        {coupon.discountType === 'percentage' ? `${coupon.discountValue}%` : `${coupon.discountValue} OFF`}
+                      </div>
+                    </div>
+                  ))}
+                  {!previewCoupons.length && <div className="empty-mini-state">No active coupons right now.</div>}
+                </div>
+              </div>
+            </section>
+
+            <section className="profile-grid-two profile-grid-bottom">
+              <div className="profile-panel profile-panel-large">
+                <div className="section-row">
+                  <div>
+                    <div className="section-label">Orders</div>
+                    <div className="section-title">Recent activity</div>
+                  </div>
+                  <Link to="/customer/orders" className="section-link">View all</Link>
+                </div>
+                <div className="mini-stack">
+                  {orders.slice(0, 4).map((order) => {
+                    const statusKey = order?.shipmentStatus || order?.status || 'pending'
+                    const theme = STATUS_THEME[statusKey] || STATUS_THEME.pending
+                    return (
+                      <Link key={order._id} to={`/customer/orders/${order._id}`} className="order-row">
+                        <div className="order-row-main">
+                          <div className="order-row-id">#{order._id?.slice(-8).toUpperCase()}</div>
+                          <div className="order-row-date">{new Date(order.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                        </div>
+                        <div className="order-row-side">
+                          <span className="order-status-pill" style={{ color: theme.color, background: theme.background }}>
+                            {formatStatus(statusKey)}
+                          </span>
+                          <strong>{formatMoney(order?.total, order?.currency || 'SAR')}</strong>
+                        </div>
+                      </Link>
+                    )
+                  })}
+                  {!orders.length && <div className="empty-mini-state">No recent orders yet.</div>}
+                </div>
+              </div>
+
+              <div className="profile-panel">
+                <div className="section-row">
+                  <div>
+                    <div className="section-label">Saved</div>
+                    <div className="section-title">Wishlist</div>
+                  </div>
+                  <Link to="/customer/wishlist" className="section-link">Open</Link>
+                </div>
+                {previewWishlist.length ? (
+                  <div className="wishlist-list">
+                    {previewWishlist.map((product) => (
+                      <Link key={product._id} to={`/product/${product._id}`} className="wishlist-row">
+                        <div className="wishlist-thumb-shell">
+                          {getProductImage(product) ? (
+                            <img src={getProductImage(product)} alt={product?.name || 'Product'} className="wishlist-thumb" />
+                          ) : (
+                            <div className="wishlist-thumb-fallback">B</div>
+                          )}
+                        </div>
+                        <div className="wishlist-copy">
+                          <div className="wishlist-name">{product?.name || 'Untitled product'}</div>
+                          <div className="wishlist-meta">Saved for later</div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty-mini-state">Your wishlist is empty for now.</div>
+                )}
+              </div>
+            </section>
           </div>
-        </section>
+        </main>
+
+        <MobileBottomNav />
       </div>
 
       <style>{`
+        .customer-profile-page {
+          min-height: 100vh;
+          background: linear-gradient(180deg, #f8fafc 0%, #ffffff 30%, #fff7ed 100%);
+        }
+
+        .profile-shell {
+          width: 100%;
+          max-width: 1120px;
+          margin: 0 auto;
+          padding: 18px 16px 0;
+        }
+
         .customer-profile-hub {
           display: grid;
-          gap: 18px;
+          gap: 14px;
           color: #0f172a;
+          padding-bottom: 12px;
         }
 
         .profile-hero-card,
-        .profile-card {
-          background: rgba(255,255,255,0.9);
-          border: 1px solid rgba(148,163,184,0.16);
-          border-radius: 28px;
-          box-shadow: 0 22px 60px rgba(15,23,42,0.06);
-          backdrop-filter: blur(12px);
+        .profile-panel {
+          background: rgba(255,255,255,0.92);
+          border: 1px solid rgba(148,163,184,0.14);
+          border-radius: 24px;
+          box-shadow: 0 18px 42px rgba(15,23,42,0.05);
         }
 
         .profile-hero-card {
-          padding: 24px;
-          background: linear-gradient(135deg, rgba(255,247,237,0.98) 0%, rgba(255,255,255,0.98) 58%, rgba(255,237,213,0.72) 100%);
-          border-color: rgba(249,115,22,0.18);
+          padding: 18px;
+          display: grid;
+          gap: 14px;
+          background: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(255,247,237,0.92) 100%);
+          border-color: rgba(249,115,22,0.12);
         }
 
-        .hero-top-row {
+        .profile-overline,
+        .section-label {
+          font-size: 10px;
+          letter-spacing: 0.18em;
+          text-transform: uppercase;
+          font-weight: 800;
+          color: #94a3b8;
+        }
+
+        .profile-top-row,
+        .section-row,
+        .compact-row,
+        .coupon-row,
+        .order-row,
+        .wishlist-row,
+        .info-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 18px;
+          gap: 12px;
           flex-wrap: wrap;
         }
 
-        .hero-identity {
+        .profile-identity {
           display: flex;
           align-items: center;
-          gap: 16px;
+          gap: 12px;
           min-width: 0;
         }
 
-        .hero-avatar {
-          width: 72px;
-          height: 72px;
-          border-radius: 24px;
+        .profile-avatar {
+          width: 56px;
+          height: 56px;
+          border-radius: 18px;
           display: grid;
           place-items: center;
           background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
           color: #fff;
-          font-size: 30px;
+          font-size: 24px;
           font-weight: 900;
-          box-shadow: 0 18px 36px rgba(249,115,22,0.28);
+          box-shadow: 0 14px 28px rgba(249,115,22,0.20);
           flex-shrink: 0;
         }
 
-        .hero-copy {
+        .profile-copy {
           min-width: 0;
           display: grid;
-          gap: 6px;
+          gap: 4px;
         }
 
-        .hero-kicker {
-          font-size: 11px;
-          letter-spacing: 0.18em;
-          text-transform: uppercase;
-          font-weight: 900;
-          color: #ea580c;
-        }
-
-        .hero-copy h1 {
+        .profile-copy h1 {
           margin: 0;
-          font-size: clamp(28px, 4vw, 40px);
-          line-height: 1;
-          letter-spacing: -0.04em;
-          font-weight: 950;
+          font-size: clamp(20px, 2.8vw, 28px);
+          line-height: 1.05;
+          letter-spacing: -0.03em;
+          font-weight: 900;
         }
 
-        .hero-copy p {
+        .profile-copy p {
           margin: 0;
           color: #64748b;
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 600;
-          max-width: 560px;
+          max-width: 480px;
+          overflow-wrap: anywhere;
         }
 
-        .hero-actions {
+        .profile-hero-actions {
           display: flex;
-          gap: 10px;
+          gap: 8px;
           flex-wrap: wrap;
         }
 
-        .hero-primary-btn,
-        .hero-secondary-btn,
-        .card-link {
+        .profile-primary-btn,
+        .profile-secondary-btn,
+        .section-link {
           display: inline-flex;
           align-items: center;
           justify-content: center;
           text-decoration: none;
-          font-size: 13px;
-          font-weight: 800;
-          transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+          font-size: 12px;
+          font-weight: 700;
+          transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease;
         }
 
-        .hero-primary-btn,
-        .hero-secondary-btn {
-          padding: 12px 16px;
-          border-radius: 16px;
+        .profile-primary-btn,
+        .profile-secondary-btn,
+        .section-link {
+          padding: 10px 14px;
+          border-radius: 999px;
+          border: 1px solid rgba(148,163,184,0.18);
         }
 
-        .hero-primary-btn {
+        .profile-primary-btn {
           background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
           color: #fff;
-          box-shadow: 0 18px 40px rgba(249,115,22,0.28);
+          box-shadow: 0 12px 28px rgba(249,115,22,0.18);
+          border-color: transparent;
         }
 
-        .hero-secondary-btn {
+        .profile-secondary-btn,
+        .section-link {
           color: #0f172a;
-          border: 1px solid rgba(148,163,184,0.24);
-          background: rgba(255,255,255,0.72);
+          background: rgba(255,255,255,0.9);
         }
 
-        .hero-primary-btn:hover,
-        .hero-secondary-btn:hover,
-        .card-link:hover,
-        .action-tile:hover,
+        .profile-primary-btn:hover,
+        .profile-secondary-btn:hover,
+        .section-link:hover,
+        .shortcut-card:hover,
         .order-row:hover,
-        .wishlist-item-card:hover {
+        .wishlist-row:hover {
           transform: translateY(-2px);
         }
 
-        .hero-metrics-grid {
-          margin-top: 18px;
-          display: grid;
-          grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 12px;
+        .profile-logout-btn {
+          color: #dc2626;
+          background: rgba(254,242,242,0.9);
+          border-color: rgba(220,38,38,0.12);
+          cursor: pointer;
         }
 
-        .hero-metric-card {
-          padding: 16px;
-          border-radius: 20px;
-          border: 1px solid rgba(255,255,255,0.7);
-          background: rgba(255,255,255,0.72);
+        .profile-stat-strip {
           display: grid;
-          gap: 8px;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .profile-stat-card {
+          padding: 12px 14px;
+          border-radius: 18px;
+          border: 1px solid rgba(148,163,184,0.12);
+          background: rgba(255,255,255,0.84);
+          display: grid;
+          gap: 6px;
           min-width: 0;
         }
 
-        .metric-label {
-          font-size: 11px;
+        .profile-stat-card span {
+          font-size: 10px;
           font-weight: 800;
-          letter-spacing: 0.12em;
+          letter-spacing: 0.14em;
           text-transform: uppercase;
           color: #94a3b8;
         }
 
-        .metric-value {
-          font-size: clamp(22px, 2.4vw, 30px);
+        .profile-stat-card strong {
+          font-size: clamp(16px, 2vw, 20px);
           font-weight: 900;
-          line-height: 1;
+          line-height: 1.1;
+          overflow-wrap: anywhere;
         }
 
-        .metric-money {
-          font-size: clamp(16px, 2vw, 24px);
-        }
-
-        .profile-main-grid,
-        .profile-content-grid {
+        .profile-panel {
+          padding: 18px;
           display: grid;
-          gap: 18px;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 14px;
+          min-width: 0;
         }
 
-        .profile-card {
-          padding: 20px;
+        .wide-panel,
+        .profile-panel-large {
+          min-width: 0;
+        }
+
+        .profile-grid-two {
+          display: grid;
+          gap: 14px;
+          grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+        }
+
+        .profile-grid-bottom {
+          align-items: start;
+        }
+
+        .section-title {
+          margin-top: 2px;
+          font-size: 16px;
+          font-weight: 800;
+          letter-spacing: -0.02em;
+        }
+
+        .shortcut-grid {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+        }
+
+        .shortcut-card {
+          display: flex;
+          gap: 12px;
+          align-items: center;
+          padding: 14px;
+          border-radius: 18px;
+          text-decoration: none;
+          color: inherit;
+          border: 1px solid color-mix(in srgb, var(--accent) 16%, rgba(148,163,184,0.14));
+          background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 8%, white) 0%, rgba(255,255,255,0.98) 100%);
+        }
+
+        .shortcut-icon {
+          width: 40px;
+          height: 40px;
+          border-radius: 14px;
+          display: grid;
+          place-items: center;
+          background: color-mix(in srgb, var(--accent) 14%, white);
+          color: var(--accent);
+          font-size: 18px;
+          font-weight: 900;
+          flex-shrink: 0;
+        }
+
+        .shortcut-copy {
           min-width: 0;
           display: grid;
-          gap: 16px;
+          gap: 2px;
         }
 
-        .span-two {
-          grid-column: span 2;
+        .shortcut-title {
+          font-size: 12px;
+          font-weight: 800;
         }
 
-        .card-head-row {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 14px;
-          flex-wrap: wrap;
-        }
-
-        .card-head-row.compact {
-          align-items: center;
-        }
-
-        .card-title {
-          font-size: 20px;
+        .shortcut-value {
+          font-size: 15px;
           font-weight: 900;
-          letter-spacing: -0.03em;
+          overflow-wrap: anywhere;
         }
 
-        .card-subtitle {
-          margin-top: 4px;
+        .shortcut-meta,
+        .wishlist-meta,
+        .coupon-copy,
+        .order-row-date {
           color: #64748b;
-          font-size: 13px;
+          font-size: 11px;
           font-weight: 600;
         }
 
-        .card-link {
-          padding: 10px 14px;
-          border-radius: 14px;
+        .mini-stack,
+        .wishlist-list {
+          display: grid;
+          gap: 10px;
+        }
+
+        .info-row,
+        .coupon-row,
+        .order-row,
+        .wishlist-row {
+          padding: 12px 14px;
+          border-radius: 16px;
+          border: 1px solid rgba(148,163,184,0.12);
+          background: rgba(248,250,252,0.82);
+        }
+
+        .info-row span {
+          font-size: 12px;
+          font-weight: 700;
+          color: #64748b;
+        }
+
+        .info-row strong,
+        .coupon-code,
+        .order-row-id,
+        .wishlist-name,
+        .order-row-side strong {
+          font-size: 13px;
+          font-weight: 800;
+          color: #0f172a;
+        }
+
+        .coupon-discount {
+          padding: 8px 10px;
+          border-radius: 999px;
+          background: rgba(249,115,22,0.10);
           color: #ea580c;
-          border: 1px solid rgba(249,115,22,0.2);
-          background: rgba(255,247,237,0.9);
+          font-size: 11px;
+          font-weight: 900;
           white-space: nowrap;
         }
 
-        .action-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 12px;
-        }
-
-        .action-tile {
-          display: flex;
-          gap: 14px;
-          align-items: center;
-          padding: 16px;
-          border-radius: 22px;
+        .order-row,
+        .wishlist-row {
           text-decoration: none;
           color: inherit;
-          border: 1px solid color-mix(in srgb, var(--accent) 20%, rgba(148,163,184,0.14));
-          background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 9%, white) 0%, rgba(255,255,255,0.96) 100%);
         }
 
-        .action-tile-icon {
-          width: 48px;
-          height: 48px;
-          flex-shrink: 0;
-          border-radius: 16px;
-          display: grid;
-          place-items: center;
-          background: color-mix(in srgb, var(--accent) 15%, white);
-          color: var(--accent);
-          font-size: 22px;
-          font-weight: 900;
-        }
-
-        .action-tile-copy {
+        .order-row-main,
+        .wishlist-copy {
           min-width: 0;
           display: grid;
           gap: 3px;
         }
 
-        .action-tile-title {
-          font-size: 14px;
-          font-weight: 800;
-        }
-
-        .action-tile-value {
-          font-size: 18px;
-          font-weight: 900;
-          overflow-wrap: anywhere;
-        }
-
-        .action-tile-meta {
-          color: #64748b;
-          font-size: 12px;
-          font-weight: 600;
-        }
-
-        .wallet-chip-list,
-        .mini-list,
-        .order-list {
-          display: grid;
-          gap: 10px;
-        }
-
-        .wallet-chip {
-          display: flex;
-          justify-content: space-between;
-          gap: 12px;
-          align-items: center;
-          padding: 12px 14px;
-          border-radius: 16px;
-          background: linear-gradient(135deg, rgba(139,92,246,0.08) 0%, rgba(255,255,255,0.94) 100%);
-          border: 1px solid rgba(139,92,246,0.12);
-          font-size: 13px;
-          font-weight: 700;
-        }
-
-        .wallet-chip strong {
-          font-size: 14px;
-          color: #0f172a;
-        }
-
-        .coupon-row,
-        .order-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          padding: 14px;
-          border-radius: 18px;
-          border: 1px solid rgba(148,163,184,0.14);
-          background: rgba(248,250,252,0.82);
-        }
-
-        .order-row {
-          text-decoration: none;
-          color: inherit;
-        }
-
-        .coupon-code,
-        .order-row-id {
-          font-size: 14px;
-          font-weight: 900;
-          color: #0f172a;
-        }
-
-        .coupon-copy,
-        .order-row-date {
-          margin-top: 4px;
-          color: #64748b;
-          font-size: 12px;
-          font-weight: 600;
-        }
-
-        .coupon-discount {
-          padding: 10px 12px;
-          border-radius: 14px;
-          background: rgba(249,115,22,0.10);
-          color: #ea580c;
-          font-size: 12px;
-          font-weight: 900;
-          white-space: nowrap;
-        }
-
         .order-row-side {
           display: grid;
-          gap: 8px;
+          gap: 6px;
           justify-items: end;
           text-align: right;
         }
 
         .order-status-pill {
-          padding: 7px 11px;
+          padding: 6px 10px;
           border-radius: 999px;
-          font-size: 11px;
+          font-size: 10px;
           font-weight: 900;
-          letter-spacing: 0.04em;
+          letter-spacing: 0.05em;
           text-transform: uppercase;
           white-space: nowrap;
         }
 
-        .wishlist-grid {
-          display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-          gap: 12px;
+        .wishlist-row {
+          align-items: center;
+          flex-wrap: nowrap;
         }
 
-        .wishlist-item-card {
-          display: grid;
-          gap: 10px;
-          text-decoration: none;
-          color: inherit;
-          padding: 12px;
-          border-radius: 18px;
-          border: 1px solid rgba(148,163,184,0.14);
-          background: rgba(248,250,252,0.82);
-        }
-
-        .wishlist-image-shell {
-          aspect-ratio: 1;
+        .wishlist-thumb-shell {
+          width: 56px;
+          height: 56px;
           border-radius: 14px;
           overflow: hidden;
           background: linear-gradient(135deg, rgba(249,115,22,0.08) 0%, rgba(255,255,255,0.9) 100%);
           display: grid;
           place-items: center;
+          flex-shrink: 0;
         }
 
-        .wishlist-image {
+        .wishlist-thumb {
           width: 100%;
           height: 100%;
           object-fit: cover;
         }
 
-        .wishlist-image-fallback {
-          font-size: 13px;
+        .wishlist-thumb-fallback {
+          font-size: 16px;
           font-weight: 900;
           color: #ea580c;
         }
 
-        .wishlist-item-name {
-          font-size: 13px;
-          font-weight: 800;
-          line-height: 1.45;
-          color: #0f172a;
+        .wishlist-name {
+          line-height: 1.4;
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
@@ -783,94 +809,79 @@ export default function CustomerProfileHub() {
         }
 
         .empty-mini-state {
-          padding: 16px;
-          border-radius: 18px;
+          padding: 14px;
+          border-radius: 16px;
           border: 1px dashed rgba(148,163,184,0.24);
           background: rgba(248,250,252,0.6);
           color: #64748b;
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 700;
           text-align: center;
         }
 
-        @media (max-width: 1100px) {
-          .profile-main-grid,
-          .profile-content-grid,
-          .hero-metrics-grid {
+        @media (max-width: 980px) {
+          .profile-grid-two,
+          .profile-stat-strip {
             grid-template-columns: repeat(2, minmax(0, 1fr));
           }
-
-          .span-two {
-            grid-column: span 2;
+          .shortcut-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
           }
         }
 
         @media (max-width: 720px) {
+          .profile-shell {
+            padding: 12px 12px 0;
+          }
+
           .customer-profile-hub {
-            gap: 14px;
+            gap: 12px;
           }
 
           .profile-hero-card,
-          .profile-card {
-            border-radius: 22px;
+          .profile-panel {
+            border-radius: 20px;
           }
 
           .profile-hero-card,
-          .profile-card {
-            padding: 16px;
+          .profile-panel {
+            padding: 14px;
           }
 
-          .hero-top-row,
-          .hero-identity,
-          .card-head-row,
+          .profile-top-row,
+          .profile-identity,
+          .profile-hero-actions,
+          .section-row,
           .coupon-row,
           .order-row {
             flex-direction: column;
             align-items: flex-start;
           }
 
-          .hero-actions {
-            display: grid;
-            grid-template-columns: 1fr;
+          .profile-hero-actions {
             width: 100%;
           }
 
-          .hero-top-row,
-          .hero-identity,
-          .hero-actions,
-          .profile-main-grid,
-          .profile-content-grid,
-          .hero-metrics-grid,
-          .action-grid,
-          .wishlist-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .profile-main-grid,
-          .profile-content-grid {
-            display: grid;
-          }
-
-          .span-two {
-            grid-column: auto;
-          }
-
-          .hero-primary-btn,
-          .hero-secondary-btn,
-          .card-link {
+          .profile-primary-btn,
+          .profile-secondary-btn,
+          .section-link {
             width: 100%;
-            justify-content: center;
-            text-align: center;
           }
 
-          .card-head-row {
-            align-items: stretch;
+          .profile-stat-strip,
+          .profile-grid-two,
+          .shortcut-grid {
+            grid-template-columns: 1fr;
           }
 
           .order-row-side {
             width: 100%;
             justify-items: start;
             text-align: left;
+          }
+
+          .wishlist-row {
+            align-items: center;
           }
         }
       `}</style>

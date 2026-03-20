@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { API_BASE, apiGet } from '../api.js'
 import NotificationListener from '../components/NotificationListener.jsx'
 
@@ -172,6 +172,13 @@ const STYLES = `
     }
   }
 
+  .customer-content-profile {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+  }
+
   /* Card styling for dashboard */
   .customer-layout .card,
   .customer-layout [class*="card"] {
@@ -184,11 +191,13 @@ const STYLES = `
 
 export default function CustomerLayout() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [me, setMe] = useState(() => {
     try { return JSON.parse(localStorage.getItem('me') || '{}') }
     catch { return {} }
   })
   const [branding, setBranding] = useState({ headerLogo: null })
+  const isProfileRoute = location.pathname === '/customer' || location.pathname === '/customer/profile'
 
   useEffect(() => {
     let cancelled = false
@@ -218,7 +227,7 @@ export default function CustomerLayout() {
       <NotificationListener />
       <style>{STYLES}</style>
       <div className="customer-layout">
-        <header className="customer-header">
+        {!isProfileRoute ? <header className="customer-header">
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <img
               src={branding.headerLogo ? `${API_BASE}${branding.headerLogo}` : `${import.meta.env.BASE_URL}BSBackgroundremoved.png`}
@@ -239,9 +248,9 @@ export default function CustomerLayout() {
               Logout
             </button>
           </div>
-        </header>
+        </header> : null}
 
-        <main className="customer-content">
+        <main className={`customer-content ${isProfileRoute ? 'customer-content-profile' : ''}`}>
           <Outlet />
         </main>
       </div>
