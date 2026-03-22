@@ -2531,6 +2531,7 @@ a {
   align-items: center;
   justify-content: center;
   z-index: 10000;
+  padding: 16px;
 }
 .modal {
   position: relative;
@@ -2541,11 +2542,32 @@ a {
   border-radius: 12px;
   padding: 16px;
   z-index: 10001;
+  max-height: min(92vh, 900px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 .modal .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px 0;
+}
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
 }
 
 /* react-phone-number-input modernized styling */

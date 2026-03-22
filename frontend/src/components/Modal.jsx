@@ -1,7 +1,18 @@
 import React, { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 
-export default function Modal({ title, open, onClose, children, footer }) {
+export default function Modal({
+  title,
+  open,
+  onClose,
+  children,
+  footer,
+  width,
+  maxWidth,
+  dialogStyle,
+  bodyStyle,
+  footerStyle,
+}) {
   useEffect(() => {
     if (open) {
       const prevOverflow = document.body.style.overflow
@@ -18,15 +29,19 @@ export default function Modal({ title, open, onClose, children, footer }) {
 
   return createPortal(
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="modal"
+        onClick={(e) => e.stopPropagation()}
+        style={{ width, maxWidth, ...(dialogStyle || {}) }}
+      >
         <div className="header">
           <h3>{title}</h3>
           <button className="btn secondary" onClick={onClose}>
             Close
           </button>
         </div>
-        <div style={{ padding: '8px 0' }}>{children}</div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>{footer}</div>
+        <div className="modal-body" style={bodyStyle}>{children}</div>
+        <div className="modal-footer" style={footerStyle}>{footer}</div>
       </div>
     </div>,
     document.body

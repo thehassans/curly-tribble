@@ -692,6 +692,9 @@ export default function AgentAmounts() {
       <Modal
         title="Pay Agent Commission"
         open={!!payModal}
+        width="1100px"
+        maxWidth="96vw"
+        dialogStyle={{ borderRadius: 18 }}
         onClose={() => {
           setPayModal(null)
           setPayPreview(null)
@@ -712,8 +715,12 @@ export default function AgentAmounts() {
             >
               Cancel
             </button>
-            <button className="btn success" disabled={!!payingAgent} onClick={handlePayCommission}>
-              {payingAgent ? 'Sending...' : 'Confirm Payment'}
+            <button
+              className="btn success"
+              disabled={!!payingAgent || !payPreview || payPreviewLoading}
+              onClick={handlePayCommission}
+            >
+              {payingAgent ? 'Sending...' : 'Pay Commission'}
             </button>
           </>
         }
@@ -735,9 +742,39 @@ export default function AgentAmounts() {
             ) : payPreview ? (
               <div style={{ display: 'grid', gap: 16 }}>
                 <div
+                  className="card"
+                  style={{
+                    padding: '12px 16px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: 12,
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <strong style={{ fontSize: 15 }}>{payModal.agent.name}</strong>
+                    <span className="helper">{payModal.agent.phone || '-'}</span>
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 16,
+                      flexWrap: 'wrap',
+                      justifyContent: 'flex-end',
+                    }}
+                  >
+                    <span className="helper">Balance: <strong style={{ color: 'var(--fg)' }}>PKR {num(payModal.balance)}</strong></span>
+                    <span className="helper">Orders: <strong style={{ color: 'var(--fg)' }}>{num(payPreview.orders?.length || 0)}</strong></span>
+                    <span className="helper">Paying: <strong style={{ color: '#10b981' }}>PKR {num(calculatedAmount)}</strong></span>
+                  </div>
+                </div>
+
+                <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
                     gap: 12,
                   }}
                 >
@@ -764,38 +801,6 @@ export default function AgentAmounts() {
                   <div className="card" style={{ padding: 14, display: 'grid', gap: 4 }}>
                     <div className="helper">Payable Commission</div>
                     <div style={{ fontSize: 22, fontWeight: 800, color: '#10b981' }}>PKR {num(calculatedAmount)}</div>
-                  </div>
-                </div>
-
-                <div style={{ background: 'var(--panel)', padding: 12, borderRadius: 8, fontSize: 14 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ opacity: 0.7 }}>Agent:</span>
-                    <strong>{payModal.agent.name}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ opacity: 0.7 }}>Phone:</span>
-                    <strong>{payModal.agent.phone}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ opacity: 0.7 }}>Summary Balance:</span>
-                    <strong>PKR {num(payModal.balance)}</strong>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                    <span style={{ opacity: 0.7 }}>Preview Orders:</span>
-                    <strong>{num(payPreview.orders?.length || 0)}</strong>
-                  </div>
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      paddingTop: 8,
-                      borderTop: '1px solid var(--border)',
-                    }}
-                  >
-                    <span style={{ opacity: 0.7, fontWeight: 600 }}>Total Amount:</span>
-                    <strong style={{ color: '#10b981', fontSize: 18 }}>
-                      PKR {num(calculatedAmount)}
-                    </strong>
                   </div>
                 </div>
 
