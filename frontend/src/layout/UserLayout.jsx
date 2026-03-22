@@ -1626,12 +1626,13 @@ export default function UserLayout() {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            flexWrap: 'nowrap',
+            flexWrap: 'wrap',
+            rowGap: '10px',
             minHeight: '60px',
-            padding: '0 1rem',
+            padding: '10px 1rem',
           }}
         >
-          <div className="flex items-center gap-3" style={{ flexShrink: 0 }}>
+          <div className="flex items-center gap-3" style={{ flex: '1 1 280px', minWidth: 0 }}>
             {!isMobile && (
               <div
                 style={{
@@ -1718,7 +1719,16 @@ export default function UserLayout() {
               </div>
             )}
           </div>
-          <div className="flex items-center gap-3" style={{ flexShrink: 0 }}>
+          <div
+            className="flex items-center gap-3"
+            style={{
+              flex: '1 1 520px',
+              minWidth: 0,
+              justifyContent: 'flex-end',
+              flexWrap: 'wrap',
+              rowGap: '8px',
+            }}
+          >
             {/* Quick Access Links */}
             <button
               onClick={() => navigate('/user/orders')}
@@ -2668,6 +2678,7 @@ export default function UserLayout() {
         </div>
         <div
           className={`container ${location.pathname.includes('/inbox/whatsapp') ? 'edge-to-edge' : ''}`}
+          style={{ paddingInline: 'clamp(10px, 1.6vw, 20px)' }}
         >
           <Outlet />
         </div>

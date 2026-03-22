@@ -69,7 +69,7 @@ const CustomerLogin = lazy(() => import('./pages/ecommerce/CustomerLogin.jsx'))
 const Register = lazy(() => import('./pages/ecommerce/Register.jsx'))
 
 // User dashboard pages
-const UserDashboard = lazy(() => import('./pages/user/Dashboard.jsx'))
+const UserDashboard = lazy(() => import('./pages/user/DashboardPremium.jsx'))
 const Campaign = lazy(() => import('./pages/user/Campaign.jsx'))
 const Agents = lazy(() => import('./pages/user/Agents.jsx'))
 const Managers = lazy(() => import('./pages/user/Managers.jsx'))
