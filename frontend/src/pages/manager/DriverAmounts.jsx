@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { API_BASE, apiGet, apiPost } from '../../api'
+import { API_BASE, apiGet, apiPatch, apiPost } from '../../api'
 import { useNavigate } from 'react-router-dom'
 import { useToast } from '../../ui/Toast.jsx'
 import Modal from '../../components/Modal.jsx'
@@ -32,6 +32,10 @@ export default function ManagerDriverAmounts(){
   const [searchTerm, setSearchTerm] = useState('')
   const [payingDriver, setPayingDriver] = useState(null)
   const [payModal, setPayModal] = useState(null)
+  const [payPreview, setPayPreview] = useState(null)
+  const [payPreviewLoading, setPayPreviewLoading] = useState(false)
+  const [payPreviewError, setPayPreviewError] = useState('')
+  const [editingPayCommissions, setEditingPayCommissions] = useState({})
   const [historyModal, setHistoryModal] = useState(null)
   const [paymentHistory, setPaymentHistory] = useState([])
   const [loadingHistory, setLoadingHistory] = useState(false)
@@ -121,6 +125,88 @@ export default function ManagerDriverAmounts(){
     await loadCommissionHistory(driver.id)
   }
 
+  const closePayModal = () => {
+    setPayModal(null)
+    setPayPreview(null)
+    setPayPreviewError('')
+    setEditingPayCommissions({})
+    setPayPreviewLoading(false)
+  }
+
+  const openPayModal = async (driver) => {
+    setPayModal({ driver })
+    setPayPreview(null)
+    setPayPreviewError('')
+    setEditingPayCommissions({})
+    setPayPreviewLoading(true)
+    try {
+      const response = await apiGet(`/api/finance/drivers/${driver.id}/commission-preview`)
+      const preview = response?.preview || null
+      setPayPreview(preview)
+      const initial = {}
+      ;(preview?.orders || []).forEach((order) => {
+        if (order?.id) initial[order.id] = Number(order?.commission || 0)
+      })
+      setEditingPayCommissions(initial)
+    } catch (e) {
+      setPayPreviewError(e?.message || 'Failed to load commission preview')
+    } finally {
+      setPayPreviewLoading(false)
+    }
+  }
+
+  const getPayCommissionValue = (order) => {
+    return Math.max(0, Number(editingPayCommissions?.[order?.id] ?? order?.commission ?? 0) || 0)
+  }
+
+  const calculatedAmount = useMemo(() => {
+    return (payPreview?.orders || []).reduce((sum, order) => sum + getPayCommissionValue(order), 0)
+  }, [payPreview, editingPayCommissions])
+
+  const handlePayCommission = async () => {
+    if (!payModal?.driver || !payPreview) {
+      toast.error('Commission preview is not ready yet')
+      return
+    }
+    if (!calculatedAmount || calculatedAmount <= 0) {
+      toast.error('No delivered commission is available to pay')
+      return
+    }
+    setPayingDriver(payModal.driver.id)
+    try {
+      const changedOrders = (payPreview?.orders || []).filter(
+        (order) => order?.id && Number(getPayCommissionValue(order)) !== Number(order?.commission || 0)
+      )
+      for (const order of changedOrders) {
+        await apiPatch(`/api/orders/${order.id}`, {
+          driverCommission: getPayCommissionValue(order),
+        })
+      }
+
+      const refreshed = await apiGet(`/api/finance/drivers/${payModal.driver.id}/commission-preview`)
+      const latestPreview = refreshed?.preview || payPreview
+      setPayPreview(latestPreview)
+      const latestAmount = (latestPreview?.orders || []).reduce(
+        (sum, order) => sum + Math.max(0, Number(order?.commission || 0) || 0),
+        0
+      )
+      if (!latestAmount || latestAmount <= 0) {
+        throw new Error('No delivered commission is available to pay')
+      }
+
+      await apiPost(`/api/finance/drivers/${payModal.driver.id}/pay-commission`, {
+        amount: latestAmount,
+      })
+      toast.success('Commission payment sent for approval')
+      closePayModal()
+      await loadDrivers()
+    } catch (e) {
+      toast.error(e?.message || 'Failed to send payment')
+    } finally {
+      setPayingDriver(null)
+    }
+  }
+
   function DriverCard({ d }) {
     const canPay = Number(d.pendingCommission || 0) > 0
     const ccy = d.currency || displayCurrency || 'SAR'
@@ -191,7 +277,7 @@ export default function ManagerDriverAmounts(){
                 className="btn success"
                 style={{ fontSize: 12, padding: '8px 12px', borderRadius: 12, whiteSpace: 'nowrap' }}
                 disabled={payingDriver === d.id}
-                onClick={() => setPayModal({ driver: d, amount: d.pendingCommission })}
+                onClick={() => openPayModal(d)}
               >
                 {payingDriver === d.id ? 'Sending…' : 'Pay'}
               </button>
@@ -366,7 +452,7 @@ export default function ManagerDriverAmounts(){
                             className="btn success" 
                             style={{fontSize:12, padding:'6px 12px'}}
                             disabled={payingDriver === d.id}
-                            onClick={()=> setPayModal({ driver: d, amount: d.pendingCommission })}
+                            onClick={()=> openPayModal(d)}
                           >
                             Pay Commission
                           </button>
@@ -394,27 +480,16 @@ export default function ManagerDriverAmounts(){
       <Modal
         title="Pay Driver Commission"
         open={!!payModal}
-        onClose={()=> setPayModal(null)}
+        onClose={closePayModal}
+        className="driver-commission-pay-modal"
+        style={{ width: 'min(1120px, calc(100vw - 32px))', maxWidth: '1120px' }}
         footer={
           <>
-            <button className="btn secondary" onClick={()=> setPayModal(null)} disabled={!!payingDriver}>Cancel</button>
+            <button className="btn secondary" onClick={closePayModal} disabled={!!payingDriver}>Cancel</button>
             <button 
               className="btn success" 
-              disabled={!!payingDriver}
-              onClick={async()=>{
-                setPayingDriver(payModal.driver.id)
-                try{
-                  await apiPost(`/api/finance/drivers/${payModal.driver.id}/pay-commission`, { amount: payModal.amount })
-                  toast.success('Commission payment sent for approval')
-                  setPayModal(null)
-                  // Refresh data
-                  await loadDrivers()
-                }catch(e){
-                  toast.error(e?.message || 'Failed to send payment')
-                }finally{
-                  setPayingDriver(null)
-                }
-              }}
+              disabled={!!payingDriver || !payPreview || payPreviewLoading}
+              onClick={handlePayCommission}
             >
               {payingDriver ? 'Sending...' : 'Confirm Payment'}
             </button>
@@ -423,29 +498,87 @@ export default function ManagerDriverAmounts(){
       >
         {payModal && (
           <div style={{ padding: '16px 0' }}>
-            <div style={{ fontSize: 16, marginBottom: 24, textAlign: 'center' }}>
-              Send <strong style={{ color: '#10b981', fontSize: 20 }}>{payModal.driver.currency} {num(payModal.amount)}</strong> commission to <strong style={{ color: '#8b5cf6' }}>{payModal.driver.name}</strong>?
-            </div>
-            <div style={{ background: 'var(--panel)', padding: 12, borderRadius: 8, fontSize: 14 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ opacity: 0.7 }}>Driver:</span>
-                <strong>{payModal.driver.name}</strong>
+            <div style={{ display: 'grid', gap: 16 }}>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#8b5cf6' }}>{payModal.driver.name}</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>{payModal.driver.phone || '-'} · {payModal.driver.country || '-'}</div>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ opacity: 0.7 }}>Phone:</span>
-                <strong>{payModal.driver.phone}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ opacity: 0.7 }}>Country:</span>
-                <strong>{payModal.driver.country}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ opacity: 0.7 }}>Amount:</span>
-                <strong style={{ color: '#10b981' }}>{payModal.driver.currency} {num(payModal.amount)}</strong>
-              </div>
-            </div>
-            <div style={{ marginTop: 16, padding: 12, background: 'rgba(59, 130, 246, 0.1)', borderRadius: 8, fontSize: 13 }}>
-              <strong>Note:</strong> This payment will be sent for owner approval before being disbursed to the driver.
+
+              {payPreviewLoading ? <div style={{ color: 'var(--text-muted)' }}>Loading commission preview…</div> : null}
+              {!payPreviewLoading && payPreviewError ? <div className="error">{payPreviewError}</div> : null}
+
+              {!payPreviewLoading && payPreview ? (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
+                    <div className="card" style={{ padding: 12 }}>
+                      <div className="helper">Total Orders</div>
+                      <div style={{ fontSize: 22, fontWeight: 900 }}>{num(payPreview.totalSubmitted || 0)}</div>
+                    </div>
+                    <div className="card" style={{ padding: 12 }}>
+                      <div className="helper">Delivered</div>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: '#10b981' }}>{num(payPreview.totalDelivered || 0)}</div>
+                    </div>
+                    <div className="card" style={{ padding: 12 }}>
+                      <div className="helper">Cancelled</div>
+                      <div style={{ fontSize: 22, fontWeight: 900, color: '#ef4444' }}>{num(payPreview.totalCancelled || 0)}</div>
+                    </div>
+                    <div className="card" style={{ padding: 12 }}>
+                      <div className="helper">Order Amount</div>
+                      <div style={{ fontSize: 18, fontWeight: 900 }}>{payModal.driver.currency} {num(payPreview.totalOrderValue || 0)}</div>
+                    </div>
+                    <div className="card" style={{ padding: 12 }}>
+                      <div className="helper">Delivered Amount</div>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: '#22c55e' }}>{payModal.driver.currency} {num(payPreview.deliveredOrderValue || 0)}</div>
+                    </div>
+                    <div className="card" style={{ padding: 12 }}>
+                      <div className="helper">Commission To Submit</div>
+                      <div style={{ fontSize: 18, fontWeight: 900, color: '#10b981' }}>{payModal.driver.currency} {num(calculatedAmount || 0)}</div>
+                    </div>
+                  </div>
+
+                  <div className="card" style={{ display: 'grid', gap: 12, padding: 12 }}>
+                    <div style={{ fontWeight: 700 }}>Delivered order commissions</div>
+                    {!(payPreview.orders || []).length ? (
+                      <div style={{ color: 'var(--text-muted)' }}>No delivered orders available for this closing.</div>
+                    ) : (
+                      <div style={{ display: 'grid', gap: 10, maxHeight: 360, overflowY: 'auto', paddingRight: 4 }}>
+                        {(payPreview.orders || []).map((order) => (
+                          <div key={order.id || order.orderId} style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 12, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 140px', gap: 12, alignItems: 'center' }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontWeight: 700 }}>{order.orderId}</div>
+                              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{order.productName || '-'}</div>
+                              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                                {order.priceCurrency || payModal.driver.currency} {num(order.amount || 0)}
+                              </div>
+                            </div>
+                            <div>
+                              <input
+                                className="input"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={editingPayCommissions?.[order.id] ?? order.commission ?? 0}
+                                onChange={(e) => {
+                                  const value = Math.max(0, Number(e.target.value) || 0)
+                                  setEditingPayCommissions((prev) => ({ ...prev, [order.id]: value }))
+                                }}
+                                style={{ textAlign: 'right', fontWeight: 700 }}
+                              />
+                              <div style={{ marginTop: 6, fontSize: 12, color: 'var(--text-muted)', textAlign: 'right' }}>
+                                {order.commissionCurrency || payModal.driver.currency}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ padding: 12, background: 'rgba(59, 130, 246, 0.1)', borderRadius: 8, fontSize: 13 }}>
+                    <strong>Note:</strong> This payment will be sent for owner approval before being disbursed to the driver.
+                  </div>
+                </>
+              ) : null}
             </div>
           </div>
         )}

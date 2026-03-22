@@ -210,7 +210,12 @@ export async function generateCommissionPayoutPDF(data) {
       y += detailsBoxHeight + 35
 
       // === PREMIUM SUMMARY CARD WITH GOLD ACCENTS ===
-      const summaryBoxHeight = 140
+      const hasExtendedSummary =
+        Number(data.totalSubmitted || 0) > 0 ||
+        Number(data.totalCancelled || 0) > 0 ||
+        Number(data.totalOrderValue || 0) > 0 ||
+        Number(data.deliveredOrderValue || 0) > 0
+      const summaryBoxHeight = hasExtendedSummary ? 180 : 140
       
       // Main summary box with gradient-like effect (layered rectangles)
       doc.roundedRect(margin, y, contentWidth, summaryBoxHeight, 15)
@@ -255,7 +260,25 @@ export async function generateCommissionPayoutPDF(data) {
          .fillColor(colors.accent)
          .text('✓ ', rightX + doc.widthOfString(commissionText, { fontSize: 40 }) - 20, y + 10)
 
-      y += 65
+      if (hasExtendedSummary) {
+        y += 58
+        doc.fontSize(10)
+           .font('Helvetica')
+           .fillColor(colors.muted)
+           .text(
+             `Submitted: ${Number(data.totalSubmitted || data.totalDeliveredOrders || 0)}   Delivered: ${Number(data.totalDeliveredOrders || 0)}   Cancelled: ${Number(data.totalCancelled || 0)}`,
+             leftX,
+             y
+           )
+        doc.text(
+          `Order Value: ${formatCurrency(data.totalOrderValue || 0, data.currency || 'SAR')}   Delivered Value: ${formatCurrency(data.deliveredOrderValue || 0, data.currency || 'SAR')}`,
+          leftX,
+          y + 18,
+          { width: contentWidth - 80 }
+        )
+      }
+
+      y += hasExtendedSummary ? 48 : 65
 
       // === PREMIUM ORDER DETAILS TABLE ===
       // Section header with gold accent
@@ -356,7 +379,7 @@ export async function generateCommissionPayoutPDF(data) {
         doc.fontSize(12)
            .font('Helvetica-Bold')
            .fillColor(colors.success)
-           .text(formatCurrency(order.commission || 0, data.currency || 'SAR'), col4X + 12, y + 15, { width: 90 })
+           .text(formatCurrency(order.commission || 0, order.commissionCurrency || data.currency || 'SAR'), col4X + 12, y + 15, { width: 90 })
 
         y += rowHeight
       })

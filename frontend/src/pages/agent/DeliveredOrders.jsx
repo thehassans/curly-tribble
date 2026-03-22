@@ -29,6 +29,7 @@ export default function DeliveredOrders() {
         setLoading(true)
         const params = new URLSearchParams()
         params.set('ship', 'delivered')
+        params.set('activeHistory', 'true')
         params.set('limit', '500')
         const res = await apiGet(`/api/orders?${params.toString()}`)
         if (!alive) return

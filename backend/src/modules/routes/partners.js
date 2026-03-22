@@ -117,7 +117,55 @@ function resolvePartnerOrderCurrency(order, fallback = "SAR") {
   ).toUpperCase();
 }
 
-async function buildPartnerDriverClosingPdf({ scope, driver, paidAt, amount = 0 }) {
+function buildPartnerOrderProductName(order) {
+  if (Array.isArray(order?.items) && order.items.length) {
+    const names = order.items
+      .map((item) => item?.productId?.name)
+      .filter(Boolean);
+    if (names.length) return names.join(", ");
+  }
+  return order?.productId?.name || "-";
+}
+
+function uniqueIdStrings(values = []) {
+  const seen = new Set();
+  const out = [];
+  for (const value of values) {
+    const id = String(value || "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+function toObjectIdList(values = []) {
+  return uniqueIdStrings(values)
+    .filter((value) => mongoose.Types.ObjectId.isValid(value))
+    .map((value) => new mongoose.Types.ObjectId(value));
+}
+
+async function markPartnerDriverClosingOrders({
+  paymentId,
+  paidAt,
+  deliveredOrderIds = [],
+  cancelledOrderIds = [],
+}) {
+  const ids = toObjectIdList([...deliveredOrderIds, ...cancelledOrderIds]);
+  if (!ids.length || !paymentId || !paidAt) return;
+  await Order.updateMany(
+    { _id: { $in: ids } },
+    {
+      $set: {
+        "driverClosing.paidAt": paidAt,
+        "driverClosing.paymentSource": "partner_payment",
+        "driverClosing.paymentRef": paymentId,
+      },
+    }
+  );
+}
+
+async function buildPartnerDriverClosingData({ scope, driver, paidAt }) {
   const effectivePaidAt = paidAt ? new Date(paidAt) : new Date();
   const previousPayment = await PartnerDriverPayment.findOne({
     partnerId: scope.partner._id,
@@ -147,73 +195,93 @@ async function buildPartnerDriverClosingPdf({ scope, driver, paidAt, amount = 0 
     },
     "invoiceNumber deliveredAt updatedAt createdAt total grandTotal subTotal collectedAmount productId quantity items driverCommission"
   )
-    .populate("productId", "price baseCurrency")
-    .populate("items.productId", "price baseCurrency")
+    .populate("productId", "name price baseCurrency")
+    .populate("items.productId", "name price baseCurrency")
     .lean();
-  const ownerProducts = await Product.find({ createdBy: scope.ownerId }, { _id: 1 }).lean();
-  const ownedProductIds = ownerProducts.map((row) => row._id).filter(Boolean);
-  const WebOrder = (await import("../models/WebOrder.js")).default;
-  const webOrders = ownedProductIds.length
-    ? await WebOrder.find(
-        {
-          orderCountry: { $in: scope.countries },
-          deliveryBoy: driver._id,
-          shipmentStatus: "delivered",
-          updatedAt: { $gt: lowerBound, $lte: effectivePaidAt },
-          "items.productId": { $in: ownedProductIds },
-        },
-        "invoiceNumber orderNumber updatedAt createdAt total grandTotal subTotal currency items driverCommission"
-      )
-        .populate("items.productId", "price baseCurrency")
-        .lean()
-    : [];
+  const cancelledOrders = await Order.find(
+    {
+      createdBy: { $in: creatorObjectIds },
+      orderCountry: { $in: scope.countries },
+      deliveryBoy: driver._id,
+      shipmentStatus: { $in: ["cancelled", "returned"] },
+      updatedAt: { $gt: lowerBound, $lte: effectivePaidAt },
+    },
+    "invoiceNumber deliveredAt updatedAt createdAt total grandTotal subTotal collectedAmount productId quantity items"
+  )
+    .populate("productId", "name price baseCurrency")
+    .populate("items.productId", "name price baseCurrency")
+    .lean();
   const orders = [
     ...internalOrders.map((order) => ({
+      id: String(order._id || ""),
       orderId:
         order.invoiceNumber || `DRV-${String(order._id || "").slice(-8)}`,
       deliveryDate: order.deliveredAt || order.updatedAt || order.createdAt,
       amount: computePartnerOrderAmount(order),
       priceCurrency: resolvePartnerOrderCurrency(order, commissionCurrency),
+      productName: buildPartnerOrderProductName(order),
       commission:
         Number(order.driverCommission || 0) > 0
           ? Number(order.driverCommission || 0)
           : commissionPerOrder,
-    })),
-    ...webOrders.map((order) => ({
-      orderId:
-        order.invoiceNumber ||
-        order.orderNumber ||
-        `WEB-${String(order._id || "").slice(-8)}`,
-      deliveryDate: order.updatedAt || order.createdAt,
-      amount: computePartnerOrderAmount(order),
-      priceCurrency: resolvePartnerOrderCurrency(order, commissionCurrency),
-      commission:
-        Number(order.driverCommission || 0) > 0
-          ? Number(order.driverCommission || 0)
-          : commissionPerOrder,
+      commissionCurrency,
     })),
   ].sort(
     (left, right) =>
       new Date(left.deliveryDate || 0).getTime() -
       new Date(right.deliveryDate || 0).getTime()
   );
+  const deliveredOrderValue = orders.reduce(
+    (sum, order) => sum + Number(order.amount || 0),
+    0
+  );
+  const cancelledOrderValue = cancelledOrders.reduce(
+    (sum, order) => sum + Number(computePartnerOrderAmount(order) || 0),
+    0
+  );
+  const deliveredCommission = orders.reduce(
+    (sum, order) => sum + Number(order.commission || 0),
+    0
+  );
+  return {
+    rangeStart: lowerBound,
+    rangeEnd: effectivePaidAt,
+    totalSubmitted: orders.length + cancelledOrders.length,
+    totalCancelled: cancelledOrders.length,
+    totalDelivered: orders.length,
+    totalOrderValue: deliveredOrderValue + cancelledOrderValue,
+    deliveredOrderValue,
+    deliveredCommission,
+    orderCount: orders.length,
+    currency: commissionCurrency,
+    deliveredOrderIds: uniqueIdStrings(internalOrders.map((order) => order?._id)),
+    cancelledOrderIds: uniqueIdStrings(cancelledOrders.map((order) => order?._id)),
+    orders,
+  };
+}
+
+async function buildPartnerDriverClosingPdf({ scope, driver, paidAt, amount = 0, closingData = null }) {
+  const closing = closingData || (await buildPartnerDriverClosingData({ scope, driver, paidAt }));
   const pdfPath = await generateCommissionPayoutPDF({
     driverName:
       `${driver?.firstName || ""} ${driver?.lastName || ""}`.trim() ||
       "Driver",
     driverPhone: driver?.phone || "",
-    totalDeliveredOrders: orders.length,
+    totalSubmitted: closing.totalSubmitted,
+    totalDeliveredOrders: closing.orderCount,
+    totalCancelled: closing.totalCancelled,
+    totalOrderValue: closing.totalOrderValue,
+    deliveredOrderValue: closing.deliveredOrderValue,
     totalCommissionPaid: Number(amount || 0),
-    currency: commissionCurrency,
-    paidAt: effectivePaidAt,
-    rangeStart: lowerBound,
-    rangeEnd: effectivePaidAt,
-    orders,
+    totalCommissionEarned: Number(closing.deliveredCommission || 0),
+    currency: closing.currency,
+    paidAt: paidAt ? new Date(paidAt) : new Date(),
+    rangeStart: closing.rangeStart,
+    rangeEnd: closing.rangeEnd,
+    orders: closing.orders,
   });
   return {
-    rangeStart: lowerBound,
-    rangeEnd: effectivePaidAt,
-    orderCount: orders.length,
+    ...closing,
     pdfPath,
   };
 }
@@ -1493,7 +1561,7 @@ router.get("/me/driver-amounts", auth, allowRoles("partner"), async (req, res) =
     };
     const createdAt = buildPartnerCreatedAtMatch(scope, req.query, orderMatch.createdAt);
     if (createdAt) orderMatch.createdAt = createdAt;
-    const orders = await Order.find(orderMatch, "deliveryBoy shipmentStatus total driverCommission createdAt").lean();
+    const orders = await Order.find(orderMatch, "deliveryBoy shipmentStatus total driverCommission createdAt driverClosing").lean();
     const paymentMatch = { partnerId: req.user.id, driverId: { $in: driverIds } };
     if (req.query.month && req.query.year) {
       paymentMatch.periodMonth = Number(req.query.month);
@@ -1528,10 +1596,11 @@ router.get("/me/driver-amounts", auth, allowRoles("partner"), async (req, res) =
       const key = String(order.deliveryBoy || "");
       const row = stats.get(key);
       if (!row) continue;
+      const isClosingPaid = !!order?.driverClosing?.paidAt;
       row.totalAssigned += 1;
       row.totalAmount += Number(order.total || 0);
-      if (["cancelled", "returned"].includes(String(order.shipmentStatus || ""))) row.cancelledOrders += 1;
-      if (String(order.shipmentStatus || "") === "delivered") {
+      if (["cancelled", "returned"].includes(String(order.shipmentStatus || "")) && !isClosingPaid) row.cancelledOrders += 1;
+      if (String(order.shipmentStatus || "") === "delivered" && !isClosingPaid) {
         row.totalDelivered += 1;
         row.deliveredAmount += Number(order.total || 0);
         if (row.paymentModel === "per_order") {
@@ -1555,6 +1624,30 @@ router.get("/me/driver-amounts", auth, allowRoles("partner"), async (req, res) =
   }
 });
 
+router.get("/me/drivers/:id/commission-preview", auth, allowRoles("partner"), async (req, res) => {
+  try {
+    const scope = await getPartnerScope(req.user.id);
+    if (!scope) return res.status(404).json({ message: "Partner not found" });
+    const driver = await User.findOne({ _id: req.params.id, role: "driver", createdBy: req.user.id });
+    if (!driver) return res.status(404).json({ message: "Driver not found" });
+    const preview = await buildPartnerDriverClosingData({ scope, driver, paidAt: new Date() });
+    return res.json({
+      driver: {
+        id: String(driver._id),
+        name: `${driver.firstName || ""} ${driver.lastName || ""}`.trim(),
+        phone: driver.phone || "",
+        country: driver.country || scope.assignedCountry,
+        currency:
+          String(driver?.driverProfile?.commissionCurrency || "").toUpperCase() ||
+          currencyFromCountry(driver.country || scope.assignedCountry),
+      },
+      preview,
+    });
+  } catch (error) {
+    res.status(500).json({ message: "Failed to load commission preview", error: error.message });
+  }
+});
+
 router.post("/me/drivers/:id/pay", auth, allowRoles("partner"), async (req, res) => {
   try {
     const scope = await getPartnerScope(req.user.id);
@@ -1562,20 +1655,36 @@ router.post("/me/drivers/:id/pay", auth, allowRoles("partner"), async (req, res)
     const driver = await User.findOne({ _id: req.params.id, role: "driver", createdBy: req.user.id });
     if (!driver) return res.status(404).json({ message: "Driver not found" });
     const paymentModel = driver.driverProfile?.paymentModel || "per_order";
-    const defaultAmount = paymentModel === "salary"
-      ? Math.max(0, Number(driver.driverProfile?.salaryAmount || 0))
-      : Math.max(0, Number(req.body?.amount || 0));
-    const amount = Math.max(0, Number(req.body?.amount != null ? req.body.amount : defaultAmount));
+    const requestedAmount = Math.max(0, Number(req.body?.amount || 0));
+    let closingData = null;
+    let amount = 0;
+    if (paymentModel === "salary") {
+      amount = Math.max(0, Number(req.body?.amount != null ? req.body.amount : driver.driverProfile?.salaryAmount || 0));
+    } else {
+      closingData = await buildPartnerDriverClosingData({ scope, driver, paidAt: new Date() });
+      amount = Math.max(0, Number(closingData?.deliveredCommission || 0));
+      if (!Number.isFinite(amount) || amount <= 0) {
+        return res.status(400).json({ message: "No delivered driver commission is available to pay" });
+      }
+      if (requestedAmount > 0 && Math.abs(requestedAmount - amount) > 1) {
+        return res.status(400).json({ message: "Commission total changed. Please review the latest delivered orders before paying." });
+      }
+    }
     if (!amount) return res.status(400).json({ message: "Amount is required" });
     const now = new Date();
     let closingMeta = {
       rangeStart: now,
       rangeEnd: now,
       orderCount: 0,
+      totalCancelled: 0,
+      deliveredOrderIds: [],
+      cancelledOrderIds: [],
       pdfPath: "",
     };
     try {
-      closingMeta = await buildPartnerDriverClosingPdf({ scope, driver, paidAt: now, amount });
+      if (paymentModel === "per_order") {
+        closingMeta = await buildPartnerDriverClosingPdf({ scope, driver, paidAt: now, amount, closingData });
+      }
     } catch (pdfError) {
       console.error("Partner driver closing PDF error:", pdfError);
     }
@@ -1595,9 +1704,18 @@ router.post("/me/drivers/:id/pay", auth, allowRoles("partner"), async (req, res)
       rangeStart: closingMeta.rangeStart,
       rangeEnd: closingMeta.rangeEnd,
       orderCount: Number(closingMeta.orderCount || 0),
+      closingOrderIds: toObjectIdList(closingMeta.deliveredOrderIds || []),
+      closingCancelledOrderIds: toObjectIdList(closingMeta.cancelledOrderIds || []),
+      closingCancelledCount: Number(closingMeta.totalCancelled || 0),
       pdfPath: closingMeta.pdfPath || "",
     });
     if (paymentModel === "per_order") {
+      await markPartnerDriverClosingOrders({
+        paymentId: payment._id,
+        paidAt: now,
+        deliveredOrderIds: closingMeta.deliveredOrderIds,
+        cancelledOrderIds: closingMeta.cancelledOrderIds,
+      });
       if (!driver.driverProfile) driver.driverProfile = {};
       driver.driverProfile.paidCommission = Number(driver.driverProfile.paidCommission || 0) + amount;
       driver.markModified("driverProfile");

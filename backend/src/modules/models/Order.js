@@ -189,6 +189,18 @@ const OrderSchema = new mongoose.Schema(
       enum: ["admin", "user", "agent", "manager", "system"],
       default: "system",
     },
+    agentClosing: {
+      paidAt: { type: Date },
+      remit: { type: mongoose.Schema.Types.ObjectId, ref: "AgentRemit" },
+    },
+    driverClosing: {
+      paidAt: { type: Date },
+      paymentSource: {
+        type: String,
+        enum: ["remittance", "partner_payment"],
+      },
+      paymentRef: { type: mongoose.Schema.Types.ObjectId },
+    },
 
     // Investor profit tracking (assigned sequentially when order is delivered)
     investorProfit: {

@@ -73,6 +73,13 @@ const PartnerDriverPaymentSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    closingOrderIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Order" }],
+    closingCancelledOrderIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Order" }],
+    closingCancelledCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     pdfPath: {
       type: String,
       default: "",

@@ -2121,11 +2121,21 @@ router.get(
         .toUpperCase();
       const collectedOnly =
         String(req.query.collected || "").toLowerCase() === "true";
+      const activeHistory =
+        String(req.query.activeHistory || "").toLowerCase() === "true";
       const agentId = String(req.query.agent || "").trim();
       const driverId = String(req.query.driver || "").trim();
       const productParam = String(req.query.product || "").trim();
 
       const match = { ...base };
+      if (req.user.role === "agent" && activeHistory) {
+        match.$nor = [
+          {
+            shipmentStatus: { $in: ["delivered", "cancelled", "returned"] },
+            "agentClosing.paidAt": { $exists: true },
+          },
+        ];
+      }
 
       // Date filtering support - two formats:
       // 1. from/to ISO dates (dashboard month filter)
@@ -3451,11 +3461,21 @@ router.get(
         .toUpperCase();
       const collectedOnly =
         String(req.query.collected || "").toLowerCase() === "true";
+      const activeHistory =
+        String(req.query.activeHistory || "").toLowerCase() === "true";
       const agentId = String(req.query.agent || "").trim();
       const driverId = String(req.query.driver || "").trim();
       const productParam = String(req.query.product || "").trim();
 
       const match = { ...base };
+      if (req.user.role === "agent" && activeHistory) {
+        match.$nor = [
+          {
+            shipmentStatus: { $in: ["delivered", "cancelled", "returned"] },
+            "agentClosing.paidAt": { $exists: true },
+          },
+        ];
+      }
       if (country) {
         const aliases = {
           KSA: ["KSA", "Saudi Arabia"],
@@ -4492,7 +4512,11 @@ router.get(
   async (req, res) => {
     try {
       const { q = "" } = req.query || {};
-      const match = { deliveryBoy: req.user.id, shipmentStatus: "delivered" };
+      const match = {
+        deliveryBoy: req.user.id,
+        shipmentStatus: "delivered",
+        "driverClosing.paidAt": { $exists: false },
+      };
 
       // Text search
       if (q && String(q).trim()) {
@@ -4547,7 +4571,11 @@ router.get(
   async (req, res) => {
     try {
       const { q = "" } = req.query || {};
-      const match = { deliveryBoy: req.user.id, shipmentStatus: "cancelled" };
+      const match = {
+        deliveryBoy: req.user.id,
+        shipmentStatus: { $in: ["cancelled", "returned"] },
+        "driverClosing.paidAt": { $exists: false },
+      };
 
       // Text search
       if (q && String(q).trim()) {
@@ -4709,6 +4737,9 @@ router.get("/driver/history", auth, allowRoles("driver"), async (req, res) => {
       deliveryBoy: req.user.id,
       shipmentStatus: { $in: statusIn },
     };
+    if (statusIn.some((status) => ["delivered", "cancelled", "returned"].includes(status))) {
+      match["driverClosing.paidAt"] = { $exists: false };
+    }
     if (from) {
       const d = new Date(from);
       if (!Number.isNaN(d.getTime()))
@@ -5138,7 +5169,8 @@ router.patch(
         }
         if (
           driverCommission !== undefined &&
-          Number(driverCommission) !== Number(ord.driverCommission || 0)
+          Number(driverCommission) !== Number(ord.driverCommission || 0) &&
+          String(ord.shipmentStatus || "").toLowerCase() !== "delivered"
         ) {
           return res
             .status(403)

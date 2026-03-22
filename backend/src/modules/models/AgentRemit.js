@@ -37,6 +37,10 @@ const AgentRemitSchema = new mongoose.Schema(
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     sentAt: { type: Date },
     sentBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    closingOrderIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Order" }],
+    closingCancelledOrderIds: [{ type: mongoose.Schema.Types.ObjectId, ref: "Order" }],
+    closingOrderCount: { type: Number, default: 0 },
+    closingCancelledCount: { type: Number, default: 0 },
     receiptPdf: { type: String }, // Path to generated PDF receipt
   },
   { timestamps: true }

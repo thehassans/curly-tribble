@@ -60,6 +60,7 @@ export default function AgentOrdersHistory(){
     const endDate = new Date(selectedYear, selectedMonth, 0, 23, 59, 59, 999)
     params.set('from', startDate.toISOString())
     params.set('to', endDate.toISOString())
+    params.set('activeHistory', 'true')
     if (query.trim()) params.set('q', query.trim())
     if (country.trim()) params.set('country', country.trim())
     if (city.trim()) params.set('city', city.trim())
