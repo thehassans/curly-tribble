@@ -16,6 +16,7 @@ import PayoutRequest from "../models/PayoutRequest.js";
 import InvestorBonus from "../models/InvestorBonus.js";
 import DriverCommissionRequest from "../models/DriverCommissionRequest.js";
 import ManagerSalary from "../models/ManagerSalary.js";
+import PartnerDriverPayment from "../models/PartnerDriverPayment.js";
 import { generatePayoutReceiptPDF } from "../utils/payoutReceipt.js";
 import {
   generateSettlementPDF,
@@ -774,6 +775,222 @@ function currencyFromCountry(country) {
   return map[key] || "";
 }
 
+function computeOrderGrossAmount(order) {
+  if (!order) return 0;
+  if (order.collectedAmount != null && Number(order.collectedAmount) > 0) {
+    return Number(order.collectedAmount || 0);
+  }
+  if (order.total != null && Number.isFinite(Number(order.total))) {
+    return Number(order.total || 0);
+  }
+  if (order.grandTotal != null && Number.isFinite(Number(order.grandTotal))) {
+    return Number(order.grandTotal || 0);
+  }
+  if (order.subTotal != null && Number.isFinite(Number(order.subTotal))) {
+    return Number(order.subTotal || 0);
+  }
+  if (Array.isArray(order.items) && order.items.length) {
+    return order.items.reduce(
+      (sum, item) =>
+        sum +
+        Number(item?.price || item?.productId?.price || 0) *
+          Math.max(1, Number(item?.quantity || 1)),
+      0
+    );
+  }
+  return (
+    Number(order?.productId?.price || 0) * Math.max(1, Number(order?.quantity || 1))
+  );
+}
+
+function resolveOrderCurrency(order, fallback = "SAR") {
+  return String(
+    order?.currency ||
+      order?.baseCurrency ||
+      order?.items?.[0]?.productId?.baseCurrency ||
+      order?.productId?.baseCurrency ||
+      fallback ||
+      "SAR"
+  ).toUpperCase();
+}
+
+async function buildAgentClosingOrderData({ agentId, paidAt = new Date() }) {
+  const effectivePaidAt = paidAt ? new Date(paidAt) : new Date();
+  const previousRemit = await AgentRemit.findOne({
+    agent: agentId,
+    status: "sent",
+    sentAt: { $lt: effectivePaidAt },
+  })
+    .sort({ sentAt: -1, createdAt: -1 })
+    .select("sentAt createdAt")
+    .lean();
+  const lowerBound = previousRemit
+    ? new Date(previousRemit.sentAt || previousRemit.createdAt || 0)
+    : new Date(0);
+  const baseMatch = { createdBy: agentId, createdByRole: "agent" };
+  const totalSubmitted = await Order.countDocuments({
+    ...baseMatch,
+    createdAt: { $gt: lowerBound, $lte: effectivePaidAt },
+  });
+  const deliveredOrders = await Order.find(
+    {
+      ...baseMatch,
+      shipmentStatus: "delivered",
+      deliveredAt: { $gt: lowerBound, $lte: effectivePaidAt },
+    },
+    "invoiceNumber invoiceId deliveredAt updatedAt createdAt total grandTotal subTotal productId quantity items agentCommissionPKR"
+  )
+    .populate("productId", "price baseCurrency")
+    .populate("items.productId", "price baseCurrency")
+    .lean();
+  const orders = deliveredOrders.map((order) => ({
+    orderId:
+      order.invoiceNumber ||
+      order.invoiceId ||
+      `INV-${String(order._id || "").slice(-8)}`,
+    date: order.deliveredAt || order.updatedAt || order.createdAt,
+    amount: computeOrderGrossAmount(order),
+    currency: resolveOrderCurrency(order, "AED"),
+    commission: Number(order.agentCommissionPKR || 0),
+    commissionCurrency: "PKR",
+  }));
+  return {
+    totalSubmitted,
+    totalDelivered: orders.length,
+    orders,
+    rangeStart: lowerBound,
+    rangeEnd: effectivePaidAt,
+  };
+}
+
+async function buildDriverCommissionClosingData({
+  driver,
+  ownerId = "",
+  partnerId = "",
+  paidAt = new Date(),
+}) {
+  const effectivePaidAt = paidAt ? new Date(paidAt) : new Date();
+  let previousPayment = null;
+  if (partnerId) {
+    previousPayment = await PartnerDriverPayment.findOne({
+      partnerId,
+      driverId: driver._id,
+      paidAt: { $lt: effectivePaidAt },
+    })
+      .sort({ paidAt: -1, createdAt: -1 })
+      .select("paidAt createdAt")
+      .lean();
+  } else {
+    previousPayment = await Remittance.findOne({
+      driver: driver._id,
+      owner: ownerId || driver.createdBy,
+      status: "accepted",
+      driverCommission: { $gt: 0 },
+      paidAt: { $lt: effectivePaidAt },
+    })
+      .sort({ paidAt: -1, createdAt: -1 })
+      .select("paidAt createdAt")
+      .lean();
+  }
+  const lowerBound = previousPayment
+    ? new Date(previousPayment.paidAt || previousPayment.createdAt || 0)
+    : new Date(0);
+  const commissionPerOrder = Number(driver?.driverProfile?.commissionPerOrder || 0);
+  const commissionCurrency = String(
+    driver?.driverProfile?.commissionCurrency ||
+      currencyFromCountry(driver?.country || "") ||
+      "SAR"
+  ).toUpperCase();
+  const internalOrders = await Order.find(
+    {
+      deliveryBoy: driver._id,
+      shipmentStatus: "delivered",
+      deliveredAt: { $gt: lowerBound, $lte: effectivePaidAt },
+    },
+    "invoiceNumber deliveredAt updatedAt createdAt total grandTotal subTotal collectedAmount productId quantity items driverCommission"
+  )
+    .populate("productId", "price baseCurrency")
+    .populate("items.productId", "price baseCurrency")
+    .lean();
+  const WebOrder = (await import("../models/WebOrder.js")).default;
+  const webOrders = await WebOrder.find(
+    {
+      deliveryBoy: driver._id,
+      shipmentStatus: "delivered",
+      updatedAt: { $gt: lowerBound, $lte: effectivePaidAt },
+    },
+    "invoiceNumber orderNumber updatedAt total grandTotal subTotal currency items driverCommission"
+  )
+    .populate("items.productId", "price baseCurrency")
+    .lean();
+  const orders = [
+    ...internalOrders.map((order) => ({
+      orderId:
+        order.invoiceNumber || `DRV-${String(order._id || "").slice(-8)}`,
+      deliveryDate: order.deliveredAt || order.updatedAt || order.createdAt,
+      amount: computeOrderGrossAmount(order),
+      priceCurrency: resolveOrderCurrency(order, commissionCurrency),
+      commission:
+        Number(order.driverCommission || 0) > 0
+          ? Number(order.driverCommission || 0)
+          : commissionPerOrder,
+    })),
+    ...webOrders.map((order) => ({
+      orderId:
+        order.invoiceNumber ||
+        order.orderNumber ||
+        `WEB-${String(order._id || "").slice(-8)}`,
+      deliveryDate: order.updatedAt || order.createdAt,
+      amount: computeOrderGrossAmount(order),
+      priceCurrency: resolveOrderCurrency(order, commissionCurrency),
+      commission:
+        Number(order.driverCommission || 0) > 0
+          ? Number(order.driverCommission || 0)
+          : commissionPerOrder,
+    })),
+  ].sort(
+    (left, right) =>
+      new Date(left.deliveryDate || 0).getTime() -
+      new Date(right.deliveryDate || 0).getTime()
+  );
+  return {
+    rangeStart: lowerBound,
+    rangeEnd: effectivePaidAt,
+    orderCount: orders.length,
+    currency: commissionCurrency,
+    orders,
+  };
+}
+
+async function createDriverCommissionClosingPdf({
+  driver,
+  ownerId = "",
+  partnerId = "",
+  paidAt = new Date(),
+  amount = 0,
+}) {
+  const closing = await buildDriverCommissionClosingData({
+    driver,
+    ownerId,
+    partnerId,
+    paidAt,
+  });
+  const pdfPath = await generateCommissionPayoutPDF({
+    driverName:
+      `${driver?.firstName || ""} ${driver?.lastName || ""}`.trim() ||
+      "Driver",
+    driverPhone: driver?.phone || "",
+    totalDeliveredOrders: closing.orderCount,
+    totalCommissionPaid: Number(amount || 0),
+    currency: closing.currency,
+    paidAt,
+    rangeStart: closing.rangeStart,
+    rangeEnd: closing.rangeEnd,
+    orders: closing.orders,
+  });
+  return { ...closing, pdfPath };
+}
+
 // Summary of remittances (Driver -> Manager) to fix pagination issues
 router.get(
   "/remittances/summary",
@@ -1529,118 +1746,120 @@ router.post(
         r.status = "accepted";
         r.acceptedAt = new Date();
         r.acceptedBy = req.user.id;
+        if (Number(r.driverCommission || 0) > 0 && !r.paidAt) {
+          r.paidAt = r.acceptedAt;
+        }
 
-        // Generate accepted PDF with ACCEPTED stamp for driver
+        // Generate accepted PDF for driver
         try {
           const driver = await User.findById(r.driver).select(
             "firstName lastName phone commission paidCommission driverProfile"
           );
-          const manager = await User.findById(r.manager).select(
-            "firstName lastName"
-          );
-          const acceptedByUser = await User.findById(req.user.id).select(
-            "firstName lastName"
-          );
-
-          // Get order statistics for the driver
-          const assignedCount = await Order.countDocuments({
-            deliveryBoy: r.driver,
-          });
-          const cancelledCount = await Order.countDocuments({
-            deliveryBoy: r.driver,
-            $or: [
-              { shipmentStatus: "cancelled" },
-              { shipmentStatus: "returned" },
-            ],
-          });
-
-          // Calculate commission from delivered orders
-          const commissionPerOrder = Number(
-            driver?.driverProfile?.commissionPerOrder || 0
-          );
-
-          // Get financial data from original remittance (orders delivered up to this remittance)
-          const deliveredOrders = await Order.find({
-            deliveryBoy: r.driver,
-            shipmentStatus: "delivered",
-            deliveredAt: { $lte: new Date(r.createdAt) }, // Orders delivered up to remittance date
-          })
-            .select(
-              "invoiceNumber customerName shipmentStatus deliveredAt total collectedAmount productId quantity items grandTotal subTotal driverCommission"
-            )
-            .populate("productId", "name price")
-            .populate("items.productId", "name price");
-
-          // Calculate total commission from actual orders (use driver's rate as fallback)
-          const totalCommission = deliveredOrders.reduce((sum, o) => {
-            const orderCommission = Number(o.driverCommission) || 0;
-            return (
-              sum + (orderCommission > 0 ? orderCommission : commissionPerOrder)
+          if (Number(r.driverCommission || 0) > 0) {
+            const closing = await createDriverCommissionClosingPdf({
+              driver,
+              ownerId: r.owner,
+              paidAt: r.paidAt || r.acceptedAt,
+              amount: Number(r.driverCommission || r.amount || 0),
+            });
+            r.acceptedPdfPath = closing.pdfPath;
+            r.totalDeliveredOrders = Number(
+              closing.orderCount || r.totalDeliveredOrders || 0
             );
-          }, 0);
-
-          // Use driver's paidCommission from profile (NOT from remittances)
-          // NOTE: Remittance.amount represents COD collections, not commission payments
-          const paidCommission = Number(
-            driver?.driverProfile?.paidCommission || 0
-          );
-          const pendingCommission = Math.max(
-            0,
-            totalCommission - paidCommission
-          );
-          const totalCollectedAmount = deliveredOrders.reduce((sum, o) => {
-            // Use collectedAmount if available, otherwise fall back to total
-            const orderAmount =
-              o?.collectedAmount != null && Number(o.collectedAmount) > 0
-                ? Number(o.collectedAmount)
-                : Number(o.total || 0);
-            return sum + orderAmount;
-          }, 0);
-
-          // deliveredToCompany should sum COD collection remittances, not commissions
-          const acceptedRemits = await Remittance.aggregate([
-            {
-              $match: {
-                driver: r.driver,
-                status: { $in: ["accepted", "manager_accepted"] },
+          } else {
+            const manager = await User.findById(r.manager).select(
+              "firstName lastName"
+            );
+            const acceptedByUser = await User.findById(req.user.id).select(
+              "firstName lastName"
+            );
+            const assignedCount = await Order.countDocuments({
+              deliveryBoy: r.driver,
+            });
+            const cancelledCount = await Order.countDocuments({
+              deliveryBoy: r.driver,
+              $or: [
+                { shipmentStatus: "cancelled" },
+                { shipmentStatus: "returned" },
+              ],
+            });
+            const deliveredOrders = await Order.find({
+              deliveryBoy: r.driver,
+              shipmentStatus: "delivered",
+              deliveredAt: { $lte: new Date(r.createdAt) },
+            })
+              .select(
+                "invoiceNumber customerName shipmentStatus deliveredAt total collectedAmount productId quantity items grandTotal subTotal driverCommission"
+              )
+              .populate("productId", "name price")
+              .populate("items.productId", "name price");
+            const totalCollectedAmount = deliveredOrders.reduce(
+              (sum, order) => sum + computeOrderGrossAmount(order),
+              0
+            );
+            const acceptedRemits = await Remittance.aggregate([
+              {
+                $match: {
+                  driver: r.driver,
+                  status: { $in: ["accepted", "manager_accepted"] },
+                },
               },
-            },
-            {
-              $group: {
-                _id: null,
-                total: { $sum: { $ifNull: ["$amount", 0] } },
+              {
+                $group: {
+                  _id: null,
+                  total: { $sum: { $ifNull: ["$amount", 0] } },
+                },
               },
-            },
-          ]);
-          const deliveredToCompany =
-            acceptedRemits && acceptedRemits[0]
-              ? Number(acceptedRemits[0].total || 0)
-              : 0;
-          const pendingToCompany = Math.max(
-            0,
-            totalCollectedAmount - deliveredToCompany
-          );
-
-          // Generate minimal commission payout PDF
-          const acceptedPdfPath = await generateCommissionPayoutPDF({
-            driverName:
-              `${driver?.firstName || ""} ${driver?.lastName || ""}`.trim() ||
-              "N/A",
-            driverPhone: driver?.phone || "",
-            totalDeliveredOrders: deliveredOrders.length,
-            totalCommissionPaid: r.amount,
-            currency: r.currency,
-            orders: deliveredOrders.map((o) => ({
-              orderId: o.invoiceNumber || String(o._id).slice(-6),
-              deliveryDate: o.deliveredAt,
-              commission:
-                Number(o.driverCommission) > 0
-                  ? Number(o.driverCommission)
-                  : commissionPerOrder,
-            })),
-          });
-
-          r.acceptedPdfPath = acceptedPdfPath;
+            ]);
+            const deliveredToCompany =
+              acceptedRemits && acceptedRemits[0]
+                ? Number(acceptedRemits[0].total || 0)
+                : 0;
+            const acceptedPdfPath = await generateAcceptedSettlementPDF({
+              driverName:
+                `${driver?.firstName || ""} ${driver?.lastName || ""}`.trim() ||
+                "N/A",
+              driverPhone: driver?.phone || "",
+              managerName:
+                `${manager?.firstName || ""} ${manager?.lastName || ""}`.trim() ||
+                "N/A",
+              acceptedBy:
+                `${acceptedByUser?.firstName || ""} ${acceptedByUser?.lastName || ""}`.trim() ||
+                "Owner",
+              acceptedDate: r.acceptedAt,
+              totalDeliveredOrders: deliveredOrders.length,
+              assignedOrders: assignedCount,
+              cancelledOrders: cancelledCount,
+              collectedAmount: totalCollectedAmount,
+              deliveredToCompany,
+              pendingDeliveryToCompany: Math.max(
+                0,
+                totalCollectedAmount - deliveredToCompany
+              ),
+              currency: r.currency,
+              amount: r.amount,
+              fromDate: r.fromDate,
+              toDate: r.toDate,
+              orders: deliveredOrders.map((order) => ({
+                invoiceNumber:
+                  order.invoiceNumber || String(order._id || "").slice(-6),
+                customerName: order.customerName || "N/A",
+                status: order.shipmentStatus || "delivered",
+                subTotal: computeOrderGrossAmount(order),
+                commission: Number(order.driverCommission || 0),
+                items: Array.isArray(order.items)
+                  ? order.items.map((item) => ({
+                      name: item?.productId?.name || "Item",
+                      quantity: Math.max(1, Number(item?.quantity || 1)),
+                      price: Number(
+                        item?.price || item?.productId?.price || 0
+                      ),
+                    }))
+                  : [],
+              })),
+            });
+            r.acceptedPdfPath = acceptedPdfPath;
+          }
         } catch (pdfErr) {
           console.error("Failed to generate accepted settlement PDF:", pdfErr);
           // Don't fail the entire operation if PDF generation fails
@@ -1749,6 +1968,86 @@ router.get(
     } catch (err) {
       console.error("Download settlement PDF error:", err);
       return res.status(500).json({ message: "Failed to download settlement" });
+    }
+  }
+);
+
+router.get(
+  "/drivers/me/closings",
+  auth,
+  allowRoles("driver"),
+  async (req, res) => {
+    try {
+      const me = await User.findById(req.user.id).select(
+        "role firstName lastName country createdBy"
+      );
+      if (!me || me.role !== "driver") {
+        return res.status(404).json({ message: "Driver not found" });
+      }
+      const [remittances, partnerPayments] = await Promise.all([
+        Remittance.find({
+          driver: req.user.id,
+          status: "accepted",
+          driverCommission: { $gt: 0 },
+          $or: [
+            { acceptedPdfPath: { $exists: true, $ne: "" } },
+            { pdfPath: { $exists: true, $ne: "" } },
+          ],
+        })
+          .select(
+            "amount driverCommission currency note createdAt paidAt acceptedAt fromDate toDate totalDeliveredOrders acceptedPdfPath pdfPath"
+          )
+          .sort({ paidAt: -1, createdAt: -1 })
+          .lean(),
+        PartnerDriverPayment.find({
+          driverId: req.user.id,
+          pdfPath: { $exists: true, $ne: "" },
+        })
+          .select(
+            "amount currency note createdAt paidAt rangeStart rangeEnd orderCount paymentType pdfPath"
+          )
+          .sort({ paidAt: -1, createdAt: -1 })
+          .lean(),
+      ]);
+      const closings = [
+        ...remittances.map((item) => ({
+          id: String(item._id),
+          source: "owner",
+          paymentType: "per_order",
+          amount: Number(item.driverCommission || item.amount || 0),
+          currency:
+            item.currency || currencyFromCountry(me.country || "") || "SAR",
+          note: item.note || "",
+          paidAt: item.paidAt || item.acceptedAt || item.createdAt,
+          rangeStart: item.fromDate || item.createdAt,
+          rangeEnd:
+            item.toDate || item.paidAt || item.acceptedAt || item.createdAt,
+          orderCount: Number(item.totalDeliveredOrders || 0),
+          pdfPath: item.acceptedPdfPath || item.pdfPath || "",
+        })),
+        ...partnerPayments.map((item) => ({
+          id: String(item._id),
+          source: "partner",
+          paymentType: item.paymentType || "per_order",
+          amount: Number(item.amount || 0),
+          currency:
+            item.currency || currencyFromCountry(me.country || "") || "SAR",
+          note: item.note || "",
+          paidAt: item.paidAt || item.createdAt,
+          rangeStart: item.rangeStart || item.createdAt,
+          rangeEnd: item.rangeEnd || item.paidAt || item.createdAt,
+          orderCount: Number(item.orderCount || 0),
+          pdfPath: item.pdfPath || "",
+        })),
+      ].sort(
+        (left, right) =>
+          new Date(right.paidAt || 0).getTime() -
+          new Date(left.paidAt || 0).getTime()
+      );
+      return res.json({ closings });
+    } catch (error) {
+      console.error("Load driver closings error:", error);
+      return res.status(500).json({ message: "Failed to load closings" });
     }
   }
 );
@@ -2291,31 +2590,15 @@ router.post(
       let orders = [];
       let totalSubmitted = 0;
       let totalDelivered = 0;
+      const paidAt = new Date();
       try {
-        const agentOrders = await Order.find({ agent: id })
-          .populate("productId", "price baseCurrency")
-          .lean();
-
-        orders = agentOrders
-          .filter(
-            (o) => String(o.shipmentStatus || "").toLowerCase() === "delivered"
-          )
-          .map((o) => {
-            const price = o.total || o.productId?.price || 0;
-            const currency =
-              o.items?.[0]?.productId?.baseCurrency ||
-              o.productId?.baseCurrency ||
-              "AED";
-            return {
-              orderId: o.invoiceId || `INV-${o._id.toString().slice(-8)}`,
-              date: o.updatedAt || o.createdAt,
-              amount: price,
-              currency: currency,
-            };
-          });
-
-        totalSubmitted = agentOrders.length;
-        totalDelivered = orders.length;
+        const closingData = await buildAgentClosingOrderData({
+          agentId: id,
+          paidAt,
+        });
+        orders = closingData.orders;
+        totalSubmitted = closingData.totalSubmitted;
+        totalDelivered = closingData.totalDelivered;
       } catch (err) {
         console.error("Error fetching agent orders:", err);
       }
@@ -2338,6 +2621,7 @@ router.post(
           amountPKR: amt,
           commissionRate: rate,
           totalOrderValueAED: orderValue,
+          paidAt,
           orders,
         });
       } catch (err) {
@@ -2416,7 +2700,7 @@ router.post(
         totalOrderValueAED: orderValue,
         note: noteText,
         status: "sent",
-        sentAt: new Date(),
+        sentAt: paidAt,
         sentBy: req.user.id,
         receiptPdf: pdfPath, // Save PDF path
       });
@@ -2750,6 +3034,22 @@ router.post(
         paidAt: new Date(),
       });
       await remit.save();
+
+      try {
+        const closing = await createDriverCommissionClosingPdf({
+          driver,
+          ownerId: doc.owner,
+          paidAt: remit.paidAt,
+          amount: amt,
+        });
+        remit.acceptedPdfPath = closing.pdfPath;
+        remit.totalDeliveredOrders = Number(
+          closing.orderCount || remit.totalDeliveredOrders || 0
+        );
+        await remit.save();
+      } catch (pdfErr) {
+        console.error("Pay driver request closing PDF error:", pdfErr);
+      }
 
       if (!driver.driverProfile) driver.driverProfile = {};
       driver.driverProfile.paidCommission = paidCommission + amt;
@@ -3856,6 +4156,24 @@ router.post(
         paidAt: status === "accepted" ? new Date() : null,
       });
       await remit.save();
+
+      if (status === "accepted") {
+        try {
+          const closing = await createDriverCommissionClosingPdf({
+            driver,
+            ownerId: remit.owner,
+            paidAt: remit.paidAt,
+            amount: amt,
+          });
+          remit.acceptedPdfPath = closing.pdfPath;
+          remit.totalDeliveredOrders = Number(
+            closing.orderCount || remit.totalDeliveredOrders || 0
+          );
+          await remit.save();
+        } catch (pdfErr) {
+          console.error("Pay commission closing PDF error:", pdfErr);
+        }
+      }
 
       // Update driver's paidCommission only if accepted (owner payment)
       if (status === "accepted") {

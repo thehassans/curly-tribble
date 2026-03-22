@@ -109,6 +109,7 @@ export default function AgentLayout() {
     { to: '/agent/inbox/whatsapp', label: 'WhatsApp Inbox' },
     { to: '/agent/orders', label: 'Submit Orders' },
     { to: '/agent/orders/delivered', label: 'Delivered Orders' },
+    { to: '/agent/closings', label: 'Closings' },
     { to: '/agent/inhouse-products', label: 'Inhouse Products' },
     { to: '/agent/support', label: 'Support' },
   ]
@@ -209,6 +210,27 @@ export default function AgentLayout() {
         >
           <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
           <line x1="7" y1="7" x2="7.01" y2="7" />
+        </svg>
+      ),
+    },
+    {
+      to: '/agent/closings',
+      label: 'Closings',
+      icon: (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+          <polyline points="14 2 14 8 20 8" />
+          <path d="M9 13h6" />
+          <path d="M9 17h6" />
         </svg>
       ),
     },
@@ -837,6 +859,25 @@ export default function AgentLayout() {
                         <circle cx="16" cy="14" r="2"/>
                       </svg>
                       Payout Profile
+                    </button>
+                  </div>
+
+                  <div style={{padding: '12px 8px', borderBottom: '1px solid var(--border)'}}>
+                    <button
+                      className="btn small secondary"
+                      onClick={() => {
+                        setShowSettings(false)
+                        navigate('/agent/closings')
+                      }}
+                      style={{width: '100%', fontSize: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'}}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <path d="M9 13h6"/>
+                        <path d="M9 17h6"/>
+                      </svg>
+                      Closings
                     </button>
                   </div>
 

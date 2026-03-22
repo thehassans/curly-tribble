@@ -8,9 +8,11 @@ import Setting from "../models/Setting.js";
 import Expense from "../models/Expense.js";
 import PartnerPurchasing from "../models/PartnerPurchasing.js";
 import PartnerDriverPayment from "../models/PartnerDriverPayment.js";
+import AgentRemit from "../models/AgentRemit.js";
 import PartnerClosing from "../models/PartnerClosing.js";
 import { getIO } from "../config/socket.js";
 import { generatePartnerClosingPDF } from "../../utils/generatePartnerClosingPDF.js";
+import { generateCommissionPayoutPDF } from "../../utils/generateCommissionPayoutPDF.js";
 
 const router = express.Router();
 
@@ -75,6 +77,144 @@ function defaultPerAED() {
     CAD: 0.37,
     AUD: 0.42,
     EUR: 0.25,
+  };
+}
+
+function computePartnerOrderAmount(order) {
+  if (!order) return 0;
+  if (order.collectedAmount != null && Number(order.collectedAmount) > 0) {
+    return Number(order.collectedAmount || 0);
+  }
+  if (order.total != null && Number.isFinite(Number(order.total))) {
+    return Number(order.total || 0);
+  }
+  if (order.grandTotal != null && Number.isFinite(Number(order.grandTotal))) {
+    return Number(order.grandTotal || 0);
+  }
+  if (order.subTotal != null && Number.isFinite(Number(order.subTotal))) {
+    return Number(order.subTotal || 0);
+  }
+  if (Array.isArray(order.items) && order.items.length) {
+    return order.items.reduce(
+      (sum, item) =>
+        sum +
+        Number(item?.price || item?.productId?.price || 0) *
+          Math.max(1, Number(item?.quantity || 1)),
+      0
+    );
+  }
+  return Number(order?.productId?.price || 0) * Math.max(1, Number(order?.quantity || 1));
+}
+
+function resolvePartnerOrderCurrency(order, fallback = "SAR") {
+  return String(
+    order?.currency ||
+      order?.baseCurrency ||
+      order?.items?.[0]?.productId?.baseCurrency ||
+      order?.productId?.baseCurrency ||
+      fallback ||
+      "SAR"
+  ).toUpperCase();
+}
+
+async function buildPartnerDriverClosingPdf({ scope, driver, paidAt, amount = 0 }) {
+  const effectivePaidAt = paidAt ? new Date(paidAt) : new Date();
+  const previousPayment = await PartnerDriverPayment.findOne({
+    partnerId: scope.partner._id,
+    driverId: driver._id,
+    paidAt: { $lt: effectivePaidAt },
+  })
+    .sort({ paidAt: -1, createdAt: -1 })
+    .select("paidAt createdAt")
+    .lean();
+  const lowerBound = previousPayment
+    ? new Date(previousPayment.paidAt || previousPayment.createdAt || 0)
+    : new Date(0);
+  const commissionPerOrder = Number(driver?.driverProfile?.commissionPerOrder || 0);
+  const commissionCurrency = String(
+    driver?.driverProfile?.commissionCurrency ||
+      currencyFromCountry(driver?.country || scope.assignedCountry) ||
+      "SAR"
+  ).toUpperCase();
+  const creatorObjectIds = scope.creatorIds.map((id) => new mongoose.Types.ObjectId(id));
+  const internalOrders = await Order.find(
+    {
+      createdBy: { $in: creatorObjectIds },
+      orderCountry: { $in: scope.countries },
+      deliveryBoy: driver._id,
+      shipmentStatus: "delivered",
+      deliveredAt: { $gt: lowerBound, $lte: effectivePaidAt },
+    },
+    "invoiceNumber deliveredAt updatedAt createdAt total grandTotal subTotal collectedAmount productId quantity items driverCommission"
+  )
+    .populate("productId", "price baseCurrency")
+    .populate("items.productId", "price baseCurrency")
+    .lean();
+  const ownerProducts = await Product.find({ createdBy: scope.ownerId }, { _id: 1 }).lean();
+  const ownedProductIds = ownerProducts.map((row) => row._id).filter(Boolean);
+  const WebOrder = (await import("../models/WebOrder.js")).default;
+  const webOrders = ownedProductIds.length
+    ? await WebOrder.find(
+        {
+          orderCountry: { $in: scope.countries },
+          deliveryBoy: driver._id,
+          shipmentStatus: "delivered",
+          updatedAt: { $gt: lowerBound, $lte: effectivePaidAt },
+          "items.productId": { $in: ownedProductIds },
+        },
+        "invoiceNumber orderNumber updatedAt createdAt total grandTotal subTotal currency items driverCommission"
+      )
+        .populate("items.productId", "price baseCurrency")
+        .lean()
+    : [];
+  const orders = [
+    ...internalOrders.map((order) => ({
+      orderId:
+        order.invoiceNumber || `DRV-${String(order._id || "").slice(-8)}`,
+      deliveryDate: order.deliveredAt || order.updatedAt || order.createdAt,
+      amount: computePartnerOrderAmount(order),
+      priceCurrency: resolvePartnerOrderCurrency(order, commissionCurrency),
+      commission:
+        Number(order.driverCommission || 0) > 0
+          ? Number(order.driverCommission || 0)
+          : commissionPerOrder,
+    })),
+    ...webOrders.map((order) => ({
+      orderId:
+        order.invoiceNumber ||
+        order.orderNumber ||
+        `WEB-${String(order._id || "").slice(-8)}`,
+      deliveryDate: order.updatedAt || order.createdAt,
+      amount: computePartnerOrderAmount(order),
+      priceCurrency: resolvePartnerOrderCurrency(order, commissionCurrency),
+      commission:
+        Number(order.driverCommission || 0) > 0
+          ? Number(order.driverCommission || 0)
+          : commissionPerOrder,
+    })),
+  ].sort(
+    (left, right) =>
+      new Date(left.deliveryDate || 0).getTime() -
+      new Date(right.deliveryDate || 0).getTime()
+  );
+  const pdfPath = await generateCommissionPayoutPDF({
+    driverName:
+      `${driver?.firstName || ""} ${driver?.lastName || ""}`.trim() ||
+      "Driver",
+    driverPhone: driver?.phone || "",
+    totalDeliveredOrders: orders.length,
+    totalCommissionPaid: Number(amount || 0),
+    currency: commissionCurrency,
+    paidAt: effectivePaidAt,
+    rangeStart: lowerBound,
+    rangeEnd: effectivePaidAt,
+    orders,
+  });
+  return {
+    rangeStart: lowerBound,
+    rangeEnd: effectivePaidAt,
+    orderCount: orders.length,
+    pdfPath,
   };
 }
 
@@ -253,6 +393,73 @@ function buildPartnerRangeLabel(start, end) {
   return `${startValue} → ${endValue}`;
 }
 
+function createPartnerSummary(summaryCurrency, country) {
+  return {
+    country,
+    currency: summaryCurrency,
+    totalOrders: 0,
+    totalAmount: 0,
+    deliveredOrders: 0,
+    deliveredAmount: 0,
+    cancelledOrders: 0,
+    cancelledAmount: 0,
+    agentAmount: 0,
+    agentDeliveredAmount: 0,
+    agentTotalOrders: 0,
+    agentDeliveredOrders: 0,
+    agentCancelledOrders: 0,
+    agentTotalCommission: 0,
+    agentPaidCommission: 0,
+    dropshipperAmount: 0,
+    dropshipperDeliveredAmount: 0,
+    dropshipperTotalOrders: 0,
+    dropshipperDeliveredOrders: 0,
+    dropshipperCancelledOrders: 0,
+    dropshipperTotalCommission: 0,
+    dropshipperPaidCommission: 0,
+    driverTotalAmount: 0,
+    driverDeliveredAmount: 0,
+    driverTotalOrders: 0,
+    driverDeliveredOrders: 0,
+    driverCancelledOrders: 0,
+    driverTotalCommission: 0,
+    driverPaidCommission: 0,
+    onlineOrderAmount: 0,
+    onlineOrderDeliveredAmount: 0,
+    onlineTotalOrders: 0,
+    onlinePaidOrders: 0,
+    onlineDeliveredOrders: 0,
+    onlineCancelledOrders: 0,
+    totalStockPurchasedAmount: 0,
+    totalStockPurchasedQty: 0,
+    totalStockQuantity: 0,
+    stockDeliveredQty: 0,
+    stockDeliveredCostAmount: 0,
+    totalExpense: 0,
+    totalCostAmount: 0,
+    netProfitAmount: 0,
+    purchasing: {
+      totalStockPurchasedAmount: 0,
+      totalStockPurchasedQty: 0,
+      totalStockQuantity: 0,
+      stockDeliveredQty: 0,
+      totalOrders: 0,
+    },
+    profitLoss: {
+      deliveredOrders: 0,
+      cancelledOrders: 0,
+      deliveredAmount: 0,
+      agentCommission: 0,
+      driverCommission: 0,
+      dropshipperCommission: 0,
+      purchasing: 0,
+      expense: 0,
+      netAmount: 0,
+      status: "profit",
+    },
+  };
+}
+
 function buildPartnerOrderClosingRow(order, summaryCurrency, rateConfig, agentIdSet, driverMetaById) {
   const totalAmount = Number(order?.total || 0);
   const orderCurrency = currencyFromCountry(order?.orderCountry || summaryCurrency);
@@ -316,21 +523,76 @@ async function buildPartnerTotalAmountsSnapshot({ scope, query = {}, baselineDat
     status: "approved",
   };
   if (expenseRange) expenseMatch.incurredAt = expenseRange;
-  const [rateConfig, agentRows, driverRows, orders, purchaseRows, expenseRows] = await Promise.all([
+  const WebOrder = (await import("../models/WebOrder.js")).default;
+  const [
+    rateConfig,
+    agentRows,
+    dropshipperRows,
+    driverRows,
+    ownerProducts,
+    orders,
+    purchaseRows,
+    expenseRows,
+  ] = await Promise.all([
     getPerAEDConfig(),
     User.find({ role: "agent", createdBy: scope.ownerId }, { _id: 1 }).lean(),
+    User.find({ role: "dropshipper", createdBy: scope.ownerId }, { _id: 1 }).lean(),
     User.find({ role: "driver", createdBy: scope.partner._id }, { _id: 1, country: 1, driverProfile: 1 }).lean(),
+    Product.find({ createdBy: scope.ownerId }, { _id: 1 }).lean(),
     Order.find(
       baseMatch,
       "createdAt deliveredAt updatedAt shipmentStatus status confirmationStatus total createdBy createdByRole deliveryBoy driverCommission agentCommissionPKR dropshipperProfit productId quantity items invoiceNumber customerName customerPhone city orderCountry"
     )
-      .populate("productId", "name")
-      .populate("items.productId", "name")
+      .populate("productId", "name price baseCurrency")
+      .populate("items.productId", "name price baseCurrency")
       .lean(),
     PartnerPurchasing.find({ partnerId: scope.partner._id, country: scope.assignedCountry }, "productId stock pricePerPiece currency").lean(),
     Expense.find(expenseMatch, "amount currency").lean(),
   ]);
+  const ownedProductIds = ownerProducts.map((row) => row._id).filter(Boolean);
+  const periodMatch = orderRange || { $gte: baselineDate || new Date(0), $lte: new Date() };
+  const [agentPaidRows, partnerPayments, dropshipperPaidRows, webOrders] = await Promise.all([
+    AgentRemit.find(
+      {
+        owner: scope.ownerId,
+        status: "sent",
+        agent: { $in: agentRows.map((row) => row._id) },
+        sentAt: periodMatch,
+      },
+      "agent amount currency sentAt"
+    ).lean(),
+    PartnerDriverPayment.find(
+      {
+        partnerId: scope.partner._id,
+        paidAt: periodMatch,
+      },
+      "driverId amount currency"
+    ).lean(),
+    Order.find(
+      {
+        createdBy: { $in: dropshipperRows.map((row) => row._id) },
+        orderCountry: { $in: scope.countries },
+        shipmentStatus: "delivered",
+        "dropshipperProfit.isPaid": true,
+        "dropshipperProfit.paidAt": periodMatch,
+      },
+      "dropshipperProfit"
+    ).lean(),
+    ownedProductIds.length
+      ? WebOrder.find(
+          {
+            orderCountry: { $in: scope.countries },
+            ...(orderRange ? { createdAt: orderRange } : {}),
+            "items.productId": { $in: ownedProductIds },
+          },
+          "createdAt updatedAt shipmentStatus status paymentStatus total deliveryBoy driverCommission items invoiceNumber orderNumber customerName customerPhone city orderCountry"
+        )
+          .populate("items.productId", "name price baseCurrency")
+          .lean()
+      : Promise.resolve([]),
+  ]);
   const agentIdSet = new Set(agentRows.map((row) => String(row._id || "")));
+  const dropshipperIdSet = new Set(dropshipperRows.map((row) => String(row._id || "")));
   const driverMetaById = new Map(
     driverRows.map((row) => [
       String(row._id || ""),
@@ -350,33 +612,8 @@ async function buildPartnerTotalAmountsSnapshot({ scope, query = {}, baselineDat
   const deliveredOrderRows = [];
   const cancelledOrderRows = [];
   const monthMap = new Map();
-  const summary = {
-    totalOrders: 0,
-    totalAmount: 0,
-    deliveredOrders: 0,
-    deliveredAmount: 0,
-    cancelledOrders: 0,
-    cancelledAmount: 0,
-    purchasing: {
-      totalStockPurchasedAmount: 0,
-      totalStockPurchasedQty: 0,
-      totalStockQuantity: 0,
-      stockDeliveredQty: 0,
-      totalOrders: 0,
-    },
-    profitLoss: {
-      deliveredOrders: 0,
-      cancelledOrders: 0,
-      deliveredAmount: 0,
-      agentCommission: 0,
-      driverCommission: 0,
-      dropshipperCommission: 0,
-      purchasing: 0,
-      expense: 0,
-      netAmount: 0,
-      status: "profit",
-    },
-  };
+  const summary = createPartnerSummary(summaryCurrency, scope.assignedCountry);
+  const agentEarnedById = new Map();
   const ensureMonth = (dateValue) => {
     const date = dateValue ? new Date(dateValue) : new Date();
     const year = date.getFullYear();
@@ -396,18 +633,45 @@ async function buildPartnerTotalAmountsSnapshot({ scope, query = {}, baselineDat
     }
     return monthMap.get(key);
   };
-  for (const order of orders) {
+  const addDeliveredItemUsage = (items = [], fallbackProduct = null, fallbackQty = 1) => {
+    const rows = Array.isArray(items) && items.length
+      ? items
+      : fallbackProduct
+      ? [{ productId: fallbackProduct, quantity: fallbackQty }]
+      : [];
+    for (const item of rows) {
+      const productId = String(item?.productId?._id || item?.productId || "");
+      if (!productIdSet.has(productId)) continue;
+      deliveredQtyByProduct.set(productId, Number(deliveredQtyByProduct.get(productId) || 0) + Number(item?.quantity || 0));
+    }
+  };
+  const applyInternalOrder = (order) => {
     const totalAmount = Number(order?.total || 0);
     const shipmentStatus = String(order?.shipmentStatus || "").toLowerCase();
     const status = String(order?.status || "").toLowerCase();
     const confirmationStatus = String(order?.confirmationStatus || "").toLowerCase();
     const isDelivered = shipmentStatus === "delivered";
     const isCancelled = ["cancelled", "returned"].includes(shipmentStatus) || status === "cancelled" || confirmationStatus === "cancelled";
+    const creatorId = String(order?.createdBy || "");
+    const createdByRole = String(order?.createdByRole || "").toLowerCase();
+    const hasPartnerDriver = driverMetaById.has(String(order?.deliveryBoy || ""));
     const monthEntry = ensureMonth(order?.createdAt);
     summary.totalOrders += 1;
     summary.totalAmount += totalAmount;
     monthEntry.totalOrders += 1;
     monthEntry.totalAmount += totalAmount;
+    if (createdByRole === "agent" || agentIdSet.has(creatorId)) {
+      summary.agentAmount += totalAmount;
+      summary.agentTotalOrders += 1;
+    }
+    if (createdByRole === "dropshipper" || dropshipperIdSet.has(creatorId)) {
+      summary.dropshipperAmount += totalAmount;
+      summary.dropshipperTotalOrders += 1;
+    }
+    if (hasPartnerDriver) {
+      summary.driverTotalAmount += totalAmount;
+      summary.driverTotalOrders += 1;
+    }
     if (isDelivered) {
       summary.deliveredOrders += 1;
       summary.deliveredAmount += totalAmount;
@@ -415,8 +679,6 @@ async function buildPartnerTotalAmountsSnapshot({ scope, query = {}, baselineDat
       summary.profitLoss.deliveredAmount += totalAmount;
       monthEntry.deliveredOrders += 1;
       monthEntry.deliveredAmount += totalAmount;
-      const creatorId = String(order?.createdBy || "");
-      const createdByRole = String(order?.createdByRole || "").toLowerCase();
       let agentCommission = 0;
       if (createdByRole === "agent" || agentIdSet.has(creatorId)) {
         const storedAgentCommission = Number(order?.agentCommissionPKR || 0);
@@ -425,31 +687,35 @@ async function buildPartnerTotalAmountsSnapshot({ scope, query = {}, baselineDat
           summaryCurrency,
           rateConfig
         );
+        summary.agentDeliveredAmount += totalAmount;
+        summary.agentDeliveredOrders += 1;
+        summary.agentTotalCommission += agentCommission;
+        agentEarnedById.set(creatorId, Number(agentEarnedById.get(creatorId) || 0) + agentCommission);
       }
       let driverCommission = 0;
-      if (order?.deliveryBoy) {
-        const driverMeta = driverMetaById.get(String(order.deliveryBoy || ""));
+      if (hasPartnerDriver) {
+        const driverMeta = driverMetaById.get(String(order?.deliveryBoy || ""));
         if ((driverMeta?.paymentModel || "per_order") !== "salary") {
           const storedDriverCommission = Number(order?.driverCommission || 0);
           driverCommission = storedDriverCommission > 0
             ? storedDriverCommission
             : convertCurrency(Number(driverMeta?.commissionPerOrder || 0), driverMeta?.commissionCurrency || summaryCurrency, summaryCurrency, rateConfig);
         }
+        summary.driverDeliveredAmount += totalAmount;
+        summary.driverDeliveredOrders += 1;
+        summary.driverTotalCommission += driverCommission;
       }
-      const dropshipperCommission = Number(order?.dropshipperProfit?.amount || 0);
+      let dropshipperCommission = 0;
+      if (createdByRole === "dropshipper" || dropshipperIdSet.has(creatorId)) {
+        dropshipperCommission = Number(order?.dropshipperProfit?.amount || 0);
+        summary.dropshipperDeliveredAmount += totalAmount;
+        summary.dropshipperDeliveredOrders += 1;
+        summary.dropshipperTotalCommission += dropshipperCommission;
+      }
       summary.profitLoss.agentCommission += agentCommission;
       summary.profitLoss.driverCommission += driverCommission;
       summary.profitLoss.dropshipperCommission += dropshipperCommission;
-      const items = Array.isArray(order?.items) && order.items.length
-        ? order.items
-        : order?.productId
-        ? [{ productId: order.productId, quantity: order.quantity || 1 }]
-        : [];
-      for (const item of items) {
-        const productId = String(item?.productId?._id || item?.productId || "");
-        if (!productIdSet.has(productId)) continue;
-        deliveredQtyByProduct.set(productId, Number(deliveredQtyByProduct.get(productId) || 0) + Number(item?.quantity || 0));
-      }
+      addDeliveredItemUsage(order?.items, order?.productId, order?.quantity || 1);
       deliveredOrderRows.push(buildPartnerOrderClosingRow(order, summaryCurrency, rateConfig, agentIdSet, driverMetaById));
     }
     if (isCancelled) {
@@ -458,8 +724,73 @@ async function buildPartnerTotalAmountsSnapshot({ scope, query = {}, baselineDat
       summary.profitLoss.cancelledOrders += 1;
       monthEntry.cancelledOrders += 1;
       monthEntry.cancelledAmount += totalAmount;
+      if (createdByRole === "agent" || agentIdSet.has(creatorId)) summary.agentCancelledOrders += 1;
+      if (createdByRole === "dropshipper" || dropshipperIdSet.has(creatorId)) summary.dropshipperCancelledOrders += 1;
+      if (hasPartnerDriver) summary.driverCancelledOrders += 1;
       cancelledOrderRows.push(buildPartnerOrderClosingRow(order, summaryCurrency, rateConfig, agentIdSet, driverMetaById));
     }
+  };
+  const applyWebOrder = (order) => {
+    const totalAmount = Number(order?.total || 0);
+    const shipmentStatus = String(order?.shipmentStatus || "").toLowerCase();
+    const status = String(order?.status || "").toLowerCase();
+    const paymentStatus = String(order?.paymentStatus || "").toLowerCase();
+    const isDelivered = shipmentStatus === "delivered";
+    const isCancelled = ["cancelled", "returned"].includes(shipmentStatus) || status === "cancelled";
+    const hasPartnerDriver = driverMetaById.has(String(order?.deliveryBoy || ""));
+    const monthEntry = ensureMonth(order?.createdAt);
+    summary.totalOrders += 1;
+    summary.totalAmount += totalAmount;
+    summary.onlineOrderAmount += totalAmount;
+    summary.onlineTotalOrders += 1;
+    if (paymentStatus === "paid") summary.onlinePaidOrders += 1;
+    monthEntry.totalOrders += 1;
+    monthEntry.totalAmount += totalAmount;
+    if (hasPartnerDriver) {
+      summary.driverTotalAmount += totalAmount;
+      summary.driverTotalOrders += 1;
+    }
+    if (isDelivered) {
+      summary.deliveredOrders += 1;
+      summary.deliveredAmount += totalAmount;
+      summary.onlineOrderDeliveredAmount += totalAmount;
+      summary.onlineDeliveredOrders += 1;
+      summary.profitLoss.deliveredOrders += 1;
+      summary.profitLoss.deliveredAmount += totalAmount;
+      monthEntry.deliveredOrders += 1;
+      monthEntry.deliveredAmount += totalAmount;
+      if (hasPartnerDriver) {
+        const driverMeta = driverMetaById.get(String(order?.deliveryBoy || ""));
+        const storedDriverCommission = Number(order?.driverCommission || 0);
+        const driverCommission = (driverMeta?.paymentModel || "per_order") !== "salary"
+          ? storedDriverCommission > 0
+            ? storedDriverCommission
+            : convertCurrency(Number(driverMeta?.commissionPerOrder || 0), driverMeta?.commissionCurrency || summaryCurrency, summaryCurrency, rateConfig)
+          : 0;
+        summary.driverDeliveredAmount += totalAmount;
+        summary.driverDeliveredOrders += 1;
+        summary.driverTotalCommission += driverCommission;
+        summary.profitLoss.driverCommission += driverCommission;
+      }
+      addDeliveredItemUsage(order?.items);
+      deliveredOrderRows.push(buildPartnerOrderClosingRow(order, summaryCurrency, rateConfig, agentIdSet, driverMetaById));
+    }
+    if (isCancelled) {
+      summary.cancelledOrders += 1;
+      summary.cancelledAmount += totalAmount;
+      summary.onlineCancelledOrders += 1;
+      summary.profitLoss.cancelledOrders += 1;
+      monthEntry.cancelledOrders += 1;
+      monthEntry.cancelledAmount += totalAmount;
+      if (hasPartnerDriver) summary.driverCancelledOrders += 1;
+      cancelledOrderRows.push(buildPartnerOrderClosingRow(order, summaryCurrency, rateConfig, agentIdSet, driverMetaById));
+    }
+  };
+  for (const order of orders) {
+    applyInternalOrder(order);
+  }
+  for (const order of webOrders) {
+    applyWebOrder(order);
   }
   const purchasing = purchaseRows.reduce(
     (acc, row) => {
@@ -472,6 +803,7 @@ async function buildPartnerTotalAmountsSnapshot({ scope, query = {}, baselineDat
       acc.totalStockQuantity += stockQty;
       acc.stockDeliveredQty += deliveredQty;
       acc.totalStockPurchasedAmount += convertCurrency(purchasedQty * Number(row?.pricePerPiece || 0), rowCurrency, summaryCurrency, rateConfig);
+      acc.stockDeliveredCostAmount += convertCurrency(deliveredQty * Number(row?.pricePerPiece || 0), rowCurrency, summaryCurrency, rateConfig);
       return acc;
     },
     {
@@ -479,6 +811,7 @@ async function buildPartnerTotalAmountsSnapshot({ scope, query = {}, baselineDat
       totalStockPurchasedQty: 0,
       totalStockQuantity: 0,
       stockDeliveredQty: 0,
+      stockDeliveredCostAmount: 0,
       totalOrders: summary.totalOrders,
     }
   );
@@ -486,21 +819,45 @@ async function buildPartnerTotalAmountsSnapshot({ scope, query = {}, baselineDat
     (sum, row) => sum + convertCurrency(Number(row?.amount || 0), String(row?.currency || summaryCurrency).toUpperCase(), summaryCurrency, rateConfig),
     0
   );
+  const totalAgentEarned = Array.from(agentEarnedById.values()).reduce((sum, value) => sum + Number(value || 0), 0);
+  const totalAgentPaid = agentPaidRows.reduce(
+    (sum, row) => sum + convertCurrency(Number(row?.amount || 0), String(row?.currency || "PKR").toUpperCase(), summaryCurrency, rateConfig),
+    0
+  );
+  summary.agentPaidCommission = Math.min(totalAgentPaid, totalAgentEarned || totalAgentPaid);
+  summary.driverPaidCommission = partnerPayments.reduce(
+    (sum, row) => sum + convertCurrency(Number(row?.amount || 0), String(row?.currency || summaryCurrency).toUpperCase(), summaryCurrency, rateConfig),
+    0
+  );
+  summary.dropshipperPaidCommission = dropshipperPaidRows.reduce(
+    (sum, row) => sum + Number(row?.dropshipperProfit?.amount || 0),
+    0
+  );
+  summary.totalStockPurchasedAmount = Number(purchasing.totalStockPurchasedAmount || 0);
+  summary.totalStockPurchasedQty = Number(purchasing.totalStockPurchasedQty || 0);
+  summary.totalStockQuantity = Number(purchasing.totalStockQuantity || 0);
+  summary.stockDeliveredQty = Number(purchasing.stockDeliveredQty || 0);
+  summary.stockDeliveredCostAmount = Number(purchasing.stockDeliveredCostAmount || 0);
+  summary.totalExpense = totalExpense;
   summary.purchasing = purchasing;
-  summary.profitLoss.purchasing = Number(purchasing.totalStockPurchasedAmount || 0);
+  summary.purchasing.totalOrders = summary.totalOrders;
+  summary.profitLoss.purchasing = Number(purchasing.stockDeliveredCostAmount || 0);
   summary.profitLoss.expense = totalExpense;
-  summary.profitLoss.netAmount =
-    Number(summary.profitLoss.deliveredAmount || 0) -
-    Number(summary.profitLoss.agentCommission || 0) -
-    Number(summary.profitLoss.driverCommission || 0) -
-    Number(summary.profitLoss.dropshipperCommission || 0) -
-    Number(summary.profitLoss.purchasing || 0) -
-    Number(summary.profitLoss.expense || 0);
+  summary.totalCostAmount =
+    Number(summary.agentTotalCommission || 0) +
+    Number(summary.dropshipperTotalCommission || 0) +
+    Number(summary.driverTotalCommission || 0) +
+    Number(summary.stockDeliveredCostAmount || 0) +
+    Number(summary.totalExpense || 0);
+  summary.netProfitAmount =
+    Number(summary.deliveredAmount || 0) - Number(summary.totalCostAmount || 0);
+  summary.profitLoss.netAmount = summary.netProfitAmount;
   summary.profitLoss.status = summary.profitLoss.netAmount >= 0 ? "profit" : "loss";
   const rangeStart = orderRange?.$gte || scope.partner?.createdAt || new Date();
   const rangeEnd = orderRange?.$lte || new Date();
   return {
     summary: { ...summary, currency: summaryCurrency, country: scope.assignedCountry },
+    countries: [{ ...summary, currency: summaryCurrency, country: scope.assignedCountry }],
     months: Array.from(monthMap.values()).sort((a, b) => (b.year - a.year) || (b.month - a.month)),
     deliveredOrders: deliveredOrderRows,
     cancelledOrders: cancelledOrderRows,
@@ -766,44 +1123,15 @@ router.get("/me/dashboard", auth, allowRoles("partner"), async (req, res) => {
     const scope = await getPartnerScope(req.user.id);
     if (!scope) return res.status(404).json({ message: "Partner not found" });
     const latestClosing = await getLatestPartnerClosing(req.user.id);
-    const creatorObjectIds = scope.creatorIds.map((id) => new mongoose.Types.ObjectId(id));
-    const createdAt = applyLowerBound(
-      buildPartnerCreatedAtMatch(scope, req.query),
-      latestClosing?.closedAt || null
-    );
-    const match = {
-      createdBy: { $in: creatorObjectIds },
-      orderCountry: { $in: scope.countries },
-    };
-    if (createdAt) match.createdAt = createdAt;
-    const rows = await Order.aggregate([
-      {
-        $match: match,
-      },
-      {
-        $group: {
-          _id: null,
-          totalOrders: { $sum: 1 },
-          deliveredOrders: { $sum: { $cond: [{ $eq: ["$shipmentStatus", "delivered"] }, 1, 0] } },
-          cancelledOrders: { $sum: { $cond: [{ $in: ["$shipmentStatus", ["cancelled", "returned"]] }, 1, 0] } },
-          totalAmount: { $sum: { $ifNull: ["$total", 0] } },
-          deliveredAmount: { $sum: { $cond: [{ $eq: ["$shipmentStatus", "delivered"] }, { $ifNull: ["$total", 0] }, 0] } },
-        },
-      },
-    ]);
-    const summary = rows[0] || {
-      totalOrders: 0,
-      deliveredOrders: 0,
-      cancelledOrders: 0,
-      totalAmount: 0,
-      deliveredAmount: 0,
-    };
+    const snapshot = await buildPartnerTotalAmountsSnapshot({
+      scope,
+      query: req.query,
+      baselineDate: latestClosing?.closedAt || null,
+    });
     res.json({
-      summary: {
-        ...summary,
-        currency: currencyFromCountry(scope.assignedCountry),
-        country: scope.assignedCountry,
-      },
+      summary: snapshot.summary,
+      countries: snapshot.countries || [snapshot.summary],
+      periodLabel: snapshot.rangeLabel,
     });
   } catch (error) {
     res.status(500).json({ message: "Failed to load dashboard", error: error.message });
@@ -1240,6 +1568,17 @@ router.post("/me/drivers/:id/pay", auth, allowRoles("partner"), async (req, res)
     const amount = Math.max(0, Number(req.body?.amount != null ? req.body.amount : defaultAmount));
     if (!amount) return res.status(400).json({ message: "Amount is required" });
     const now = new Date();
+    let closingMeta = {
+      rangeStart: now,
+      rangeEnd: now,
+      orderCount: 0,
+      pdfPath: "",
+    };
+    try {
+      closingMeta = await buildPartnerDriverClosingPdf({ scope, driver, paidAt: now, amount });
+    } catch (pdfError) {
+      console.error("Partner driver closing PDF error:", pdfError);
+    }
     const payment = await PartnerDriverPayment.create({
       partnerId: req.user.id,
       ownerId: scope.ownerId,
@@ -1252,6 +1591,11 @@ router.post("/me/drivers/:id/pay", auth, allowRoles("partner"), async (req, res)
       periodMonth: Number(req.body?.periodMonth || now.getMonth() + 1),
       periodYear: Number(req.body?.periodYear || now.getFullYear()),
       paidBy: req.user.id,
+      paidAt: now,
+      rangeStart: closingMeta.rangeStart,
+      rangeEnd: closingMeta.rangeEnd,
+      orderCount: Number(closingMeta.orderCount || 0),
+      pdfPath: closingMeta.pdfPath || "",
     });
     if (paymentModel === "per_order") {
       if (!driver.driverProfile) driver.driverProfile = {};

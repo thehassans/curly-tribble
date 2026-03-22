@@ -61,6 +61,15 @@ function monthKey(month, year) {
   return `${year}-${String(month).padStart(2, '0')}`
 }
 
+function buildMonthRange(month, year) {
+  const start = new Date(year, month - 1, 1)
+  const end = new Date(year, month, 0, 23, 59, 59, 999)
+  return {
+    from: start.toISOString(),
+    to: end.toISOString(),
+  }
+}
+
 function getCountryMetaFromName(name) {
   const lower = String(name || '').trim().toLowerCase()
   return COUNTRY_META.find((item) => item.match.some((value) => String(value).toLowerCase() === lower)) || null
@@ -210,10 +219,11 @@ function ExpenseRow({ item }) {
   )
 }
 
-export default function DashboardPremium() {
+export default function DashboardPremium({ mode = 'user' } = {}) {
   const navigate = useNavigate()
   const toast = useToast()
   const { setCountry } = useCountry()
+  const isPartner = mode === 'partner'
   const [selectedMonth, setSelectedMonth] = useState(currentMonth())
   const [selectedYear, setSelectedYear] = useState(currentYear())
   const [selectedCountryCode, setSelectedCountryCode] = useState('all')
@@ -237,13 +247,24 @@ export default function DashboardPremium() {
   async function loadDashboard() {
     setLoading(true)
     try {
-      const [reportRes, expenseRes] = await Promise.all([
-        apiGet(`/api/users/total-amounts/report?periodType=monthly&periodKey=${encodeURIComponent(monthKey(selectedMonth, selectedYear))}`),
-        apiGet('/api/finance/expenses'),
-      ])
+      let reportRes = null
+      let expenseRes = null
+      if (isPartner) {
+        const range = buildMonthRange(selectedMonth, selectedYear)
+        reportRes = await apiGet(`/api/partners/me/dashboard?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`)
+      } else {
+        ;[reportRes, expenseRes] = await Promise.all([
+          apiGet(`/api/users/total-amounts/report?periodType=monthly&periodKey=${encodeURIComponent(monthKey(selectedMonth, selectedYear))}`),
+          apiGet('/api/finance/expenses'),
+        ])
+      }
       setReport({
         summary: reportRes?.summary || createEmptySummary(),
-        countries: Array.isArray(reportRes?.countries) ? reportRes.countries : [],
+        countries: Array.isArray(reportRes?.countries)
+          ? reportRes.countries
+          : reportRes?.summary?.country
+          ? [reportRes.summary]
+          : [],
         periodLabel: reportRes?.periodLabel || `${monthNames[selectedMonth - 1]} ${selectedYear}`,
       })
       setExpenses(Array.isArray(expenseRes?.expenses) ? expenseRes.expenses : [])
@@ -256,7 +277,14 @@ export default function DashboardPremium() {
 
   useEffect(() => {
     loadDashboard()
-  }, [selectedMonth, selectedYear])
+  }, [selectedMonth, selectedYear, mode])
+
+  useEffect(() => {
+    if (!isPartner) return
+    const countryName = report?.countries?.[0]?.country || report?.summary?.country
+    const code = getCountryMetaFromName(countryName)?.code
+    if (code && selectedCountryCode !== code) setSelectedCountryCode(code)
+  }, [isPartner, report, selectedCountryCode])
 
   const activeRow = useMemo(() => {
     if (selectedCountryCode === 'all') return report.summary || createEmptySummary()
@@ -341,7 +369,7 @@ export default function DashboardPremium() {
 
   function handleCountrySelect(code) {
     setSelectedCountryCode(code)
-    if (code !== 'all') setCountry(code)
+    if (!isPartner && code !== 'all') setCountry(code)
   }
 
   function handleFormChange(event) {
@@ -390,9 +418,9 @@ export default function DashboardPremium() {
           <div style={{ display: 'grid', gap: 20 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
               <div style={{ display: 'grid', gap: 8, minWidth: 0 }}>
-                <div style={{ fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#64748b', fontWeight: 800 }}>User dashboard</div>
-                <div style={{ fontSize: 'clamp(28px, 4vw, 52px)', fontWeight: 950, letterSpacing: '-0.06em', color: '#0f172a', lineHeight: 1 }}>Ultra premium business command center</div>
-                <div style={{ color: '#475569', fontSize: 15, maxWidth: 820 }}>Track all orders, commissions, online sales, purchasing, and expenses in one premium minimalist dashboard with country-first controls.</div>
+                <div style={{ fontSize: 12, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#64748b', fontWeight: 800 }}>{isPartner ? 'Partner dashboard' : 'User dashboard'}</div>
+                <div style={{ fontSize: 'clamp(28px, 4vw, 52px)', fontWeight: 950, letterSpacing: '-0.06em', color: '#0f172a', lineHeight: 1 }}>{isPartner ? 'Country business command center' : 'Business command center'}</div>
+                <div style={{ color: '#475569', fontSize: 15, maxWidth: 820 }}>{isPartner ? 'Track country-scoped orders, commissions, online sales, purchasing, and net results for your assigned market in one dashboard.' : 'Track all orders, commissions, online sales, purchasing, and expenses in one minimalist dashboard with country-first controls.'}</div>
               </div>
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
                 <select value={selectedMonth} onChange={(event) => setSelectedMonth(Number(event.target.value))} style={{ borderRadius: 16, border: '1px solid rgba(148,163,184,0.24)', background: '#fff', padding: '12px 16px', fontWeight: 700, color: '#0f172a' }}>
@@ -408,19 +436,29 @@ export default function DashboardPremium() {
             </div>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-              <button type="button" onClick={() => navigate('/user/orders')} style={{ borderRadius: 999, border: '1px solid rgba(37,99,235,0.18)', background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', padding: '10px 16px', fontWeight: 800, cursor: 'pointer' }}>Orders</button>
-              <button type="button" onClick={() => navigate('/user/total-amounts')} style={{ borderRadius: 999, border: '1px solid rgba(124,58,237,0.18)', background: 'rgba(124,58,237,0.08)', color: '#6d28d9', padding: '10px 16px', fontWeight: 800, cursor: 'pointer' }}>Closing Reports</button>
-              <button type="button" onClick={() => setExpenseOpen(true)} style={{ borderRadius: 999, border: '1px solid rgba(5,150,105,0.18)', background: 'rgba(5,150,105,0.08)', color: '#047857', padding: '10px 16px', fontWeight: 800, cursor: 'pointer' }}>Add Expense</button>
-              <button type="button" onClick={() => navigate('/user/expense')} style={{ borderRadius: 999, border: '1px solid rgba(249,115,22,0.18)', background: 'rgba(249,115,22,0.08)', color: '#ea580c', padding: '10px 16px', fontWeight: 800, cursor: 'pointer' }}>Expense Management</button>
+              <button type="button" onClick={() => navigate(isPartner ? '/partner/orders' : '/user/orders')} style={{ borderRadius: 999, border: '1px solid rgba(37,99,235,0.18)', background: 'rgba(37,99,235,0.08)', color: '#1d4ed8', padding: '10px 16px', fontWeight: 800, cursor: 'pointer' }}>Orders</button>
+              <button type="button" onClick={() => navigate(isPartner ? '/partner/total-amounts' : '/user/total-amounts')} style={{ borderRadius: 999, border: '1px solid rgba(124,58,237,0.18)', background: 'rgba(124,58,237,0.08)', color: '#6d28d9', padding: '10px 16px', fontWeight: 800, cursor: 'pointer' }}>Closing Reports</button>
+              {!isPartner ? <button type="button" onClick={() => setExpenseOpen(true)} style={{ borderRadius: 999, border: '1px solid rgba(5,150,105,0.18)', background: 'rgba(5,150,105,0.08)', color: '#047857', padding: '10px 16px', fontWeight: 800, cursor: 'pointer' }}>Add Expense</button> : null}
+              {!isPartner ? <button type="button" onClick={() => navigate('/user/expense')} style={{ borderRadius: 999, border: '1px solid rgba(249,115,22,0.18)', background: 'rgba(249,115,22,0.08)', color: '#ea580c', padding: '10px 16px', fontWeight: 800, cursor: 'pointer' }}>Expense Management</button> : null}
             </div>
 
             <div style={{ display: 'grid', gap: 10 }}>
-              <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b' }}>Country flags</div>
+              <div style={{ fontSize: 12, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b' }}>{isPartner ? 'Assigned country' : 'Country flags'}</div>
               <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 4 }}>
-                <CountryPill active={selectedCountryCode === 'all'} label="All Countries" flag="🌐" onClick={() => handleCountrySelect('all')} />
-                {COUNTRY_META.map((item) => (
-                  <CountryPill key={item.code} active={selectedCountryCode === item.code} label={item.label} flag={item.flag} onClick={() => handleCountrySelect(item.code)} />
-                ))}
+                {isPartner ? (
+                  (() => {
+                    const countryName = report?.countries?.[0]?.country || report?.summary?.country
+                    const meta = getCountryMetaFromName(countryName) || activeMeta || COUNTRY_META[0]
+                    return <CountryPill active label={meta?.label || countryName || 'Country'} flag={meta?.flag || '🌐'} onClick={() => {}} />
+                  })()
+                ) : (
+                  <>
+                    <CountryPill active={selectedCountryCode === 'all'} label="All Countries" flag="🌐" onClick={() => handleCountrySelect('all')} />
+                    {COUNTRY_META.map((item) => (
+                      <CountryPill key={item.code} active={selectedCountryCode === item.code} label={item.label} flag={item.flag} onClick={() => handleCountrySelect(item.code)} />
+                    ))}
+                  </>
+                )}
               </div>
             </div>
 
@@ -447,7 +485,7 @@ export default function DashboardPremium() {
           </div>
         </section>
 
-        <MetricRail title="Agent" subtitle="Agent total amount, delivered amount, orders, cancellations, and commission status in one premium row." items={agentItems} />
+        <MetricRail title="Agent" subtitle="Agent total amount, delivered amount, orders, cancellations, and commission status in one row." items={agentItems} />
         <MetricRail title="Dropshipper" subtitle="Dropshipper sales and earned/paid commission breakdown for the selected scope." items={dropshipperItems} />
         <MetricRail title="Driver" subtitle="Driver order volume with earned and paid commission metrics." items={driverItems} />
         <MetricRail title="Online" subtitle="Paid and delivered online order performance for the selected scope." items={onlineItems} />
@@ -457,12 +495,12 @@ export default function DashboardPremium() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap', marginBottom: 18 }}>
             <div style={{ display: 'grid', gap: 6 }}>
               <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b' }}>Expense</div>
-              <div style={{ fontSize: 14, color: '#475569' }}>Integrated advertising expense view with direct expense creation and recent activity.</div>
+              <div style={{ fontSize: 14, color: '#475569' }}>{isPartner ? 'Country-scoped expenses are included in the totals below for your assigned market.' : 'Integrated advertising expense view with direct expense creation and recent activity.'}</div>
             </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {!isPartner ? <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
               <button type="button" onClick={() => setExpenseOpen(true)} style={{ borderRadius: 16, border: 'none', background: '#111827', color: '#fff', padding: '12px 16px', fontWeight: 800, cursor: 'pointer' }}>Add Expense</button>
               <button type="button" onClick={() => navigate('/user/expense')} style={{ borderRadius: 16, border: '1px solid rgba(148,163,184,0.18)', background: '#fff', color: '#0f172a', padding: '12px 16px', fontWeight: 800, cursor: 'pointer' }}>Open Expense Management</button>
-            </div>
+            </div> : null}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14, marginBottom: 18 }}>
@@ -489,7 +527,7 @@ export default function DashboardPremium() {
         </section>
       </div>
 
-      <Modal
+      {!isPartner ? <Modal
         title="Add Expense"
         open={expenseOpen}
         onClose={() => setExpenseOpen(false)}
@@ -515,6 +553,7 @@ export default function DashboardPremium() {
           <textarea className="input" name="notes" value={form.notes} onChange={handleFormChange} rows={4} placeholder="Notes (optional)" style={{ resize: 'vertical', minHeight: 120 }} />
         </div>
       </Modal>
+      : null}
     </div>
   )
 }

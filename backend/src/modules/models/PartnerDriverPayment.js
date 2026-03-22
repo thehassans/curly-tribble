@@ -59,6 +59,24 @@ const PartnerDriverPaymentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+    paidAt: {
+      type: Date,
+    },
+    rangeStart: {
+      type: Date,
+    },
+    rangeEnd: {
+      type: Date,
+    },
+    orderCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    pdfPath: {
+      type: String,
+      default: "",
+    },
   },
   { timestamps: true }
 );

@@ -102,7 +102,7 @@ export async function generateCommissionPayoutPDF(data) {
       doc.fontSize(32)
          .font('Helvetica-Bold')
          .fillColor(colors.primary)
-         .text('Commission Statement', margin, y, {
+         .text('Commission Closing Statement', margin, y, {
            width: contentWidth,
            align: 'center'
          })
@@ -112,19 +112,42 @@ export async function generateCommissionPayoutPDF(data) {
       doc.rect(margin + (contentWidth / 2) - 100, y, 200, 3)
          .fill(colors.accent)
       y += 3
+
+      doc.roundedRect(pageWidth - margin - 110, y - 36, 110, 28, 8)
+         .fillAndStroke('#16a34a', '#15803d')
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .fillColor('#ffffff')
+         .text('PAID', pageWidth - margin - 110, y - 28, {
+           width: 110,
+           align: 'center'
+         })
       
       // Document ID and date in elegant box
+      const generatedAt = new Date()
+      const paidAt = data.paidAt ? new Date(data.paidAt) : generatedAt
       doc.fontSize(9)
          .font('Helvetica')
          .fillColor(colors.muted)
-         .text(`Statement ID: ${timestamp}  |  Generated: ${new Date().toLocaleDateString('en-US', {month: 'long', day: 'numeric', year: 'numeric'})}`, margin, y + 15, {
+         .text(`Statement ID: ${timestamp}  |  Generated: ${generatedAt.toLocaleString('en-US', {month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'})}`, margin, y + 15, {
            width: contentWidth,
            align: 'center'
          })
+      doc.text(`Paid At: ${paidAt.toLocaleString('en-US', {month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'})}`, margin, y + 30, {
+        width: contentWidth,
+        align: 'center'
+      })
       y += 50
 
       // === PREMIUM DRIVER DETAILS CARD ===
-      const detailsBoxHeight = data.driverPhone ? 100 : 80
+      const hasClosingRange = Boolean(data.rangeStart || data.rangeEnd)
+      const detailsBoxHeight = data.driverPhone
+        ? hasClosingRange
+          ? 126
+          : 100
+        : hasClosingRange
+        ? 106
+        : 80
       
       // Elegant border box with shadow effect
       doc.roundedRect(margin, y, contentWidth, detailsBoxHeight, 12)
@@ -167,6 +190,21 @@ export async function generateCommissionPayoutPDF(data) {
         doc.font('Helvetica-Bold')
            .fillColor(colors.secondary)
            .text('  ' + data.driverPhone)
+      }
+
+      if (data.rangeStart || data.rangeEnd) {
+        detailsY += 20
+        doc.fontSize(10)
+           .font('Helvetica')
+           .fillColor(colors.muted)
+           .text('• ', margin + detailsPadding, detailsY)
+        doc.text('Closing Range:', margin + detailsPadding + 10, detailsY, { continued: true })
+        doc.font('Helvetica-Bold')
+           .fillColor(colors.secondary)
+           .text(
+             '  ' +
+               `${data.rangeStart ? new Date(data.rangeStart).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'} → ${data.rangeEnd ? new Date(data.rangeEnd).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-'}`
+           )
       }
       
       y += detailsBoxHeight + 35
@@ -235,7 +273,8 @@ export async function generateCommissionPayoutPDF(data) {
       const tableTop = y
       const col1X = margin
       const col2X = margin + 150
-      const col3X = margin + 340
+      const col3X = margin + 280
+      const col4X = margin + 405
 
       // Header background with gradient effect
       doc.roundedRect(margin, y, contentWidth, 40, 8)
@@ -247,7 +286,8 @@ export async function generateCommissionPayoutPDF(data) {
          .fillColor('#ffffff')
          .text('ORDER NUMBER', col1X + 20, y + 14)
          .text('DELIVERY DATE', col2X + 20, y + 14)
-         .text('COMMISSION', col3X + 20, y + 14)
+         .text('PRICE', col3X + 20, y + 14)
+         .text('COMMISSION', col4X + 12, y + 14)
 
       y += 40
 
@@ -305,13 +345,18 @@ export async function generateCommissionPayoutPDF(data) {
         doc.fontSize(10)
            .font('Helvetica')
            .fillColor(colors.muted)
-           .text(deliveryDate, col2X + 20, y + 15)
+           .text(deliveryDate, col2X + 20, y + 15, { width: 100 })
+
+        doc.fontSize(11)
+           .font('Helvetica-Bold')
+           .fillColor(colors.secondary)
+           .text(formatCurrency(order.amount || 0, order.priceCurrency || data.currency || 'SAR'), col3X + 20, y + 15, { width: 90 })
 
         // Commission with premium green and bold styling
         doc.fontSize(12)
            .font('Helvetica-Bold')
            .fillColor(colors.success)
-           .text(formatCurrency(order.commission || 0, data.currency || 'SAR'), col3X + 20, y + 15)
+           .text(formatCurrency(order.commission || 0, data.currency || 'SAR'), col4X + 12, y + 15, { width: 90 })
 
         y += rowHeight
       })

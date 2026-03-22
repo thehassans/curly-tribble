@@ -89,7 +89,7 @@ export async function generateAgentCommissionReceiptPDF(data) {
       doc.fontSize(32)
          .font('Helvetica-Bold')
          .fillColor(colors.primary)
-         .text('Commission Payment Receipt', margin, y, {
+         .text('Commission Closing Statement', margin, y, {
            width: contentWidth,
            align: 'center'
          })
@@ -100,14 +100,30 @@ export async function generateAgentCommissionReceiptPDF(data) {
          .fill(colors.accent)
       y += 3
 
+      doc.roundedRect(pageWidth - margin - 110, y - 36, 110, 28, 8)
+         .fillAndStroke('#16a34a', '#15803d')
+      doc.fontSize(14)
+         .font('Helvetica-Bold')
+         .fillColor('#ffffff')
+         .text('PAID', pageWidth - margin - 110, y - 28, {
+           width: 110,
+           align: 'center'
+         })
+
       // Receipt ID and Date
+      const generatedAt = new Date()
+      const paidAt = data.paidAt ? new Date(data.paidAt) : generatedAt
       doc.fontSize(9)
          .font('Helvetica')
          .fillColor(colors.muted)
-         .text(`Receipt ID: ${timestamp}  |  Generated: ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`, margin, y + 15, {
+         .text(`Receipt ID: ${timestamp}  |  Generated: ${generatedAt.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, margin, y + 15, {
            width: contentWidth,
            align: 'center'
          })
+      doc.text(`Paid At: ${paidAt.toLocaleString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`, margin, y + 30, {
+        width: contentWidth,
+        align: 'center'
+      })
       y += 50
 
       // === AGENT INFORMATION SECTION ===
@@ -243,8 +259,9 @@ export async function generateAgentCommissionReceiptPDF(data) {
         // Table header
         const tableTop = y
         const col1X = margin
-        const col2X = margin + 200
-        const col3X = margin + 350
+        const col2X = margin + 160
+        const col3X = margin + 270
+        const col4X = margin + 390
 
         doc.roundedRect(margin, y, contentWidth, 35, 5)
            .fill(colors.primary)
@@ -254,13 +271,14 @@ export async function generateAgentCommissionReceiptPDF(data) {
            .fillColor('#ffffff')
            .text('ORDER NUMBER', col1X + 15, y + 12)
            .text('DATE', col2X + 15, y + 12)
-           .text('AMOUNT', col3X + 15, y + 12)
+           .text('PRICE', col3X + 15, y + 12)
+           .text('COMMISSION', col4X + 15, y + 12)
 
         y += 35
 
         // Table rows (show all orders)
         const displayOrders = data.orders
-        const rowHeight = 35
+        const rowHeight = 38
 
         displayOrders.forEach((order, index) => {
           // Check if we need a new page
@@ -311,13 +329,19 @@ export async function generateAgentCommissionReceiptPDF(data) {
           doc.fontSize(10)
              .font('Helvetica')
              .fillColor(colors.muted)
-             .text(orderDate, col2X + 15, y + 12)
+             .text(orderDate, col2X + 15, y + 12, { width: 90 })
 
-          // Amount
+          // Price
+          doc.fontSize(11)
+             .font('Helvetica-Bold')
+             .fillColor(colors.secondary)
+             .text(formatCurrency(order.amount || 0, order.currency || 'AED'), col3X + 15, y + 12, { width: 90 })
+
+          // Commission
           doc.fontSize(11)
              .font('Helvetica-Bold')
              .fillColor(colors.success)
-             .text(formatCurrency(order.amount || 0, order.currency || 'AED'), col3X + 15, y + 12)
+             .text(formatCurrency(order.commission || 0, order.commissionCurrency || 'PKR'), col4X + 15, y + 12, { width: 90 })
 
           y += rowHeight
         })

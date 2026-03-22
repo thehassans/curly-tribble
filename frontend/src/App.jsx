@@ -137,6 +137,7 @@ const AgentOrdersHistory = lazy(() => import('./pages/agent/OrdersHistory.jsx'))
 const AgentProfile = lazy(() => import('./pages/agent/Profile.jsx'))
 const AgentPayout = lazy(() => import('./pages/agent/Payout.jsx'))
 const AgentMe = lazy(() => import('./pages/agent/Me.jsx'))
+const AgentClosings = lazy(() => import('./pages/agent/Closings.jsx'))
 
 // Manager pages
 const ManagerDashboard = lazy(() => import('./pages/manager/Dashboard.jsx'))
@@ -161,6 +162,7 @@ const DriverDelivered = lazy(() => import('./pages/driver/Delivered.jsx'))
 const DriverCancelled = lazy(() => import('./pages/driver/Cancelled.jsx'))
 const DriverHistory = lazy(() => import('./pages/driver/History.jsx'))
 const DriverMyStock = lazy(() => import('./pages/driver/MyStock.jsx'))
+const DriverClosings = lazy(() => import('./pages/driver/Closings.jsx'))
 
 // Investor pages
 const InvestorDashboard = lazy(() => import('./pages/investor/Dashboard.jsx'))
@@ -807,6 +809,7 @@ export default function App() {
               <Route path="me" element={<DriverMe />} />
               <Route path="profile" element={<DriverProfile />} />
               <Route path="payout" element={<DriverPayout />} />
+              <Route path="closings" element={<DriverClosings />} />
             </Route>
 
             <Route
@@ -1019,6 +1022,7 @@ export default function App() {
               <Route path="me" element={<AgentMe />} />
               <Route path="profile" element={<AgentProfile />} />
               <Route path="payout" element={<AgentPayout />} />
+              <Route path="closings" element={<AgentClosings />} />
               <Route path="support" element={<Support />} />
             </Route>
           </Routes>
