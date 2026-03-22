@@ -44,7 +44,7 @@ export default function AppLaunchOverlay() {
         <div className="app-launch-content">
           <div className="app-launch-logo-shell">
             <div className="app-launch-logo-glow" />
-            <img src={`${import.meta.env.BASE_URL}buysialmobileicon-removebg-preview.png`} alt="BuySial" className="app-launch-logo" />
+            <img src={`${import.meta.env.BASE_URL}mobile-app-launcher.png`} alt="BuySial" className="app-launch-logo" />
           </div>
           <div className="app-launch-progress">
             <span />

@@ -2,15 +2,15 @@
   "expo": {
     "name": "Buysial",
     "slug": "buysial-store-mobile",
-    "version": "1.0.4",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#111827"
     },
     "ios": {
       "supportsTablet": true,
@@ -18,10 +18,10 @@
     },
     "android": {
       "package": "com.buysial.store",
-      "versionCode": 5,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#111827"
       },
       "edgeToEdgeEnabled": true,
       "permissions": [

@@ -61,6 +61,7 @@ export default function Home(){
   })
   const currentFlag = COUNTRY_LIST_LOCAL.find(c => c.code === selectedCountry)?.flag || '🇬🇧'
   const currentCountryName = COUNTRY_LIST_LOCAL.find(c => c.code === selectedCountry)?.name || 'UK'
+  const mobileBrandLogo = '/mobile-app-launcher.png'
   // Persist selected country
   useEffect(()=>{
     try { localStorage.setItem('selected_country', selectedCountry) } catch {}
@@ -293,7 +294,6 @@ export default function Home(){
           color: annBar.color || '#fff',
           textAlign: 'center',
           padding: '8px 16px',
-          paddingTop: 'calc(8px + max(env(safe-area-inset-top, 0px), var(--native-safe-area-top, 0px)))',
           fontSize: 12,
           fontWeight: 500,
           lineHeight: 1.4,
@@ -307,31 +307,50 @@ export default function Home(){
         <Header onCartClick={() => setIsCartOpen(true)} />
       </div>
 
-      {/* ── Category Nav Bar ── transparent overlay on hero, glassmorphism when scrolled */}
-      {catNav.enabled && catNav.categories.length > 0 && (
-        <div
-          className="sticky top-0 z-40"
-          style={{
-            background: navScrolled ? 'rgba(8,8,18,0.72)' : 'transparent',
-            backdropFilter: navScrolled ? 'blur(18px)' : 'none',
-            WebkitBackdropFilter: navScrolled ? 'blur(18px)' : 'none',
-            top: annBar?.text ? 0 : 'max(env(safe-area-inset-top, 0px), var(--native-safe-area-top, 0px))',
-            paddingTop: annBar?.text ? 0 : 'max(env(safe-area-inset-top, 0px), var(--native-safe-area-top, 0px))',
-            transition: 'background 0.3s, backdrop-filter 0.3s',
-          }}
-        >
-          <div className="flex items-center" style={{ minHeight: 44 }}>
-            {/* BuySial logo — inline left, visible when scrolled */}
-            {navScrolled && (
-              <div style={{ flexShrink: 0, padding: '0 8px 0 12px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <img src="/logo.png" alt="" style={{ height: 26, width: 26, objectFit: 'contain', borderRadius: '50%' }} />
-                <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: '-0.3px', lineHeight: 1, whiteSpace: 'nowrap' }}>
-                  <span style={{ color: '#fff' }}>buy</span><span style={{ color: '#f97316' }}>sial</span>
-                </span>
-              </div>
-            )}
-            {/* Scrollable category tabs */}
-            <div className="flex items-center overflow-x-auto flex-1" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <div className="lg:hidden sticky top-0 z-40 bg-white/96 backdrop-blur-xl border-b border-slate-200/80 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+        <div className="px-3 pt-3 pb-2 flex items-center gap-3">
+          <Link to="/" className="flex items-center gap-2.5 min-w-0" aria-label="BuySial home">
+            <img src={mobileBrandLogo} alt="BuySial" style={{ width: 42, height: 42, borderRadius: 14, objectFit: 'cover', flexShrink: 0, boxShadow: '0 8px 20px rgba(15,23,42,0.10)' }} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.03em', color: '#0f172a', lineHeight: 1.05 }}>Buysial</div>
+              <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', lineHeight: 1.1, whiteSpace: 'nowrap' }}>Premium mobile shopping</div>
+            </div>
+          </Link>
+
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            <button
+              onClick={() => setMobileSearchOpen(true)}
+              className="w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}
+              aria-label="Open search"
+            >
+              <svg className="w-[18px] h-[18px]" style={{ color: '#334155' }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+            </button>
+            <button
+              onClick={() => navigate('/cart')}
+              className="w-10 h-10 rounded-full flex items-center justify-center relative"
+              style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}
+              aria-label="Open cart"
+            >
+              <svg className="w-[18px] h-[18px]" style={{ color: '#334155' }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+              {cartCount > 0 && <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">{cartCount > 99 ? '99+' : cartCount}</span>}
+            </button>
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="w-10 h-10 rounded-full flex items-center justify-center"
+              style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}
+              aria-label="Open menu"
+            >
+              <svg className="w-[18px] h-[18px]" style={{ color: '#334155' }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {catNav.enabled && catNav.categories.length > 0 && (
+          <div className="px-2 pb-2 overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+            <div className="flex items-center gap-2 min-w-max">
               {['All', ...catNav.categories].map((cat, i) => (
                 <button
                   key={i}
@@ -340,47 +359,32 @@ export default function Home(){
                     if (cat === 'All') { navigate('/catalog') }
                     else { navigate(`/catalog?category=${encodeURIComponent(cat)}`) }
                   }}
-                  className="flex-shrink-0 px-4 text-sm font-semibold whitespace-nowrap"
+                  className="flex-shrink-0"
                   style={{
-                    height: 44,
-                    color: activeCat === cat ? '#ffffff' : 'rgba(255,255,255,0.72)',
-                    borderBottom: activeCat === cat ? '2px solid #ffffff' : '2px solid transparent',
-                    textShadow: navScrolled ? 'none' : '0 1px 4px rgba(0,0,0,0.45)',
-                    transition: 'color 0.2s, border-color 0.2s',
+                    minHeight: 34,
+                    padding: '0 14px',
+                    borderRadius: 999,
+                    border: activeCat === cat ? '1px solid #fdba74' : '1px solid #e2e8f0',
+                    background: activeCat === cat ? 'linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)' : '#ffffff',
+                    color: activeCat === cat ? '#c2410c' : '#475569',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    whiteSpace: 'nowrap',
+                    boxShadow: activeCat === cat ? '0 6px 16px rgba(249,115,22,0.10)' : 'none',
                   }}
                 >
                   {cat}
                 </button>
               ))}
             </div>
-            {/* Cart + Hamburger — fixed right */}
-            <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, paddingRight: 8 }}>
-              <button
-                onClick={() => navigate('/cart')}
-                className="w-9 h-9 rounded-full flex items-center justify-center transition-colors relative"
-                style={{ background: 'rgba(255,255,255,0.15)' }}
-              >
-                <svg className="w-4 h-4" style={{ color: '#fff' }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                {cartCount > 0 && <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">{cartCount > 99 ? '99+' : cartCount}</span>}
-              </button>
-              <button
-                onClick={() => setMobileMenuOpen(true)}
-                className="w-9 h-9 rounded-full flex items-center justify-center transition-colors"
-                style={{ background: 'rgba(255,255,255,0.15)' }}
-              >
-                <svg className="w-4 h-4" style={{ color: '#fff' }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" />
-                </svg>
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <h1 className="sr-only">BuySial Commerce</h1>
 
-      {/* Hero Banner — pulled up 44px behind the transparent nav */}
-      <div className="relative lg:hidden" style={{ marginTop: catNav.enabled && catNav.categories.length > 0 ? '-44px' : 0 }}>
+      {/* Hero Banner */}
+      <div className="relative lg:hidden">
         <PremiumHeroBanner />
         {/* Search bar — slides in from top when search icon clicked */}
         <div className={`absolute bottom-3 left-3 right-3 z-30 transition-all duration-300 ${mobileSearchOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
@@ -421,7 +425,10 @@ export default function Home(){
             {/* Shop header section */}
             <div className="bg-gray-900 text-white px-5 pt-7 pb-4">
               <div className="flex items-center justify-between mb-4">
-                <span className="text-[17px] font-bold tracking-wide">Shop</span>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <img src={mobileBrandLogo} alt="BuySial" style={{ width: 38, height: 38, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
+                  <span className="text-[17px] font-bold tracking-wide">Shop</span>
+                </div>
                 <button onClick={() => setMobileMenuOpen(false)} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button>
               </div>
               {[

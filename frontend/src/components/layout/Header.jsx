@@ -1,48 +1,49 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
+import { Capacitor } from '@capacitor/core'
 import { COUNTRY_LIST } from '../../utils/constants'
 import { useCountry } from '../../contexts/CountryContext'
 import { readWishlistIds, syncWishlistFromServer } from '../../util/wishlist'
 import { apiGet } from '../../api.js'
 
 const countries = [
-  { code: 'AE', name: 'UAE', flag: '🇦🇪', currency: 'AED' },
-  { code: 'OM', name: 'Oman', flag: '🇴🇲', currency: 'OMR' },
-  { code: 'SA', name: 'KSA', flag: '🇸🇦', currency: 'SAR' },
-  { code: 'BH', name: 'Bahrain', flag: '🇧🇭', currency: 'BHD' },
-  { code: 'IN', name: 'India', flag: '🇮🇳', currency: 'INR' },
-  { code: 'KW', name: 'Kuwait', flag: '🇰🇼', currency: 'KWD' },
-  { code: 'QA', name: 'Qatar', flag: '🇶🇦', currency: 'QAR' },
-  { code: 'PK', name: 'Pakistan', flag: '🇵🇰', currency: 'PKR' },
-  { code: 'EG', name: 'Egypt', flag: '🇪🇬', currency: 'EGP' },
-  { code: 'JO', name: 'Jordan', flag: '🇯🇴', currency: 'JOD' },
-  { code: 'LB', name: 'Lebanon', flag: '🇱🇧', currency: 'LBP' },
-  { code: 'IQ', name: 'Iraq', flag: '🇮🇶', currency: 'IQD' },
-  { code: 'YE', name: 'Yemen', flag: '🇾🇪', currency: 'YER' },
-  { code: 'US', name: 'USA', flag: '🇺🇸', currency: 'USD' },
-  { code: 'GB', name: 'UK', flag: '🇬🇧', currency: 'GBP' },
-  { code: 'CA', name: 'Canada', flag: '🇨🇦', currency: 'CAD' },
-  { code: 'AU', name: 'Australia', flag: '🇦🇺', currency: 'AUD' },
-  { code: 'DE', name: 'Germany', flag: '🇩🇪', currency: 'EUR' },
-  { code: 'FR', name: 'France', flag: '🇫🇷', currency: 'EUR' },
-  { code: 'TR', name: 'Turkey', flag: '🇹🇷', currency: 'TRY' },
-  { code: 'MY', name: 'Malaysia', flag: '🇲🇾', currency: 'MYR' },
-  { code: 'SG', name: 'Singapore', flag: '🇸🇬', currency: 'SGD' },
-  { code: 'ID', name: 'Indonesia', flag: '🇮🇩', currency: 'IDR' },
-  { code: 'PH', name: 'Philippines', flag: '🇵🇭', currency: 'PHP' },
-  { code: 'BD', name: 'Bangladesh', flag: '🇧🇩', currency: 'BDT' },
-  { code: 'LK', name: 'Sri Lanka', flag: '🇱🇰', currency: 'LKR' },
-  { code: 'NP', name: 'Nepal', flag: '🇳🇵', currency: 'NPR' },
-  { code: 'ZA', name: 'South Africa', flag: '🇿🇦', currency: 'ZAR' },
-  { code: 'NG', name: 'Nigeria', flag: '🇳🇬', currency: 'NGN' },
-  { code: 'KE', name: 'Kenya', flag: '🇰🇪', currency: 'KES' },
-  { code: 'MA', name: 'Morocco', flag: '🇲🇦', currency: 'MAD' },
-  { code: 'TN', name: 'Tunisia', flag: '🇹🇳', currency: 'TND' },
-  { code: 'CN', name: 'China', flag: '🇨🇳', currency: 'CNY' },
-  { code: 'JP', name: 'Japan', flag: '🇯🇵', currency: 'JPY' },
-  { code: 'KR', name: 'South Korea', flag: '🇰🇷', currency: 'KRW' },
-  { code: 'TH', name: 'Thailand', flag: '🇹🇭', currency: 'THB' },
-  { code: 'VN', name: 'Vietnam', flag: '🇻🇳', currency: 'VND' },
+  { code: 'AE', name: 'UAE', flag: '', currency: 'AED' },
+  { code: 'OM', name: 'Oman', flag: '', currency: 'OMR' },
+  { code: 'SA', name: 'KSA', flag: '', currency: 'SAR' },
+  { code: 'BH', name: 'Bahrain', flag: '', currency: 'BHD' },
+  { code: 'IN', name: 'India', flag: '', currency: 'INR' },
+  { code: 'KW', name: 'Kuwait', flag: '', currency: 'KWD' },
+  { code: 'QA', name: 'Qatar', flag: '', currency: 'QAR' },
+  { code: 'PK', name: 'Pakistan', flag: '', currency: 'PKR' },
+  { code: 'EG', name: 'Egypt', flag: '', currency: 'EGP' },
+  { code: 'JO', name: 'Jordan', flag: '', currency: 'JOD' },
+  { code: 'LB', name: 'Lebanon', flag: '', currency: 'LBP' },
+  { code: 'IQ', name: 'Iraq', flag: '', currency: 'IQD' },
+  { code: 'YE', name: 'Yemen', flag: '', currency: 'YER' },
+  { code: 'US', name: 'USA', flag: '', currency: 'USD' },
+  { code: 'GB', name: 'UK', flag: '', currency: 'GBP' },
+  { code: 'CA', name: 'Canada', flag: '', currency: 'CAD' },
+  { code: 'AU', name: 'Australia', flag: '', currency: 'AUD' },
+  { code: 'DE', name: 'Germany', flag: '', currency: 'EUR' },
+  { code: 'FR', name: 'France', flag: '', currency: 'EUR' },
+  { code: 'TR', name: 'Turkey', flag: '', currency: 'TRY' },
+  { code: 'MY', name: 'Malaysia', flag: '', currency: 'MYR' },
+  { code: 'SG', name: 'Singapore', flag: '', currency: 'SGD' },
+  { code: 'ID', name: 'Indonesia', flag: '', currency: 'IDR' },
+  { code: 'PH', name: 'Philippines', flag: '', currency: 'PHP' },
+  { code: 'BD', name: 'Bangladesh', flag: '', currency: 'BDT' },
+  { code: 'LK', name: 'Sri Lanka', flag: '', currency: 'LKR' },
+  { code: 'NP', name: 'Nepal', flag: '', currency: 'NPR' },
+  { code: 'ZA', name: 'South Africa', flag: '', currency: 'ZAR' },
+  { code: 'NG', name: 'Nigeria', flag: '', currency: 'NGN' },
+  { code: 'KE', name: 'Kenya', flag: '', currency: 'KES' },
+  { code: 'MA', name: 'Morocco', flag: '', currency: 'MAD' },
+  { code: 'TN', name: 'Tunisia', flag: '', currency: 'TND' },
+  { code: 'CN', name: 'China', flag: '', currency: 'CNY' },
+  { code: 'JP', name: 'Japan', flag: '', currency: 'JPY' },
+  { code: 'KR', name: 'South Korea', flag: '', currency: 'KRW' },
+  { code: 'TH', name: 'Thailand', flag: '', currency: 'THB' },
+  { code: 'VN', name: 'Vietnam', flag: '', currency: 'VND' },
 ]
 
 const getCartItemCount = () => {
@@ -77,11 +78,20 @@ const getCustomer = () => {
     const token = localStorage.getItem('token')
     const me = localStorage.getItem('me')
     if (!token || !me) return null
+    
     const user = JSON.parse(me)
     if (user.role === 'customer') return user
     return null
   } catch {
     return null
+  }
+}
+
+const isNativeMobileApp = () => {
+  try {
+    return Capacitor.isNativePlatform()
+  } catch {
+    return false
   }
 }
 
@@ -102,6 +112,7 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
   const [isCountryOpen, setIsCountryOpen] = useState(false)
   const { country: selectedCountry, setCountry: setSelectedCountry } = useCountry()
   const countryRef = useRef(null)
+  const brandLogoSrc = isNativeMobileApp() ? '/mobile-app-launcher.png' : '/BSBackgroundremoved.png'
 
   useEffect(() => {
     // Load announcement bar from API
@@ -232,7 +243,7 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
             </svg>
           </button>
           <Link to="/" className="logo">
-            <img src="/BSBackgroundremoved.png" alt="BuySial" className="logo-img" />
+            <img src={brandLogoSrc} alt="BuySial" className="logo-img" />
           </Link>
         </div>
 
@@ -425,7 +436,7 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
           <div className="mobile-menu-overlay" onClick={toggleMobileMenu}></div>
           <div className="mobile-menu-content">
             <div className="mobile-menu-header">
-              <img src="/BSBackgroundremoved.png" alt="BuySial" className="mobile-logo" />
+              <img src={brandLogoSrc} alt="BuySial" className="mobile-logo" />
               <button className="mobile-menu-close" onClick={toggleMobileMenu}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -508,7 +519,7 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
           top: 0;
           z-index: 100;
           box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
-          padding-top: max(env(safe-area-inset-top, 0px), var(--native-safe-area-top, 0px));
+          padding-top: env(safe-area-inset-top, 0px);
           backdrop-filter: blur(14px);
           -webkit-backdrop-filter: blur(14px);
         }

@@ -1122,12 +1122,12 @@ export default function ProductCatalog() {
       />
       {/* Announcement bar */}
       {annBar?.text && (
-        <div className="lg:hidden" style={{ background: annBar.bg || '#111827', color: annBar.color || '#fff', textAlign: 'center', padding: '8px 16px', paddingTop: 'calc(8px + max(env(safe-area-inset-top, 0px), var(--native-safe-area-top, 0px)))', fontSize: 12, fontWeight: 500, letterSpacing: '0.01em' }}>
+        <div className="lg:hidden" style={{ background: annBar.bg || '#111827', color: annBar.color || '#fff', textAlign: 'center', padding: '8px 16px', fontSize: 12, fontWeight: 500, letterSpacing: '0.01em' }}>
           {annBar.text}
         </div>
       )}
       {/* Mobile: clean light header */}
-      <div className="lg:hidden bg-white border-b border-gray-100" style={{ paddingTop: annBar?.text ? 0 : 'max(env(safe-area-inset-top, 0px), var(--native-safe-area-top, 0px))' }}>
+      <div className="lg:hidden bg-white border-b border-gray-100">
         {/* Row: home + search + cart */}
         <div className="flex items-center gap-2 px-3 pt-3 pb-2">
           <Link to="/" className="w-9 h-9 rounded-full bg-gray-50 flex items-center justify-center flex-shrink-0">

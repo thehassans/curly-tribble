@@ -8,37 +8,20 @@ import {
   Platform,
   ActivityIndicator,
   TouchableOpacity,
-  Image,
+  SafeAreaView,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as SplashScreen from 'expo-splash-screen';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const SITE_URL = 'https://buysial.com';
-const LAUNCHER_SOURCE = require('./assets/splash-icon.png');
 
-function AppShell() {
+export default function App() {
   const webViewRef = useRef(null);
   const [canGoBack, setCanGoBack] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const insets = useSafeAreaInsets();
-
-  const nativeInsetsScript = `
-    (function() {
-      try {
-        var root = document.documentElement;
-        root.style.setProperty('--native-safe-area-top', '${Math.round(insets.top)}px');
-        root.style.setProperty('--native-safe-area-right', '${Math.round(insets.right)}px');
-        root.style.setProperty('--native-safe-area-bottom', '${Math.round(insets.bottom)}px');
-        root.style.setProperty('--native-safe-area-left', '${Math.round(insets.left)}px');
-        document.body && document.body.classList.add('native-webview-shell');
-      } catch (e) {}
-      true;
-    })();
-  `;
 
   // Handle Android hardware back button
   React.useEffect(() => {
@@ -57,11 +40,8 @@ function AppShell() {
   const onLoadEnd = useCallback(() => {
     setIsLoading(false);
     setHasError(false);
-    try {
-      webViewRef.current?.injectJavaScript(nativeInsetsScript);
-    } catch {}
     SplashScreen.hideAsync().catch(() => {});
-  }, [nativeInsetsScript]);
+  }, []);
 
   const onError = useCallback(() => {
     setIsLoading(false);
@@ -76,8 +56,8 @@ function AppShell() {
   }, []);
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" translucent backgroundColor="transparent" />
+    <SafeAreaView style={styles.container}>
+      <StatusBar style="light" backgroundColor="#111827" />
 
       {hasError ? (
         <View style={styles.errorWrap}>
@@ -101,7 +81,6 @@ function AppShell() {
         javaScriptEnabled
         domStorageEnabled
         startInLoadingState
-        injectedJavaScriptBeforeContentLoaded={nativeInsetsScript}
         allowsBackForwardNavigationGestures
         allowsInlineMediaPlayback
         mediaPlaybackRequiresUserAction={false}
@@ -115,28 +94,19 @@ function AppShell() {
 
       {isLoading && !hasError && (
         <View style={styles.splash}>
-          <Image source={LAUNCHER_SOURCE} style={styles.splashLogo} resizeMode="contain" />
-          <Text style={styles.splashTitle}>Buysial</Text>
-          <Text style={styles.splashSub}>Shopping, refined.</Text>
-          <ActivityIndicator size="small" color="#f97316" style={{ marginTop: 18 }} />
+          <Text style={styles.splashTitle}>BuySial</Text>
+          <Text style={styles.splashSub}>Premium Shopping</Text>
+          <ActivityIndicator size="small" color="#f97316" style={{ marginTop: 24 }} />
         </View>
       )}
-    </View>
-  );
-}
-
-export default function App() {
-  return (
-    <SafeAreaProvider>
-      <AppShell />
-    </SafeAreaProvider>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111827',
   },
   webview: {
     flex: 1,
@@ -148,38 +118,33 @@ const styles = StyleSheet.create({
   },
   loader: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111827',
     alignItems: 'center',
     justifyContent: 'center',
   },
   splash: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111827',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  splashLogo: {
-    width: 168,
-    height: 168,
-    marginBottom: 18,
   },
   splashTitle: {
-    fontSize: 34,
+    fontSize: 38,
     fontWeight: '900',
-    color: '#0f172a',
-    letterSpacing: 0.2,
+    color: '#ffffff',
+    letterSpacing: 1,
   },
   splashSub: {
-    fontSize: 13,
-    color: '#64748b',
-    fontWeight: '600',
+    fontSize: 14,
+    color: '#f97316',
+    fontWeight: '700',
     marginTop: 6,
-    letterSpacing: 0.2,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
   },
   errorWrap: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#111827',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
@@ -191,7 +156,7 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0f172a',
+    color: '#ffffff',
     marginBottom: 8,
   },
   errorMsg: {
