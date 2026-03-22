@@ -907,15 +907,10 @@ function buildCountryCanonExpr(fieldPath = "$orderCountry") {
       const creatorId = String(row?.createdBy || "");
       const createdByRole = String(row?.createdByRole || "").toLowerCase();
       const driverId = String(row?.deliveryBoy || "");
-      const totalAmount = Number(row?.totalAmount || 0);
 
       const isAgentOrder = createdByRole === "agent" || agentIdSet.has(creatorId);
       if (isAgentOrder) {
-        let agentCommissionPKR = Number(row?.agentCommissionPKR || 0);
-        if (!(agentCommissionPKR > 0) && totalAmount > 0) {
-          const totalAED = toAED(totalAmount, entryCurrency, rateConfig);
-          agentCommissionPKR = fromAED(totalAED * 0.12, "PKR", rateConfig);
-        }
+        const agentCommissionPKR = Number(row?.agentCommissionPKR || 0);
         const agentCommissionAED = toAED(agentCommissionPKR, "PKR", rateConfig);
         entry.agentTotalCommission += fromAED(agentCommissionAED, entryCurrency, rateConfig);
         addMapAmount(agentEarnedByCountry, creatorId, country, agentCommissionAED);

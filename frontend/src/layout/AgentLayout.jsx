@@ -108,6 +108,7 @@ export default function AgentLayout() {
     { to: '/agent', label: 'Dashboard' },
     { to: '/agent/inbox/whatsapp', label: 'WhatsApp Inbox' },
     { to: '/agent/orders', label: 'Submit Orders' },
+    { to: '/agent/orders/delivered', label: 'Delivered Orders' },
     { to: '/agent/inhouse-products', label: 'Inhouse Products' },
     { to: '/agent/support', label: 'Support' },
   ]

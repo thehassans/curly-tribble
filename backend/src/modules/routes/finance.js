@@ -223,40 +223,15 @@ router.post(
         return res.status(400).json({ message: "No workspace owner" });
       const approverId = ownerId;
       const role = "user";
-      // Validate amount against available wallet (delivered commissions at 12% minus sent payouts)
-      const cfg = await getCurrencyConfig();
-      const fx = cfg.pkrPerUnit || {};
+      // Validate amount against available wallet using stored order-level PKR commissions
       const orders = await Order.find({
         createdBy: req.user.id,
         shipmentStatus: "delivered",
-      }).populate("productId", "price baseCurrency quantity");
-      let deliveredCommissionPKR = 0;
-      for (const o of orders) {
-        if (o?.agentCommissionPKR && Number(o.agentCommissionPKR) > 0) {
-          deliveredCommissionPKR += Number(o.agentCommissionPKR);
-          continue;
-        }
-        const totalVal =
-          o.total != null
-            ? Number(o.total)
-            : Number(o?.productId?.price || 0) *
-              Math.max(1, Number(o?.quantity || 1));
-        const cur = [
-          "AED",
-          "OMR",
-          "SAR",
-          "BHD",
-          "KWD",
-          "QAR",
-          "INR",
-          "USD",
-          "CNY",
-        ].includes(String(o?.productId?.baseCurrency))
-          ? o.productId.baseCurrency
-          : "SAR";
-        const rate = fx[cur] || 0;
-        deliveredCommissionPKR += totalVal * 0.12 * rate;
-      }
+      }).select("agentCommissionPKR").lean();
+      const deliveredCommissionPKR = orders.reduce(
+        (sum, order) => sum + Number(order?.agentCommissionPKR || 0),
+        0
+      );
       // Sum of already sent payouts
       const sentRows = await AgentRemit.aggregate([
         {
@@ -397,35 +372,14 @@ router.post(
           .status(400)
           .json({ message: "Minimum amount to send is PKR 10000" });
       // Recompute available for the agent
-      const cfg = await getCurrencyConfig();
-      const fx = cfg.pkrPerUnit || {};
       const orders = await Order.find({
         createdBy: r.agent,
         shipmentStatus: "delivered",
-      }).populate("productId", "price baseCurrency quantity");
-      let deliveredCommissionPKR = 0;
-      for (const o of orders) {
-        const totalVal =
-          o.total != null
-            ? Number(o.total)
-            : Number(o?.productId?.price || 0) *
-              Math.max(1, Number(o?.quantity || 1));
-        const cur = [
-          "AED",
-          "OMR",
-          "SAR",
-          "BHD",
-          "KWD",
-          "QAR",
-          "INR",
-          "USD",
-          "CNY",
-        ].includes(String(o?.productId?.baseCurrency))
-          ? o.productId.baseCurrency
-          : "SAR";
-        const rate = fx[cur] || 0;
-        deliveredCommissionPKR += totalVal * 0.12 * rate;
-      }
+      }).select("agentCommissionPKR").lean();
+      const deliveredCommissionPKR = orders.reduce(
+        (sum, order) => sum + Number(order?.agentCommissionPKR || 0),
+        0
+      );
       const sentRows = await AgentRemit.aggregate([
         {
           $match: {
@@ -2111,6 +2065,16 @@ router.get(
             upcomingOrderValueAED: {
               $sum: { $cond: ["$isDelivered", 0, "$valInAED"] },
             },
+            deliveredCommissionPKR: {
+              $sum: {
+                $cond: ["$isDelivered", { $ifNull: ["$agentCommissionPKR", 0] }, 0],
+              },
+            },
+            upcomingCommissionPKR: {
+              $sum: {
+                $cond: ["$isDelivered", 0, { $ifNull: ["$agentCommissionPKR", 0] }],
+              },
+            },
           },
         },
       ]);
@@ -2178,13 +2142,11 @@ router.get(
         const upcomingOrderValueAED = Math.round(
           oStats.upcomingOrderValueAED || 0
         );
-
-        // Commission calculation: convert AED to PKR first, then apply commission %
         const deliveredCommissionPKR = Math.round(
-          deliveredOrderValueAED * aedRate * 0.12
+          oStats.deliveredCommissionPKR || 0
         );
         const upcomingCommissionPKR = Math.round(
-          upcomingOrderValueAED * aedRate * 0.12
+          oStats.upcomingCommissionPKR || 0
         );
 
         return {
@@ -3275,51 +3237,22 @@ router.get(
         (o) => o.shipmentStatus === "returned"
       ).length;
 
-      // Calculate commission (12% of delivered orders)
-      const commissionPct = 0.12;
-      let totalCommission = 0;
-
-      // Get currency config
-      const currencyCfg = await getCurrencyConfig();
-
-      // Helper to convert to AED
-      const toAED = (amount, code) => {
-        const c = String(code || "SAR").toUpperCase();
-        const rate = currencyCfg.sarPerUnit[c];
-        if (!rate) return amount;
-        return (amount / rate) * currencyCfg.sarPerUnit.AED;
-      };
-
-      // Helper to convert AED to PKR
-      const aedToPKR = (aed) => {
-        return aed * (currencyCfg.pkrPerUnit.AED || 76);
-      };
-
-      for (const order of orders) {
-        if (order.shipmentStatus === "delivered") {
-          const total = Number(order.total || 0);
-          const currency = order.orderCurrency || "SAR";
-          const aed = toAED(total, currency);
-          const pkr = aedToPKR(aed);
-          totalCommission += pkr * commissionPct;
-        }
-      }
+      const deliveredOrders = orders.filter(
+        (o) => o.shipmentStatus === "delivered"
+      );
+      const totalCommission = deliveredOrders.reduce(
+        (sum, order) => sum + Number(order?.agentCommissionPKR || 0),
+        0
+      );
 
       // Get delivered order details with commission
-      const deliveredOrders = orders
-        .filter((o) => o.shipmentStatus === "delivered")
+      const deliveredOrderDetails = deliveredOrders
         .map((o) => {
-          const total = Number(o.total || 0);
-          const currency = o.orderCurrency || "SAR";
-          const aed = toAED(total, currency);
-          const pkr = aedToPKR(aed);
-          const commission = pkr * commissionPct;
-
           return {
             invoiceNumber: o.invoiceNumber || "N/A",
             customerName: o.customerName || "N/A",
             deliveredAt: o.deliveredAt || o.updatedAt,
-            commission,
+            commission: Number(o?.agentCommissionPKR || 0),
           };
         });
 
@@ -3335,7 +3268,7 @@ router.get(
         ordersReturned,
         totalCommission: Math.round(totalCommission),
         currency: "PKR",
-        deliveredOrders,
+        deliveredOrders: deliveredOrderDetails,
       };
 
       const pdfPath = await generateAgentMonthlyReportPDF(pdfData);

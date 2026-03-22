@@ -1,25 +1,58 @@
 import React, { useEffect, useState } from 'react'
-import { apiGet } from '../../api'
-import { formatMoney, heroStyle, pageWrapStyle, panelStyle, sectionTitle, statCardStyle } from './shared.jsx'
+import { apiGet, apiPost, mediaUrl } from '../../api'
+import { formatDate, formatMoney, heroStyle, pageWrapStyle, panelStyle, primaryButtonStyle, secondaryButtonStyle, sectionTitle, statCardStyle, textAreaStyle } from './shared.jsx'
 
 export default function PartnerTotalAmounts() {
-  const [data, setData] = useState({ summary: null, months: [] })
+  const [data, setData] = useState({ summary: null, months: [], latestClosing: null, closings: [] })
   const [loading, setLoading] = useState(true)
+  const [closingNote, setClosingNote] = useState('')
+  const [closingBusy, setClosingBusy] = useState(false)
+
+  async function loadTotals() {
+    const res = await apiGet('/api/partners/me/total-amounts')
+    setData({
+      summary: res?.summary || null,
+      months: Array.isArray(res?.months) ? res.months : [],
+      latestClosing: res?.latestClosing || null,
+      closings: Array.isArray(res?.closings) ? res.closings : [],
+    })
+  }
 
   useEffect(() => {
     let active = true
     ;(async () => {
       try {
-        const res = await apiGet('/api/partners/me/total-amounts')
-        if (active) setData({ summary: res?.summary || null, months: Array.isArray(res?.months) ? res.months : [] })
+        if (active) await loadTotals()
       } catch {
-        if (active) setData({ summary: null, months: [] })
+        if (active) setData({ summary: null, months: [], latestClosing: null, closings: [] })
       } finally {
         if (active) setLoading(false)
       }
     })()
     return () => { active = false }
   }, [])
+
+  async function handleCloseTotals() {
+    if (closingBusy) return
+    if (!window.confirm('Create a manual closing report for the current partner period? Delivered and cancelled totals will start fresh after this close.')) {
+      return
+    }
+    setClosingBusy(true)
+    try {
+      const res = await apiPost('/api/partners/me/total-amounts/close', { note: closingNote })
+      setData({
+        summary: res?.summary || null,
+        months: Array.isArray(res?.months) ? res.months : [],
+        latestClosing: res?.latestClosing || null,
+        closings: Array.isArray(res?.closings) ? res.closings : [],
+      })
+      setClosingNote('')
+    } catch (error) {
+      window.alert(error?.message || 'Failed to close totals')
+    } finally {
+      setClosingBusy(false)
+    }
+  }
 
   const currency = data?.summary?.currency || 'SAR'
   const purchasing = data?.summary?.purchasing || {}
@@ -35,6 +68,37 @@ export default function PartnerTotalAmounts() {
           <div style={{ color: 'rgba(226,232,240,0.84)', maxWidth: 720, fontSize: 15 }}>Review countrywise order movement, purchasing load, and net profit or loss in one place.</div>
         </div>
       </div>
+      <section style={panelStyle()}>
+        {sectionTitle('Manual closing', 'Create a partner closing PDF and reset future delivered/cancelled totals from the next period.')}
+        <div style={{ display: 'grid', gap: 16, marginTop: 18 }}>
+          <textarea
+            style={textAreaStyle()}
+            placeholder="Optional note for this closing report"
+            value={closingNote}
+            onChange={(e) => setClosingNote(e.target.value)}
+          />
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <button style={primaryButtonStyle()} onClick={handleCloseTotals} disabled={closingBusy || loading}>
+              {closingBusy ? 'Closing…' : 'Create Manual Closing'}
+            </button>
+            {data?.latestClosing?.pdfPath ? (
+              <a href={mediaUrl(data.latestClosing.pdfPath)} target="_blank" rel="noreferrer" style={{ ...secondaryButtonStyle(), display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
+                Open Latest PDF
+              </a>
+            ) : null}
+          </div>
+          {data?.latestClosing ? (
+            <div style={{ border: '1px solid rgba(148,163,184,0.16)', borderRadius: 18, padding: 16, display: 'grid', gap: 8 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, color: '#0f172a' }}>Latest Closing</div>
+              <div style={{ color: '#475569', fontSize: 14 }}>Closed: {formatDate(data.latestClosing.closedAt)}</div>
+              <div style={{ color: '#475569', fontSize: 14 }}>Range: {formatDate(data.latestClosing.rangeStart)} to {formatDate(data.latestClosing.rangeEnd)}</div>
+              <div style={{ color: '#475569', fontSize: 14 }}>Note: {data.latestClosing.note || '-'}</div>
+            </div>
+          ) : (
+            <div style={{ color: '#64748b', fontSize: 14 }}>No manual closing created yet.</div>
+          )}
+        </div>
+      </section>
       <section style={panelStyle()}>
         {sectionTitle('Summary', 'Live totals for your partnership country.')}
         {loading ? <div style={{ color: '#64748b', marginTop: 16 }}>Loading totals…</div> : (
@@ -93,6 +157,26 @@ export default function PartnerTotalAmounts() {
             </div>
           ))}
           {!data.months.length && !loading ? <div style={{ color: '#64748b' }}>No monthly totals available yet.</div> : null}
+        </div>
+      </section>
+      <section style={panelStyle()}>
+        {sectionTitle('Closing history', 'Open previous manual closing PDFs and review their covered ranges.')}
+        <div style={{ display: 'grid', gap: 12, marginTop: 16 }}>
+          {(data.closings || []).map((row) => (
+            <div key={row.id} style={{ border: '1px solid rgba(148,163,184,0.16)', borderRadius: 18, padding: 16, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 12, alignItems: 'center' }}>
+              <div style={{ display: 'grid', gap: 6 }}>
+                <div style={{ fontWeight: 900, color: '#0f172a' }}>{formatDate(row.closedAt)}</div>
+                <div style={{ color: '#475569', fontSize: 14 }}>Range: {formatDate(row.rangeStart)} to {formatDate(row.rangeEnd)}</div>
+                <div style={{ color: '#475569', fontSize: 14 }}>Note: {row.note || '-'}</div>
+              </div>
+              {row.pdfPath ? (
+                <a href={mediaUrl(row.pdfPath)} target="_blank" rel="noreferrer" style={{ ...secondaryButtonStyle(), display: 'inline-flex', alignItems: 'center', textDecoration: 'none' }}>
+                  Open PDF
+                </a>
+              ) : null}
+            </div>
+          ))}
+          {!data.closings?.length && !loading ? <div style={{ color: '#64748b' }}>No closing history available yet.</div> : null}
         </div>
       </section>
     </div>

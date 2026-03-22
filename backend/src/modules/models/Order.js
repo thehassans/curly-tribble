@@ -177,6 +177,18 @@ const OrderSchema = new mongoose.Schema(
     // Agent commission snapshot (computed when delivered)
     agentCommissionPKR: { type: Number, default: 0 },
     agentCommissionComputedAt: { type: Date },
+    agentCommissionSetByAgent: { type: Boolean, default: false },
+    agentCommissionSetByAgentAt: { type: Date },
+    agentCommissionUpdatedAt: { type: Date },
+    agentCommissionUpdatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    agentCommissionUpdatedByRole: {
+      type: String,
+      enum: ["admin", "user", "agent", "manager", "system"],
+      default: "system",
+    },
 
     // Investor profit tracking (assigned sequentially when order is delivered)
     investorProfit: {

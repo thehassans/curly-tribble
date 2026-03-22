@@ -18,7 +18,6 @@ export default function AgentAmounts() {
   const [commissionRate, setCommissionRate] = useState(null)
   const [calculatedAmount, setCalculatedAmount] = useState(0)
 
-  // Load agents asynchronously to prevent blocking page render
   useEffect(() => {
     let alive = true
     // Small delay to allow page to render first
@@ -55,16 +54,6 @@ export default function AgentAmounts() {
     return Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })
   }
 
-  // Helper function to calculate commission in PKR from AED
-  function calculateCommissionPKR(aedAmount, commissionRate, pkrRate = 76) {
-    const aed = Number(aedAmount) || 0
-    const rate = Number(commissionRate) || 12
-    const pkr = Number(pkrRate) || 76
-    // Convert AED to PKR first, then apply commission percentage
-    return Math.round(aed * pkr * (rate / 100))
-  }
-
-  // Socket: auto-refresh when orders change (e.g. order marked as delivered)
   useEffect(() => {
     let socket
     try {
@@ -108,15 +97,11 @@ export default function AgentAmounts() {
     setPayingAgent(payModal.agent.id)
     try {
       const finalRate = commissionRate !== null ? commissionRate : 12
-      // Calculate base commission amount (the 12% portion that reduces balance)
       const balance = Number(payModal.balance || 0)
-
-      // If rate > 12%, the extra is a bonus. Only deduct balance from future.
-      // If rate <= 12%, deduct proportional amount.
       const baseCommissionAmount =
         finalRate <= 12
-          ? Math.round(calculatedAmount) // Paying less than 12%, deduct what's paid
-          : Math.round(balance) // Paying bonus, deduct full balance
+          ? Math.round(calculatedAmount)
+          : Math.round(balance)
 
       await apiPost(`/api/finance/agents/${payModal.agent.id}/pay-commission`, {
         amount: calculatedAmount,
@@ -173,10 +158,9 @@ export default function AgentAmounts() {
       upcomingCommission += Number(a.upcomingCommissionPKR || 0)
       sent += Number(a.sentPKR || 0)
       pending += Number(a.pendingPKR || 0)
-      // Calculate balance for each agent
       const agentBalance = Math.max(
         0,
-        Number(a.deliveredCommissionPKR || 0) - Number(a.sentPKR || 0) - Number(a.pendingPKR || 0)
+        Number(a.deliveredCommissionPKR || 0) - Number(a.sentBasePKR || a.sentPKR || 0) - Number(a.pendingPKR || 0)
       )
       balance += agentBalance
       ordersSubmitted += Number(a.ordersSubmitted || 0)
@@ -505,7 +489,6 @@ export default function AgentAmounts() {
                 </tr>
               ) : (
                 filteredAgents.map((a, idx) => {
-                  // Use sentBasePKR (12%-equivalent portion paid) for balance to avoid inflation by bonus rates
                   const paidBase = Number(a.sentBasePKR || a.sentPKR || 0)
                   const rawBalance =
                     Number(a.deliveredCommissionPKR || 0) -
@@ -604,14 +587,12 @@ export default function AgentAmounts() {
                                 letterSpacing: '0.5px',
                               }}
                               onClick={() => {
-                                // Use balance (remaining unpaid commission) for payment calculation
                                 setPayModal({
                                   agent: a,
                                   balance: balance,
                                   deliveredCommissionPKR: a.deliveredCommissionPKR,
                                 })
                                 setCommissionRate(12)
-                                // 12% = full balance (since balance is already at 12% commission)
                                 setCalculatedAmount(Math.round(balance))
                               }}
                             >
@@ -718,8 +699,6 @@ export default function AgentAmounts() {
                     onChange={(e) => {
                       const val = Number(e.target.value) || 0
                       setCommissionRate(val)
-                      // Balance represents 12% commission. Adjust proportionally.
-                      // e.g., 8% = (8/12)*balance, 15% = (15/12)*balance
                       const availableBalance = Number(payModal.balance || 0)
                       setCalculatedAmount(Math.round((availableBalance * val) / 12))
                     }}
@@ -750,7 +729,6 @@ export default function AgentAmounts() {
                     }}
                     onClick={() => {
                       setCommissionRate(rate)
-                      // Balance represents 12% commission. rate/12 gives proportion.
                       const availableBalance = Number(payModal.balance || 0)
                       setCalculatedAmount(Math.round((availableBalance * rate) / 12))
                     }}
@@ -762,8 +740,7 @@ export default function AgentAmounts() {
                   className="btn secondary"
                   style={{ fontSize: 12, padding: '6px 12px' }}
                   onClick={() => {
-                    setCommissionRate(12) // Default is 12%
-                    // Reset to 12% = full balance
+                    setCommissionRate(12)
                     const availableBalance = Number(payModal.balance || 0)
                     setCalculatedAmount(Math.round(availableBalance))
                   }}
@@ -773,9 +750,8 @@ export default function AgentAmounts() {
               </div>
 
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
-                Balance at 12%: PKR {num(payModal.balance)} | Paying at{' '}
-                {commissionRate !== null ? commissionRate : 12}%: ({commissionRate || 12}/12 ×
-                balance) = PKR {num(calculatedAmount)}
+                Base balance: PKR {num(payModal.balance)} | Paying at{' '}
+                {commissionRate !== null ? commissionRate : 12}% ratio = PKR {num(calculatedAmount)}
               </div>
             </div>
 

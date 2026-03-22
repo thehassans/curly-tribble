@@ -696,6 +696,22 @@ async function updateDriverCommission(driverId) {
   }
 }
 
+function applyAgentCommissionToOrder(order, amountPKR, actor, options = {}) {
+  const normalizedAmount = Math.max(0, Number(amountPKR || 0));
+  const now = new Date();
+  order.agentCommissionPKR = normalizedAmount;
+  order.agentCommissionComputedAt = now;
+  order.agentCommissionUpdatedAt = now;
+  if (actor?.id) order.agentCommissionUpdatedBy = actor.id;
+  if (actor?.role) order.agentCommissionUpdatedByRole = actor.role;
+  if (options?.setByAgent) {
+    order.agentCommissionSetByAgent = true;
+    if (!order.agentCommissionSetByAgentAt) {
+      order.agentCommissionSetByAgentAt = now;
+    }
+  }
+}
+
 // Create order (admin, user, agent, manager with permission)
 router.post(
   "/",
@@ -3009,6 +3025,33 @@ router.get(
         netProfit: 0,
       };
       try {
+        const currencySetting = await Setting.findOne({ key: "currency" }).lean();
+        const pkrPerUnit = currencySetting?.value?.pkrPerUnit || { AED: 76 };
+        const fromPKR = (amount, currency) => {
+          const value = Number(amount || 0);
+          const cur = String(currency || "PKR").toUpperCase();
+          if (cur === "PKR") return value;
+          const ratePKR = Number(pkrPerUnit[cur] || 0);
+          if (!ratePKR) return value;
+          return value / ratePKR;
+        };
+        const currencyFromCountry = (country) => {
+          const c = String(country || "").toUpperCase();
+          if (["UAE", "UNITED ARAB EMIRATES", "AE"].includes(c)) return "AED";
+          if (["OMAN", "OM"].includes(c)) return "OMR";
+          if (["KSA", "SAUDI ARABIA", "SA"].includes(c)) return "SAR";
+          if (["BAHRAIN", "BH"].includes(c)) return "BHD";
+          if (["KUWAIT", "KW"].includes(c)) return "KWD";
+          if (["QATAR", "QA"].includes(c)) return "QAR";
+          if (["INDIA", "IN"].includes(c)) return "INR";
+          if (["PAKISTAN", "PK"].includes(c)) return "PKR";
+          if (["JORDAN", "JO"].includes(c)) return "JOD";
+          if (["USA", "UNITED STATES", "US"].includes(c)) return "USD";
+          if (["UK", "UNITED KINGDOM", "GB"].includes(c)) return "GBP";
+          if (["CANADA", "CA"].includes(c)) return "CAD";
+          if (["AUSTRALIA", "AU"].includes(c)) return "AUD";
+          return "SAR";
+        };
         const deliveredOrders = doMain
           ? await Order.find({ ...match, shipmentStatus: "delivered" })
               .populate("productId", "purchasePrice dropshippingPrice")
@@ -3077,8 +3120,11 @@ router.get(
             const dropshipperPays = totalDropshipPrice + totalPurchaseForDropshipper;
             orderProfit = dropshipperPays - companyPurchaseCost - driverComm;
           } else if (isAgent) {
-            // Agent: profit = total - company cost - driver - agent commission (12%)
-            const agentComm = Math.round(total * 0.12);
+            // Agent: profit = total - company cost - driver - stored agent commission
+            const agentComm = fromPKR(
+              Number(order.agentCommissionPKR) || 0,
+              currencyFromCountry(order.orderCountry)
+            );
             orderProfit = total - companyPurchaseCost - driverComm - agentComm;
           } else {
             // Regular: profit = total - company cost - driver
@@ -5045,6 +5091,7 @@ router.patch(
       const {
         deliveryBoy,
         driverCommission,
+        agentCommissionPKR,
         shipmentStatus,
         items,
         productId,
@@ -5094,6 +5141,24 @@ router.patch(
                 "Driver commission locked with assignment. Cannot be changed by manager. Contact owner.",
             });
         }
+      }
+
+      if (agentCommissionPKR !== undefined) {
+        if (req.user.role === "manager") {
+          return res.status(403).json({
+            message:
+              "Manager cannot edit agent commission. Contact owner.",
+          });
+        }
+        const parsedAgentCommission = Number(agentCommissionPKR);
+        if (!Number.isFinite(parsedAgentCommission) || parsedAgentCommission < 0) {
+          return res.status(400).json({
+            message: "Agent commission must be a valid PKR amount",
+          });
+        }
+        applyAgentCommissionToOrder(ord, parsedAgentCommission, req.user, {
+          setByAgent: false,
+        });
       }
 
       if (deliveryBoy !== undefined) {
@@ -5368,6 +5433,59 @@ router.patch(
   }
 );
 
+router.patch(
+  "/:id/agent-commission",
+  auth,
+  allowRoles("agent"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const ord = await Order.findById(id);
+      if (!ord) return res.status(404).json({ message: "Order not found" });
+      if (String(ord.createdBy || "") !== String(req.user.id)) {
+        return res.status(403).json({ message: "Not allowed" });
+      }
+      if (String(ord.shipmentStatus || "").toLowerCase() !== "delivered") {
+        return res.status(400).json({
+          message: "Agent commission can only be set for delivered orders",
+        });
+      }
+      if (ord.agentCommissionSetByAgent) {
+        return res.status(403).json({
+          message: "Agent commission is already set and cannot be edited again",
+        });
+      }
+      const parsedAgentCommission = Number(req.body?.agentCommissionPKR);
+      if (!Number.isFinite(parsedAgentCommission) || parsedAgentCommission < 0) {
+        return res.status(400).json({
+          message: "Agent commission must be a valid PKR amount",
+        });
+      }
+      applyAgentCommissionToOrder(ord, parsedAgentCommission, req.user, {
+        setByAgent: true,
+      });
+      await ord.save();
+      emitOrderChange(ord, "agent_commission_updated").catch(() => {});
+      const updated = await Order.findById(id)
+        .populate("productId")
+        .populate("items.productId")
+        .populate("deliveryBoy", "firstName lastName email phone")
+        .populate("assignedManager", "firstName lastName email")
+        .populate("investorProfit.investor", "firstName lastName email")
+        .populate("createdBy", "firstName lastName email role");
+      return res.json({
+        message: "Agent commission saved",
+        order: updated,
+      });
+    } catch (err) {
+      console.error("[PATCH agent commission] Error:", err);
+      return res
+        .status(500)
+        .json({ message: err?.message || "Failed to update agent commission" });
+    }
+  }
+);
+
 // Mark as delivered
 router.post(
   "/:id/deliver",
@@ -5416,60 +5534,9 @@ router.post(
       0,
       (ord.codAmount || 0) - (ord.collectedAmount || 0) - (ord.shippingFee || 0)
     );
-    // Snapshot agent commission (12% of order value) at delivery in PKR for wallet accounting
-    try {
-      // FX approximate rates to PKR (fallbacks)
-      const FX_PKR = {
-        AED: 76,
-        OMR: 726,
-        SAR: 72,
-        BHD: 830,
-        KWD: 880,
-        QAR: 79,
-        INR: 3.3,
-      };
-      let totalVal = 0;
-      if (ord.total != null && Number.isFinite(Number(ord.total))) {
-        totalVal = Number(ord.total);
-      } else if (Array.isArray(ord.items) && ord.items.length) {
-        try {
-          const ids = ord.items.map((i) => i.productId).filter(Boolean);
-          const prods = await Product.find({ _id: { $in: ids } }).select(
-            "price"
-          );
-          const map = new Map(
-            prods.map((p) => [String(p._id), Number(p.price || 0)])
-          );
-          totalVal = ord.items.reduce(
-            (s, it) =>
-              s +
-              Number(map.get(String(it.productId)) || 0) *
-                Math.max(1, Number(it.quantity || 1)),
-            0
-          );
-        } catch {}
-      } else if (ord.productId) {
-        try {
-          const p = await Product.findById(ord.productId).select("price");
-          totalVal =
-            Number(p?.price || 0) * Math.max(1, Number(ord.quantity || 1));
-        } catch {}
-      }
-      // Determine base currency
-      let baseCcy = "SAR";
-      try {
-        if (ord.productId) {
-          const p = await Product.findById(ord.productId).select(
-            "baseCurrency"
-          );
-          baseCcy = p?.baseCurrency || "SAR";
-        }
-      } catch {}
-      const rate = FX_PKR[baseCcy] || FX_PKR.SAR;
-      const commission = Math.round(totalVal * 0.12 * rate);
-      ord.agentCommissionPKR = commission;
+    if (Number(ord.agentCommissionPKR || 0) > 0 && !ord.agentCommissionComputedAt) {
       ord.agentCommissionComputedAt = new Date();
-    } catch {}
+    }
     await ord.save();
     await syncDriverOrderState(ord.deliveryBoy, ord);
     

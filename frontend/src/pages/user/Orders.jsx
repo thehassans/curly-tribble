@@ -114,6 +114,7 @@ export default function UserOrders() {
   const [editingDriver, setEditingDriver] = useState({}) // Track edited driver per order
   const [editingStatus, setEditingStatus] = useState({}) // Track edited status per order
   const [editingCommission, setEditingCommission] = useState({}) // Track edited commission per order
+  const [editingAgentCommission, setEditingAgentCommission] = useState({})
   const [curCfg, setCurCfg] = useState(null)
   // Infinite scroll state
   const [page, setPage] = useState(1)
@@ -806,7 +807,7 @@ export default function UserOrders() {
     }
   }, [API_BASE])
 
-  async function saveOrder(orderId, driverId, status, commission) {
+  async function saveOrder(orderId, driverId, status, commission, agentCommissionPKR) {
     const key = `save-${orderId}`
     setUpdating((prev) => ({ ...prev, [key]: true }))
     try {
@@ -816,6 +817,8 @@ export default function UserOrders() {
         if (driverId !== undefined) payload.deliveryBoy = driverId || null
         if (status) payload.shipmentStatus = status
         if (commission !== undefined) payload.driverCommission = Number(commission) || 0
+        if (agentCommissionPKR !== undefined)
+          payload.agentCommissionPKR = Math.max(0, Number(agentCommissionPKR) || 0)
         const r = await apiPatch(`/api/orders/${orderId}`, payload)
         const updated = r?.order
         if (updated) {
@@ -1604,20 +1607,29 @@ export default function UserOrders() {
               editingCommission[id] !== undefined
                 ? editingCommission[id]
                 : o.driverCommission || driverCommissionRate
+            const currentAgentCommissionPKR =
+              editingAgentCommission[id] !== undefined
+                ? editingAgentCommission[id]
+                : o.agentCommissionPKR || 0
             const saveKey = `save-${id}`
             const hasChanges =
               currentDriver !== (o.deliveryBoy?._id || o.deliveryBoy || '') ||
               currentStatus !== (o.shipmentStatus || 'pending') ||
-              Number(currentCommission) !== Number(o.driverCommission || 0)
+              Number(currentCommission) !== Number(o.driverCommission || 0) ||
+              Number(currentAgentCommissionPKR) !== Number(o.agentCommissionPKR || 0)
             const isReturnSubmitted = o.returnSubmittedToCompany && !o.returnVerified
             const isReturnVerified = o.returnVerified
 
             // Calculate net profit per order
             const driverCommissionNum = Number(currentCommission) || 0
             const safePrice = Number(price) || 0
-            
-            // Agent commission is 12% of order total (same as backend calculation)
-            const agentAmount = isAgent ? Math.round(safePrice * 0.12) : 0
+            const agentAmountRaw = convert(
+              Number(currentAgentCommissionPKR) || 0,
+              'PKR',
+              targetCode,
+              curCfg
+            )
+            const agentAmount = Number.isFinite(agentAmountRaw) ? agentAmountRaw : 0
             
             const investorProfit = Number(o.investorProfit?.profitAmount) || 0
             
@@ -1880,13 +1892,50 @@ export default function UserOrders() {
                       {targetCode}
                     </div>
                   </div>
-                  
-                  
+
+                  <div>
+                    <div
+                      className="label"
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: 'var(--muted)',
+                        marginBottom: 6,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      Agent Commission
+                    </div>
+                    <input
+                      type="number"
+                      className="input"
+                      value={currentAgentCommissionPKR}
+                      onChange={(e) =>
+                        setEditingAgentCommission((prev) => ({ ...prev, [id]: e.target.value }))
+                      }
+                      placeholder="0"
+                      min="0"
+                      step="1"
+                      disabled={updating[saveKey]}
+                      style={{ width: '100%', maxWidth: 180, fontSize: 16, fontWeight: 600 }}
+                    />
+                    <div className="helper" style={{ marginTop: 4, fontSize: 11 }}>
+                      PKR{o.agentCommissionSetByAgent ? ' • locked for agent edits' : ''}
+                    </div>
+                  </div>
+
                   {hasChanges && (
                     <button
                       className="btn success"
                       onClick={() => {
-                        saveOrder(id, editingDriver[id], editingStatus[id], editingCommission[id])
+                        saveOrder(
+                          id,
+                          editingDriver[id],
+                          editingStatus[id],
+                          editingCommission[id],
+                          editingAgentCommission[id]
+                        )
                         setEditingDriver((prev) => {
                           const n = { ...prev }
                           delete n[id]
@@ -1898,6 +1947,11 @@ export default function UserOrders() {
                           return n
                         })
                         setEditingCommission((prev) => {
+                          const n = { ...prev }
+                          delete n[id]
+                          return n
+                        })
+                        setEditingAgentCommission((prev) => {
                           const n = { ...prev }
                           delete n[id]
                           return n

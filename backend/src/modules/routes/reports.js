@@ -1755,6 +1755,31 @@ router.get("/user-metrics", auth, allowRoles("user"), async (req, res) => {
       const ratePKR = pkrPerUnit[cur] || pkrPerUnit.AED || 76;
       return (amount * ratePKR) / pkrToAEDRate;
     };
+    const fromPKR = (amount, currency) => {
+      const value = Number(amount || 0);
+      const cur = String(currency || "PKR").toUpperCase();
+      if (cur === "PKR") return value;
+      const ratePKR = Number(pkrPerUnit[cur] || 0);
+      if (!ratePKR) return value;
+      return value / ratePKR;
+    };
+    const currencyFromCountry = (country) => {
+      const c = String(country || "").toUpperCase();
+      if (["UAE", "UNITED ARAB EMIRATES", "AE"].includes(c)) return "AED";
+      if (["OMAN", "OM"].includes(c)) return "OMR";
+      if (["KSA", "SAUDI ARABIA", "SA"].includes(c)) return "SAR";
+      if (["BAHRAIN", "BH"].includes(c)) return "BHD";
+      if (["KUWAIT", "KW"].includes(c)) return "KWD";
+      if (["QATAR", "QA"].includes(c)) return "QAR";
+      if (["INDIA", "IN"].includes(c)) return "INR";
+      if (["PAKISTAN", "PK"].includes(c)) return "PKR";
+      if (["JORDAN", "JO"].includes(c)) return "JOD";
+      if (["USA", "UNITED STATES", "US"].includes(c)) return "USD";
+      if (["UK", "UNITED KINGDOM", "GB"].includes(c)) return "GBP";
+      if (["CANADA", "CA"].includes(c)) return "CAD";
+      if (["AUSTRALIA", "AU"].includes(c)) return "AUD";
+      return "SAR";
+    };
 
     const totalProductsInHouse = productStats[0]?.totalProductsInHouse || 0;
 
@@ -2195,7 +2220,10 @@ router.get("/user-metrics", auth, allowRoles("user"), async (req, res) => {
           const dropshipperPays = totalDropshipPrice + totalPurchaseForDropshipper;
           orderProfit = dropshipperPays - companyPurchaseCost - driverComm;
         } else if (isAgent) {
-          const agentComm = Math.round(total * 0.12);
+          const agentComm = fromPKR(
+            Number(order.agentCommissionPKR) || 0,
+            currencyFromCountry(order.orderCountry)
+          );
           orderProfit = total - companyPurchaseCost - driverComm - agentComm;
         } else {
           orderProfit = total - companyPurchaseCost - driverComm;

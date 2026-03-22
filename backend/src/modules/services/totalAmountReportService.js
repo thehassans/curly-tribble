@@ -347,14 +347,50 @@ function clampPaidCommissionToEarned(value) {
   return value;
 }
 
+function buildPersonDisplayName(value, fallbackLabel) {
+  const first = String(value?.firstName || "").trim();
+  const last = String(value?.lastName || "").trim();
+  const full = [first, last].filter(Boolean).join(" ").trim();
+  if (full) return full;
+  const email = String(value?.email || "").trim();
+  if (email) return email;
+  const phone = String(value?.phone || "").trim();
+  if (phone) return phone;
+  return String(fallbackLabel || "").trim() || "Unknown";
+}
+
+function createEmptyPersonTotals({ id = "", name = "", role = "agent", country = "Other" } = {}) {
+  const normalizedCountry = canonicalCountryName(country);
+  return {
+    id: String(id || ""),
+    name: String(name || "").trim() || `${role === "driver" ? "Driver" : "Agent"} ${String(id || "").slice(-6)}`,
+    role: String(role || "agent"),
+    country: normalizedCountry,
+    currency: currencyFromCountry(normalizedCountry),
+    totalAmount: 0,
+    deliveredAmount: 0,
+    totalOrders: 0,
+    deliveredOrders: 0,
+    cancelledOrders: 0,
+    onlineOrderAmount: 0,
+    onlineOrderDeliveredAmount: 0,
+    onlineTotalOrders: 0,
+    onlinePaidOrders: 0,
+    onlineDeliveredOrders: 0,
+    onlineCancelledOrders: 0,
+    totalCommission: 0,
+    paidCommission: 0,
+  };
+}
+
 export async function buildTotalAmountSnapshot({ ownerId, periodType = "monthly", periodKey, monthKey }) {
   const resolvedPeriod = resolveReportPeriod({ periodType, periodKey, monthKey });
   const { start, end } = resolvedPeriod;
   const [agents, managers, dropshippers, drivers, products] = await Promise.all([
-    User.find({ role: "agent", createdBy: ownerId }, { _id: 1, country: 1 }).lean(),
+    User.find({ role: "agent", createdBy: ownerId }, { _id: 1, country: 1, firstName: 1, lastName: 1, email: 1, phone: 1 }).lean(),
     User.find({ role: "manager", createdBy: ownerId }, { _id: 1 }).lean(),
     User.find({ role: "dropshipper", createdBy: ownerId }, { _id: 1, country: 1 }).lean(),
-    User.find({ role: "driver", createdBy: ownerId }, { _id: 1, country: 1, driverProfile: 1 }).lean(),
+    User.find({ role: "driver", createdBy: ownerId }, { _id: 1, country: 1, firstName: 1, lastName: 1, email: 1, phone: 1, driverProfile: 1 }).lean(),
     Product.find({ createdBy: ownerId }).select("_id purchasePrice baseCurrency stockQty stockByCountry stockHistory").lean(),
   ]);
 
@@ -365,7 +401,27 @@ export async function buildTotalAmountSnapshot({ ownerId, periodType = "monthly"
   const dropshipperIdSet = new Set(dropshipperIds.map((row) => String(row)));
   const driverIdSet = new Set(driverIds.map((row) => String(row)));
   const agentCountryById = new Map(agents.map((row) => [String(row._id), canonicalCountryName(row.country)]));
+  const agentInfoById = new Map(
+    agents.map((row) => [
+      String(row._id),
+      {
+        id: String(row._id),
+        name: buildPersonDisplayName(row, `Agent ${String(row?._id || "").slice(-6)}`),
+        country: canonicalCountryName(row.country),
+      },
+    ])
+  );
   const driverCountryById = new Map(drivers.map((row) => [String(row._id), canonicalCountryName(row.country)]));
+  const driverInfoById = new Map(
+    drivers.map((row) => [
+      String(row._id),
+      {
+        id: String(row._id),
+        name: buildPersonDisplayName(row, `Driver ${String(row?._id || "").slice(-6)}`),
+        country: canonicalCountryName(row.country),
+      },
+    ])
+  );
   const driverMetaById = new Map(
     drivers.map((row) => [
       String(row._id),
@@ -470,75 +526,71 @@ export async function buildTotalAmountSnapshot({ ownerId, periodType = "monthly"
         },
       },
     ]),
-    ownedProductIds.length
-      ? WebOrder.aggregate([
-          { $match: { "items.productId": { $in: ownedProductIds }, createdAt: { $gte: start, $lt: end } } },
-          {
-            $project: {
-              orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
-              amount: { $ifNull: ["$total", 0] },
-              shipmentStatusLower: { $toLower: { $ifNull: ["$shipmentStatus", "pending"] } },
-              statusLower: { $toLower: { $ifNull: ["$status", "new"] } },
-              paymentStatusLower: { $toLower: { $ifNull: ["$paymentStatus", "pending"] } },
-              hasDriver: { $ne: [{ $ifNull: ["$deliveryBoy", null] }, null] },
-            },
+    WebOrder.aggregate([
+      { $match: { createdAt: { $gte: start, $lt: end } } },
+      {
+        $project: {
+          orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+          amount: { $ifNull: ["$total", 0] },
+          shipmentStatusLower: { $toLower: { $ifNull: ["$shipmentStatus", "pending"] } },
+          statusLower: { $toLower: { $ifNull: ["$status", "new"] } },
+          paymentStatusLower: { $toLower: { $ifNull: ["$paymentStatus", "pending"] } },
+          hasDriver: { $ne: [{ $ifNull: ["$deliveryBoy", null] }, null] },
+        },
+      },
+      {
+        $project: {
+          orderCountryCanon: 1,
+          amount: 1,
+          hasDriver: 1,
+          isCancelled: {
+            $or: [
+              { $eq: ["$shipmentStatusLower", "cancelled"] },
+              { $eq: ["$statusLower", "cancelled"] },
+            ],
           },
-          {
-            $project: {
-              orderCountryCanon: 1,
-              amount: 1,
-              hasDriver: 1,
-              isCancelled: {
-                $or: [
-                  { $eq: ["$shipmentStatusLower", "cancelled"] },
-                  { $eq: ["$statusLower", "cancelled"] },
-                ],
-              },
-              isPaid: { $eq: ["$paymentStatusLower", "paid"] },
-            },
-          },
-          {
-            $group: {
-              _id: "$orderCountryCanon",
-              totalAmount: { $sum: "$amount" },
-              totalOrders: { $sum: 1 },
-              cancelledOrders: { $sum: { $cond: ["$isCancelled", 1, 0] } },
-              onlineOrderAmount: { $sum: "$amount" },
-              onlineTotalOrders: { $sum: 1 },
-              onlinePaidOrders: { $sum: { $cond: ["$isPaid", 1, 0] } },
-              onlineCancelledOrders: { $sum: { $cond: ["$isCancelled", 1, 0] } },
-              driverTotalAmount: { $sum: { $cond: ["$hasDriver", "$amount", 0] } },
-              driverTotalOrders: { $sum: { $cond: ["$hasDriver", 1, 0] } },
-              driverCancelledOrders: { $sum: { $cond: [{ $and: ["$hasDriver", "$isCancelled"] }, 1, 0] } },
-            },
-          },
-        ])
-      : [],
-    ownedProductIds.length
-      ? WebOrder.aggregate([
-          { $match: { "items.productId": { $in: ownedProductIds }, updatedAt: { $gte: start, $lt: end } } },
-          {
-            $project: {
-              orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
-              amount: { $ifNull: ["$total", 0] },
-              shipmentStatusLower: { $toLower: { $ifNull: ["$shipmentStatus", "pending"] } },
-              hasDriver: { $ne: [{ $ifNull: ["$deliveryBoy", null] }, null] },
-            },
-          },
-          { $match: { shipmentStatusLower: "delivered" } },
-          {
-            $group: {
-              _id: "$orderCountryCanon",
-              deliveredAmount: { $sum: "$amount" },
-              deliveredOrders: { $sum: 1 },
-              onlineOrderDeliveredAmount: { $sum: "$amount" },
-              onlineDeliveredOrders: { $sum: 1 },
-              driverDeliveredAmount: { $sum: { $cond: ["$hasDriver", "$amount", 0] } },
-              driverDeliveredOrders: { $sum: { $cond: ["$hasDriver", 1, 0] } },
-            },
-          },
-        ])
-      : [],
+          isPaid: { $eq: ["$paymentStatusLower", "paid"] },
+        },
+      },
+      {
+        $group: {
+          _id: "$orderCountryCanon",
+          totalAmount: { $sum: "$amount" },
+          totalOrders: { $sum: 1 },
+          cancelledOrders: { $sum: { $cond: ["$isCancelled", 1, 0] } },
+          onlineOrderAmount: { $sum: "$amount" },
+          onlineTotalOrders: { $sum: 1 },
+          onlinePaidOrders: { $sum: { $cond: ["$isPaid", 1, 0] } },
+          onlineCancelledOrders: { $sum: { $cond: ["$isCancelled", 1, 0] } },
+          driverTotalAmount: { $sum: { $cond: ["$hasDriver", "$amount", 0] } },
+          driverTotalOrders: { $sum: { $cond: ["$hasDriver", 1, 0] } },
+          driverCancelledOrders: { $sum: { $cond: [{ $and: ["$hasDriver", "$isCancelled"] }, 1, 0] } },
+        },
+      },
+    ]),
+    WebOrder.aggregate([
+      { $match: { updatedAt: { $gte: start, $lt: end } } },
+      {
+        $project: {
+          orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+          amount: { $ifNull: ["$total", 0] },
+          shipmentStatusLower: { $toLower: { $ifNull: ["$shipmentStatus", "pending"] } },
+          hasDriver: { $ne: [{ $ifNull: ["$deliveryBoy", null] }, null] },
+        },
+      },
+      { $match: { shipmentStatusLower: "delivered" } },
+      {
+        $group: {
+          _id: "$orderCountryCanon",
+          deliveredAmount: { $sum: "$amount" },
+          deliveredOrders: { $sum: 1 },
+          onlineOrderDeliveredAmount: { $sum: "$amount" },
+          onlineDeliveredOrders: { $sum: 1 },
+          driverDeliveredAmount: { $sum: { $cond: ["$hasDriver", "$amount", 0] } },
+          driverDeliveredOrders: { $sum: { $cond: ["$hasDriver", 1, 0] } },
+        },
+      },
+    ]),
     Order.aggregate([
       { $match: { createdBy: { $in: creatorIds }, deliveredAt: { $gte: start, $lt: end } } },
       {
@@ -647,6 +699,203 @@ export async function buildTotalAmountSnapshot({ ownerId, periodType = "monthly"
       : [],
   ]);
 
+  const [createdAgentDetailRows, deliveredAgentDetailRows, createdDriverInternalDetailRows, deliveredDriverInternalDetailRows, createdDriverWebDetailRows, deliveredDriverWebDetailRows, deliveredWebCommissionRows] = await Promise.all([
+    agentIds.length
+      ? Order.aggregate([
+          { $match: { createdBy: { $in: agentIds }, createdAt: { $gte: start, $lt: end } } },
+          {
+            $project: {
+              entityId: "$createdBy",
+              orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+              amount: { $ifNull: ["$total", 0] },
+              shipmentStatusLower: { $toLower: { $ifNull: ["$shipmentStatus", "pending"] } },
+              statusLower: { $toLower: { $ifNull: ["$status", "pending"] } },
+              confirmationStatusLower: { $toLower: { $ifNull: ["$confirmationStatus", "pending"] } },
+            },
+          },
+          {
+            $project: {
+              entityId: 1,
+              orderCountryCanon: 1,
+              amount: 1,
+              isCancelled: {
+                $or: [
+                  { $eq: ["$shipmentStatusLower", "cancelled"] },
+                  { $eq: ["$statusLower", "cancelled"] },
+                  { $eq: ["$confirmationStatusLower", "cancelled"] },
+                ],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: { entityId: "$entityId", orderCountryCanon: "$orderCountryCanon" },
+              totalAmount: { $sum: "$amount" },
+              totalOrders: { $sum: 1 },
+              cancelledOrders: { $sum: { $cond: ["$isCancelled", 1, 0] } },
+            },
+          },
+        ])
+      : [],
+    agentIds.length
+      ? Order.aggregate([
+          { $match: { createdBy: { $in: agentIds }, deliveredAt: { $gte: start, $lt: end } } },
+          {
+            $project: {
+              entityId: "$createdBy",
+              orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+              amount: { $ifNull: ["$total", 0] },
+              shipmentStatusLower: { $toLower: { $ifNull: ["$shipmentStatus", "pending"] } },
+            },
+          },
+          { $match: { shipmentStatusLower: "delivered" } },
+          {
+            $group: {
+              _id: { entityId: "$entityId", orderCountryCanon: "$orderCountryCanon" },
+              deliveredAmount: { $sum: "$amount" },
+              deliveredOrders: { $sum: 1 },
+            },
+          },
+        ])
+      : [],
+    driverIds.length
+      ? Order.aggregate([
+          { $match: { deliveryBoy: { $in: driverIds }, createdAt: { $gte: start, $lt: end } } },
+          {
+            $project: {
+              entityId: "$deliveryBoy",
+              orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+              amount: { $ifNull: ["$total", 0] },
+              shipmentStatusLower: { $toLower: { $ifNull: ["$shipmentStatus", "pending"] } },
+              statusLower: { $toLower: { $ifNull: ["$status", "pending"] } },
+              confirmationStatusLower: { $toLower: { $ifNull: ["$confirmationStatus", "pending"] } },
+            },
+          },
+          {
+            $project: {
+              entityId: 1,
+              orderCountryCanon: 1,
+              amount: 1,
+              isCancelled: {
+                $or: [
+                  { $eq: ["$shipmentStatusLower", "cancelled"] },
+                  { $eq: ["$statusLower", "cancelled"] },
+                  { $eq: ["$confirmationStatusLower", "cancelled"] },
+                ],
+              },
+            },
+          },
+          {
+            $group: {
+              _id: { entityId: "$entityId", orderCountryCanon: "$orderCountryCanon" },
+              totalAmount: { $sum: "$amount" },
+              totalOrders: { $sum: 1 },
+              cancelledOrders: { $sum: { $cond: ["$isCancelled", 1, 0] } },
+            },
+          },
+        ])
+      : [],
+    driverIds.length
+      ? Order.aggregate([
+          { $match: { deliveryBoy: { $in: driverIds }, deliveredAt: { $gte: start, $lt: end } } },
+          {
+            $project: {
+              entityId: "$deliveryBoy",
+              orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+              amount: { $ifNull: ["$total", 0] },
+              shipmentStatusLower: { $toLower: { $ifNull: ["$shipmentStatus", "pending"] } },
+            },
+          },
+          { $match: { shipmentStatusLower: "delivered" } },
+          {
+            $group: {
+              _id: { entityId: "$entityId", orderCountryCanon: "$orderCountryCanon" },
+              deliveredAmount: { $sum: "$amount" },
+              deliveredOrders: { $sum: 1 },
+            },
+          },
+        ])
+      : [],
+    driverIds.length
+      ? WebOrder.aggregate([
+          { $match: { deliveryBoy: { $in: driverIds }, createdAt: { $gte: start, $lt: end } } },
+          {
+            $project: {
+              entityId: "$deliveryBoy",
+              orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+              amount: { $ifNull: ["$total", 0] },
+              shipmentStatusLower: { $toLower: { $ifNull: ["$shipmentStatus", "pending"] } },
+              statusLower: { $toLower: { $ifNull: ["$status", "new"] } },
+              paymentStatusLower: { $toLower: { $ifNull: ["$paymentStatus", "pending"] } },
+            },
+          },
+          {
+            $project: {
+              entityId: 1,
+              orderCountryCanon: 1,
+              amount: 1,
+              isCancelled: {
+                $or: [
+                  { $eq: ["$shipmentStatusLower", "cancelled"] },
+                  { $eq: ["$statusLower", "cancelled"] },
+                ],
+              },
+              isPaid: { $eq: ["$paymentStatusLower", "paid"] },
+            },
+          },
+          {
+            $group: {
+              _id: { entityId: "$entityId", orderCountryCanon: "$orderCountryCanon" },
+              totalAmount: { $sum: "$amount" },
+              totalOrders: { $sum: 1 },
+              cancelledOrders: { $sum: { $cond: ["$isCancelled", 1, 0] } },
+              onlineOrderAmount: { $sum: "$amount" },
+              onlineTotalOrders: { $sum: 1 },
+              onlinePaidOrders: { $sum: { $cond: ["$isPaid", 1, 0] } },
+              onlineCancelledOrders: { $sum: { $cond: ["$isCancelled", 1, 0] } },
+            },
+          },
+        ])
+      : [],
+    driverIds.length
+      ? WebOrder.aggregate([
+          { $match: { deliveryBoy: { $in: driverIds }, updatedAt: { $gte: start, $lt: end } } },
+          {
+            $project: {
+              entityId: "$deliveryBoy",
+              orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+              amount: { $ifNull: ["$total", 0] },
+              shipmentStatusLower: { $toLower: { $ifNull: ["$shipmentStatus", "pending"] } },
+            },
+          },
+          { $match: { shipmentStatusLower: "delivered" } },
+          {
+            $group: {
+              _id: { entityId: "$entityId", orderCountryCanon: "$orderCountryCanon" },
+              deliveredAmount: { $sum: "$amount" },
+              deliveredOrders: { $sum: 1 },
+              onlineOrderDeliveredAmount: { $sum: "$amount" },
+              onlineDeliveredOrders: { $sum: 1 },
+            },
+          },
+        ])
+      : [],
+    driverIds.length
+      ? WebOrder.aggregate([
+          { $match: { deliveryBoy: { $in: driverIds }, updatedAt: { $gte: start, $lt: end } } },
+          {
+            $project: {
+              orderCountryCanon: buildCountryCanonExpr("$orderCountry"),
+              shipmentStatusLower: { $toLower: { $ifNull: ["$shipmentStatus", "pending"] } },
+              deliveryBoy: 1,
+              totalAmount: { $ifNull: ["$total", 0] },
+            },
+          },
+          { $match: { shipmentStatusLower: "delivered" } },
+        ])
+      : [],
+  ]);
+
   const countryOrder = ["KSA", "UAE", "Oman", "Bahrain", "India", "Kuwait", "Qatar", "Pakistan", "Jordan", "USA", "UK", "Canada", "Australia", "Other"];
   const countrySortIndex = (country) => {
     const idx = countryOrder.indexOf(canonicalCountryName(country));
@@ -669,9 +918,32 @@ export async function buildTotalAmountSnapshot({ ownerId, periodType = "monthly"
     if (!rowMap.has(key)) rowMap.set(key, createEmptyTotals(key));
     return rowMap.get(key);
   };
+  const agentDetailMap = new Map();
+  const driverDetailMap = new Map();
   const agentEarnedByCountry = new Map();
   const driverEarnedByCountry = new Map();
   const deliveredQtyByCountryAndProduct = new Map();
+  const addAmountToPerson = (entry, key, amount, fromCurrency) => {
+    entry[key] += fromAED(toAED(Number(amount || 0), fromCurrency || "AED", rateConfig), entry.currency || "AED", rateConfig);
+  };
+  const ensureAgentDetail = (id) => {
+    const safeId = String(id || "");
+    if (!safeId) return createEmptyPersonTotals({ role: "agent" });
+    if (!agentDetailMap.has(safeId)) {
+      const meta = agentInfoById.get(safeId) || {};
+      agentDetailMap.set(safeId, createEmptyPersonTotals({ id: safeId, name: meta.name, role: "agent", country: meta.country || "Other" }));
+    }
+    return agentDetailMap.get(safeId);
+  };
+  const ensureDriverDetail = (id) => {
+    const safeId = String(id || "");
+    if (!safeId) return createEmptyPersonTotals({ role: "driver" });
+    if (!driverDetailMap.has(safeId)) {
+      const meta = driverInfoById.get(safeId) || {};
+      driverDetailMap.set(safeId, createEmptyPersonTotals({ id: safeId, name: meta.name, role: "driver", country: meta.country || "Other" }));
+    }
+    return driverDetailMap.get(safeId);
+  };
 
   const addDeliveredItemsToMap = (rows) => {
     for (const row of rows || []) {
@@ -693,6 +965,57 @@ export async function buildTotalAmountSnapshot({ ownerId, periodType = "monthly"
 
   addDeliveredItemsToMap(deliveredItemRows);
   addDeliveredItemsToMap(deliveredWebItemRows);
+
+  for (const row of createdAgentDetailRows || []) {
+    const entry = ensureAgentDetail(row?._id?.entityId);
+    const sourceCurrency = currencyFromCountry(row?._id?.orderCountryCanon || "Other");
+    addAmountToPerson(entry, "totalAmount", row?.totalAmount, sourceCurrency);
+    entry.totalOrders += Number(row?.totalOrders || 0);
+    entry.cancelledOrders += Number(row?.cancelledOrders || 0);
+  }
+
+  for (const row of deliveredAgentDetailRows || []) {
+    const entry = ensureAgentDetail(row?._id?.entityId);
+    const sourceCurrency = currencyFromCountry(row?._id?.orderCountryCanon || "Other");
+    addAmountToPerson(entry, "deliveredAmount", row?.deliveredAmount, sourceCurrency);
+    entry.deliveredOrders += Number(row?.deliveredOrders || 0);
+  }
+
+  for (const row of createdDriverInternalDetailRows || []) {
+    const entry = ensureDriverDetail(row?._id?.entityId);
+    const sourceCurrency = currencyFromCountry(row?._id?.orderCountryCanon || "Other");
+    addAmountToPerson(entry, "totalAmount", row?.totalAmount, sourceCurrency);
+    entry.totalOrders += Number(row?.totalOrders || 0);
+    entry.cancelledOrders += Number(row?.cancelledOrders || 0);
+  }
+
+  for (const row of deliveredDriverInternalDetailRows || []) {
+    const entry = ensureDriverDetail(row?._id?.entityId);
+    const sourceCurrency = currencyFromCountry(row?._id?.orderCountryCanon || "Other");
+    addAmountToPerson(entry, "deliveredAmount", row?.deliveredAmount, sourceCurrency);
+    entry.deliveredOrders += Number(row?.deliveredOrders || 0);
+  }
+
+  for (const row of createdDriverWebDetailRows || []) {
+    const entry = ensureDriverDetail(row?._id?.entityId);
+    const sourceCurrency = currencyFromCountry(row?._id?.orderCountryCanon || "Other");
+    addAmountToPerson(entry, "totalAmount", row?.totalAmount, sourceCurrency);
+    addAmountToPerson(entry, "onlineOrderAmount", row?.onlineOrderAmount, sourceCurrency);
+    entry.totalOrders += Number(row?.totalOrders || 0);
+    entry.cancelledOrders += Number(row?.cancelledOrders || 0);
+    entry.onlineTotalOrders += Number(row?.onlineTotalOrders || 0);
+    entry.onlinePaidOrders += Number(row?.onlinePaidOrders || 0);
+    entry.onlineCancelledOrders += Number(row?.onlineCancelledOrders || 0);
+  }
+
+  for (const row of deliveredDriverWebDetailRows || []) {
+    const entry = ensureDriverDetail(row?._id?.entityId);
+    const sourceCurrency = currencyFromCountry(row?._id?.orderCountryCanon || "Other");
+    addAmountToPerson(entry, "deliveredAmount", row?.deliveredAmount, sourceCurrency);
+    addAmountToPerson(entry, "onlineOrderDeliveredAmount", row?.onlineOrderDeliveredAmount, sourceCurrency);
+    entry.deliveredOrders += Number(row?.deliveredOrders || 0);
+    entry.onlineDeliveredOrders += Number(row?.onlineDeliveredOrders || 0);
+  }
 
   for (const product of products) {
     const productId = String(product?._id || "");
@@ -803,17 +1126,14 @@ export async function buildTotalAmountSnapshot({ ownerId, periodType = "monthly"
     const creatorId = String(row?.createdBy || "");
     const createdByRole = String(row?.createdByRole || "").toLowerCase();
     const driverId = String(row?.deliveryBoy || "");
-    const totalAmount = Number(row?.totalAmount || 0);
     const isAgentOrder = createdByRole === "agent" || agentIdSet.has(creatorId);
     if (isAgentOrder) {
-      let agentCommissionPKR = Number(row?.agentCommissionPKR || 0);
-      if (!(agentCommissionPKR > 0) && totalAmount > 0) {
-        const totalAED = toAED(totalAmount, entryCurrency, rateConfig);
-        agentCommissionPKR = fromAED(totalAED * 0.12, "PKR", rateConfig);
-      }
+      const agentCommissionPKR = Number(row?.agentCommissionPKR || 0);
       const agentCommissionAED = toAED(agentCommissionPKR, "PKR", rateConfig);
       entry.agentTotalCommission += fromAED(agentCommissionAED, entryCurrency, rateConfig);
       addMapAmount(agentEarnedByCountry, creatorId, country, agentCommissionAED);
+      const agentDetail = ensureAgentDetail(creatorId);
+      agentDetail.totalCommission += fromAED(agentCommissionAED, agentDetail.currency || "AED", rateConfig);
     }
     const isDropshipperOrder = createdByRole === "dropshipper" || dropshipperIdSet.has(creatorId);
     if (isDropshipperOrder) {
@@ -830,13 +1150,33 @@ export async function buildTotalAmountSnapshot({ ownerId, periodType = "monthly"
       const driverCommissionAED = toAED(driverCommissionValue, entryCurrency, rateConfig);
       entry.driverTotalCommission += fromAED(driverCommissionAED, entryCurrency, rateConfig);
       addMapAmount(driverEarnedByCountry, driverId, country, driverCommissionAED);
+      const driverDetail = ensureDriverDetail(driverId);
+      driverDetail.totalCommission += fromAED(driverCommissionAED, driverDetail.currency || "AED", rateConfig);
     }
+  }
+
+  for (const row of deliveredWebCommissionRows || []) {
+    const driverId = String(row?.deliveryBoy || "");
+    if (!driverId || !driverIdSet.has(driverId)) continue;
+    const driverMeta = driverMetaById.get(driverId);
+    const country = row?.orderCountryCanon || "Other";
+    const countryCurrency = currencyFromCountry(country);
+    const fallbackCommission = Number(driverMeta?.commissionPerOrder || 0);
+    const fallbackCurrency = String(driverMeta?.commissionCurrency || countryCurrency || "SAR").toUpperCase();
+    const driverCommissionAED = toAED(fallbackCommission, fallbackCurrency, rateConfig);
+    addMapAmount(driverEarnedByCountry, driverId, country, driverCommissionAED);
+    const entry = ensureRow(country);
+    entry.driverTotalCommission += fromAED(driverCommissionAED, entry.currency || "AED", rateConfig);
+    const driverDetail = ensureDriverDetail(driverId);
+    driverDetail.totalCommission += fromAED(driverCommissionAED, driverDetail.currency || "AED", rateConfig);
   }
 
   for (const row of agentPaidRows || []) {
     const agentId = String(row?._id?.agent || "");
     const totalPaidAED = toAED(Number(row?.total || 0), row?._id?.currency || "PKR", rateConfig);
     const earnedMap = agentEarnedByCountry.get(agentId);
+    const agentDetail = ensureAgentDetail(agentId);
+    agentDetail.paidCommission += fromAED(totalPaidAED, agentDetail.currency || "AED", rateConfig);
     if (!earnedMap || earnedMap.size === 0 || totalPaidAED <= 0) {
       const entry = ensureRow(agentCountryById.get(agentId) || "Other");
       entry.agentPaidCommission += fromAED(totalPaidAED, entry.currency || "AED", rateConfig);
@@ -855,6 +1195,8 @@ export async function buildTotalAmountSnapshot({ ownerId, periodType = "monthly"
     const driverId = String(row?._id?.driver || "");
     const totalPaidAED = toAED(Number(row?.total || 0), row?._id?.currency || "SAR", rateConfig);
     const earnedMap = driverEarnedByCountry.get(driverId);
+    const driverDetail = ensureDriverDetail(driverId);
+    driverDetail.paidCommission += fromAED(totalPaidAED, driverDetail.currency || "AED", rateConfig);
     if (!earnedMap || earnedMap.size === 0 || totalPaidAED <= 0) {
       const entry = ensureRow(driverCountryById.get(driverId) || "Other");
       entry.driverPaidCommission += fromAED(totalPaidAED, entry.currency || "AED", rateConfig);
@@ -968,6 +1310,42 @@ export async function buildTotalAmountSnapshot({ ownerId, periodType = "monthly"
   for (const key of quantityKeys) summary[key] = Math.round(Number(summary[key] || 0));
   clampPaidCommissionToEarned(summary);
 
+  const personAmountKeys = [
+    "totalAmount",
+    "deliveredAmount",
+    "onlineOrderAmount",
+    "onlineOrderDeliveredAmount",
+    "totalCommission",
+    "paidCommission",
+  ];
+  const personCountKeys = [
+    "totalOrders",
+    "deliveredOrders",
+    "cancelledOrders",
+    "onlineTotalOrders",
+    "onlinePaidOrders",
+    "onlineDeliveredOrders",
+    "onlineCancelledOrders",
+  ];
+  const agentDetails = Array.from(agentDetailMap.values())
+    .map((row) => {
+      const out = { ...row };
+      out.paidCommission = Math.min(Number(out.paidCommission || 0), Number(out.totalCommission || 0));
+      for (const key of personAmountKeys) out[key] = round2(out[key]);
+      for (const key of personCountKeys) out[key] = Math.round(Number(out[key] || 0));
+      return out;
+    })
+    .sort((a, b) => Number(b.deliveredAmount || 0) - Number(a.deliveredAmount || 0));
+  const driverDetails = Array.from(driverDetailMap.values())
+    .map((row) => {
+      const out = { ...row };
+      out.paidCommission = Math.min(Number(out.paidCommission || 0), Number(out.totalCommission || 0));
+      for (const key of personAmountKeys) out[key] = round2(out[key]);
+      for (const key of personCountKeys) out[key] = Math.round(Number(out[key] || 0));
+      return out;
+    })
+    .sort((a, b) => Number(b.deliveredAmount || 0) - Number(a.deliveredAmount || 0));
+
   return {
     periodType: resolvedPeriod.periodType,
     periodKey: resolvedPeriod.periodKey,
@@ -978,5 +1356,9 @@ export async function buildTotalAmountSnapshot({ ownerId, periodType = "monthly"
     rangeEnd: end,
     countries,
     summary,
+    details: {
+      agents: agentDetails,
+      drivers: driverDetails,
+    },
   };
 }
