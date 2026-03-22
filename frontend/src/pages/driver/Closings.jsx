@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { API_BASE, apiGet } from '../../api.js'
+import { apiGet, apiOpenBlob } from '../../api.js'
 
 function formatMoney(value, currency = 'SAR') {
   try {
@@ -47,7 +47,7 @@ export default function DriverClosings() {
   const [closings, setClosings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const financeBase = `${String(API_BASE || '/api').replace(/\/$/, '')}/finance`
+  const [openingId, setOpeningId] = useState('')
 
   useEffect(() => {
     let active = true
@@ -142,12 +142,22 @@ export default function DriverClosings() {
                         <div style={{ color: '#64748b', fontSize: 13 }}>Orders included: {Number(item?.orderCount || 0)} • Model: {item?.paymentType === 'salary' ? 'Salary' : 'Per order'}</div>
                         <div style={{ color: '#64748b', fontSize: 13 }}>Note: {item?.note || '-'}</div>
                       </div>
-                      <a
-                        href={`${financeBase}/drivers/me/closings/${item.source}/${item.id}/download`}
-                        target="_blank"
-                        rel="noreferrer"
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          try {
+                            setOpeningId(String(item.id || ''))
+                            await apiOpenBlob(`/api/finance/drivers/me/closings/${item.source}/${item.id}/download`)
+                          } catch (err) {
+                            setError(err?.message || 'Failed to open PDF')
+                          } finally {
+                            setOpeningId('')
+                          }
+                        }}
+                        disabled={openingId === String(item.id || '')}
                         style={{
-                          textDecoration: 'none',
+                          border: 'none',
+                          cursor: openingId === String(item.id || '') ? 'wait' : 'pointer',
                           borderRadius: 16,
                           padding: '11px 16px',
                           background: '#0f172a',
@@ -155,8 +165,8 @@ export default function DriverClosings() {
                           fontWeight: 800,
                         }}
                       >
-                        Open PDF
-                      </a>
+                        {openingId === String(item.id || '') ? 'Opening...' : 'Open PDF'}
+                      </button>
                     </div>
                   </div>
                 )

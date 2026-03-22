@@ -616,6 +616,46 @@ export async function apiGetBlob(path) {
   return res.blob()
 }
 
+export async function apiOpenBlob(path) {
+  const preview = typeof window !== 'undefined' ? window.open('', '_blank') : null
+  try {
+    if (preview && preview.document) {
+      preview.document.title = 'Opening PDF...'
+      preview.document.body.style.margin = '0'
+      preview.document.body.style.fontFamily = 'system-ui, sans-serif'
+      preview.document.body.style.display = 'grid'
+      preview.document.body.style.placeItems = 'center'
+      preview.document.body.style.minHeight = '100vh'
+      preview.document.body.textContent = 'Opening PDF...'
+    }
+  } catch {}
+
+  try {
+    const blob = await apiGetBlob(path)
+    const blobUrl = window.URL.createObjectURL(blob)
+    if (preview) {
+      preview.location.href = blobUrl
+    } else {
+      const anchor = document.createElement('a')
+      anchor.href = blobUrl
+      anchor.target = '_blank'
+      anchor.rel = 'noreferrer'
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+    }
+    window.setTimeout(() => {
+      window.URL.revokeObjectURL(blobUrl)
+    }, 60000)
+    return true
+  } catch (error) {
+    try {
+      if (preview && !preview.closed) preview.close()
+    } catch {}
+    throw error
+  }
+}
+
 export async function apiPatch(path, body, maxRetries = 3) {
   const headers = await authHeader()
   let lastError = null

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { API_BASE, apiGet } from '../../api.js'
+import { apiGet, apiOpenBlob } from '../../api.js'
 
 function formatMoney(value, currency = 'PKR') {
   try {
@@ -48,7 +48,7 @@ export default function AgentClosings() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const financeBase = `${String(API_BASE || '/api').replace(/\/$/, '')}/finance`
+  const [openingId, setOpeningId] = useState('')
 
   useEffect(() => {
     let active = true
@@ -130,12 +130,22 @@ export default function AgentClosings() {
                       <div style={{ color: '#64748b', fontSize: 13 }}>Rate: {Number(item?.commissionRate || 0)}% {item?.totalOrderValueAED ? `• Order value AED ${Number(item.totalOrderValueAED || 0).toFixed(2)}` : ''}</div>
                       <div style={{ color: '#64748b', fontSize: 13 }}>Note: {item?.note || '-'}</div>
                     </div>
-                    <a
-                      href={`${financeBase}/agent-remittances/${item._id}/download-receipt`}
-                      target="_blank"
-                      rel="noreferrer"
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          setOpeningId(String(item._id || ''))
+                          await apiOpenBlob(`/api/finance/agent-remittances/${item._id}/download-receipt`)
+                        } catch (err) {
+                          setError(err?.message || 'Failed to open PDF')
+                        } finally {
+                          setOpeningId('')
+                        }
+                      }}
+                      disabled={openingId === String(item._id || '')}
                       style={{
-                        textDecoration: 'none',
+                        border: 'none',
+                        cursor: openingId === String(item._id || '') ? 'wait' : 'pointer',
                         borderRadius: 16,
                         padding: '11px 16px',
                         background: '#0f172a',
@@ -143,8 +153,8 @@ export default function AgentClosings() {
                         fontWeight: 800,
                       }}
                     >
-                      Open PDF
-                    </a>
+                      {openingId === String(item._id || '') ? 'Opening...' : 'Open PDF'}
+                    </button>
                   </div>
                 </div>
               ))
