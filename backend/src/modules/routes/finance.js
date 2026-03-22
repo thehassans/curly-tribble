@@ -962,20 +962,42 @@ async function buildAgentClosingOrderData({ agentId, paidAt = new Date() }) {
     const currency = resolveOrderCurrency(order, "AED");
     return sum + convertAmountToAED(amount, currency, cfg);
   }, 0);
-  const orders = deliveredOrders.map((order) => ({
+  const deliveredRows = deliveredOrders.map((order) => ({
     id: String(order._id || ""),
     orderId:
       order.invoiceNumber ||
       order.invoiceId ||
       `INV-${String(order._id || "").slice(-8)}`,
     date: order.deliveredAt || order.updatedAt || order.createdAt,
+    eventDate: order.deliveredAt || order.updatedAt || order.createdAt,
     amount: computeOrderGrossAmount(order),
     currency: resolveOrderCurrency(order, "AED"),
     productName: buildOrderProductName(order),
     commission: Number(order.agentCommissionPKR || 0),
     commissionCurrency: "PKR",
+    status: "delivered",
   }));
-  const deliveredCommissionPKR = orders.reduce(
+  const cancelledRows = cancelledOrders.map((order) => ({
+    id: String(order._id || ""),
+    orderId:
+      order.invoiceNumber ||
+      order.invoiceId ||
+      `INV-${String(order._id || "").slice(-8)}`,
+    date: order.updatedAt || order.createdAt,
+    eventDate: order.updatedAt || order.createdAt,
+    amount: computeOrderGrossAmount(order),
+    currency: resolveOrderCurrency(order, "AED"),
+    productName: buildOrderProductName(order),
+    commission: 0,
+    commissionCurrency: "PKR",
+    status: "cancelled",
+  }));
+  const orders = [...deliveredRows, ...cancelledRows].sort(
+    (left, right) =>
+      new Date(left.eventDate || left.date || 0).getTime() -
+      new Date(right.eventDate || right.date || 0).getTime()
+  );
+  const deliveredCommissionPKR = deliveredRows.reduce(
     (sum, order) => sum + Number(order.commission || 0),
     0
   );
@@ -985,8 +1007,8 @@ async function buildAgentClosingOrderData({ agentId, paidAt = new Date() }) {
   const cancelledOrderIds = uniqueIdStrings(
     cancelledOrders.map((order) => order?._id)
   );
-  const rangeStartCandidates = summaryOrders
-    .map((order) => order?.createdAt || order?.deliveredAt || order?.updatedAt)
+  const rangeStartCandidates = orders
+    .map((order) => order?.eventDate || order?.date)
     .filter(Boolean)
     .map((value) => new Date(value))
     .filter((value) => !Number.isNaN(value.getTime()))
@@ -994,7 +1016,7 @@ async function buildAgentClosingOrderData({ agentId, paidAt = new Date() }) {
   return {
     totalSubmitted,
     totalCancelled,
-    totalDelivered: orders.length,
+    totalDelivered: deliveredRows.length,
     totalOrderValueAED,
     deliveredOrderValueAED,
     deliveredCommissionPKR,
@@ -1003,6 +1025,117 @@ async function buildAgentClosingOrderData({ agentId, paidAt = new Date() }) {
     orders,
     rangeStart: rangeStartCandidates[0] || lowerBound,
     rangeEnd: effectivePaidAt,
+  };
+}
+
+async function buildAgentClosingOrderDataFromStoredOrders({
+  paidAt = new Date(),
+  rangeStart = null,
+  rangeEnd = null,
+  deliveredOrderIds = [],
+  cancelledOrderIds = [],
+}) {
+  const cfg = await getCurrencyConfig();
+  const deliveredIds = toObjectIdList(deliveredOrderIds);
+  const cancelledIds = toObjectIdList(cancelledOrderIds);
+  const [deliveredOrders, cancelledOrders] = await Promise.all([
+    deliveredIds.length
+      ? Order.find(
+          { _id: { $in: deliveredIds } },
+          "invoiceNumber invoiceId deliveredAt updatedAt createdAt total grandTotal subTotal productId quantity items agentCommissionPKR"
+        )
+          .populate("productId", "name price baseCurrency")
+          .populate("items.productId", "name price baseCurrency")
+          .lean()
+      : [],
+    cancelledIds.length
+      ? Order.find(
+          { _id: { $in: cancelledIds } },
+          "invoiceNumber invoiceId shipmentStatus createdAt updatedAt total grandTotal subTotal productId quantity items agentCommissionPKR"
+        )
+          .populate("productId", "name price baseCurrency")
+          .populate("items.productId", "name price baseCurrency")
+          .lean()
+      : [],
+  ]);
+  const deliveredRows = deliveredOrders.map((order) => ({
+    id: String(order._id || ""),
+    orderId:
+      order.invoiceNumber ||
+      order.invoiceId ||
+      `INV-${String(order._id || "").slice(-8)}`,
+    date: order.deliveredAt || order.updatedAt || order.createdAt,
+    eventDate: order.deliveredAt || order.updatedAt || order.createdAt,
+    amount: computeOrderGrossAmount(order),
+    currency: resolveOrderCurrency(order, "AED"),
+    productName: buildOrderProductName(order),
+    commission: Number(order.agentCommissionPKR || 0),
+    commissionCurrency: "PKR",
+    status: "delivered",
+  }));
+  const cancelledRows = cancelledOrders.map((order) => ({
+    id: String(order._id || ""),
+    orderId:
+      order.invoiceNumber ||
+      order.invoiceId ||
+      `INV-${String(order._id || "").slice(-8)}`,
+    date: order.updatedAt || order.createdAt,
+    eventDate: order.updatedAt || order.createdAt,
+    amount: computeOrderGrossAmount(order),
+    currency: resolveOrderCurrency(order, "AED"),
+    productName: buildOrderProductName(order),
+    commission: 0,
+    commissionCurrency: "PKR",
+    status: "cancelled",
+  }));
+  const orders = [...deliveredRows, ...cancelledRows].sort(
+    (left, right) =>
+      new Date(left.eventDate || left.date || 0).getTime() -
+      new Date(right.eventDate || right.date || 0).getTime()
+  );
+  const totalOrderValueAED = [...deliveredOrders, ...cancelledOrders].reduce(
+    (sum, order) => {
+      const amount = computeOrderGrossAmount(order);
+      const currency = resolveOrderCurrency(order, "AED");
+      return sum + convertAmountToAED(amount, currency, cfg);
+    },
+    0
+  );
+  const deliveredOrderValueAED = deliveredOrders.reduce((sum, order) => {
+    const amount = computeOrderGrossAmount(order);
+    const currency = resolveOrderCurrency(order, "AED");
+    return sum + convertAmountToAED(amount, currency, cfg);
+  }, 0);
+  const deliveredCommissionPKR = deliveredRows.reduce(
+    (sum, order) => sum + Number(order.commission || 0),
+    0
+  );
+  const rangeStartCandidates = orders
+    .map((order) => order?.eventDate || order?.date)
+    .filter(Boolean)
+    .map((value) => new Date(value))
+    .filter((value) => !Number.isNaN(value.getTime()))
+    .sort((left, right) => left.getTime() - right.getTime());
+  const nextRangeEnd = rangeEnd ? new Date(rangeEnd) : new Date(paidAt || new Date());
+  const providedRangeStart = rangeStart ? new Date(rangeStart) : null;
+  const safeRangeStart =
+    providedRangeStart &&
+    !Number.isNaN(providedRangeStart.getTime()) &&
+    providedRangeStart.getTime() > 86400000
+      ? providedRangeStart
+      : null;
+  return {
+    totalSubmitted: orders.length,
+    totalCancelled: cancelledRows.length,
+    totalDelivered: deliveredRows.length,
+    totalOrderValueAED,
+    deliveredOrderValueAED,
+    deliveredCommissionPKR,
+    deliveredOrderIds: uniqueIdStrings(deliveredOrders.map((order) => order?._id)),
+    cancelledOrderIds: uniqueIdStrings(cancelledOrders.map((order) => order?._id)),
+    orders,
+    rangeStart: safeRangeStart || rangeStartCandidates[0] || new Date(0),
+    rangeEnd: nextRangeEnd,
   };
 }
 
@@ -1094,7 +1227,25 @@ async function buildDriverCommissionClosingData({
     (sum, order) => sum + Number(computeOrderGrossAmount(order) || 0),
     0
   );
-  const deliveredCommission = orders.reduce(
+  const deliveredRows = orders.map((order) => ({
+    ...order,
+    status: "delivered",
+    eventDate: order.deliveryDate,
+  }));
+  const cancelledRows = cancelledOrders.map((order) => ({
+    id: String(order._id || ""),
+    orderId:
+      order.invoiceNumber || `DRV-${String(order._id || "").slice(-8)}`,
+    deliveryDate: order.updatedAt || order.createdAt,
+    eventDate: order.updatedAt || order.createdAt,
+    amount: computeOrderGrossAmount(order),
+    priceCurrency: resolveOrderCurrency(order, commissionCurrency),
+    productName: buildOrderProductName(order),
+    commission: 0,
+    commissionCurrency,
+    status: "cancelled",
+  }));
+  const deliveredCommission = deliveredRows.reduce(
     (sum, order) => sum + Number(order.commission || 0),
     0
   );
@@ -1104,20 +1255,30 @@ async function buildDriverCommissionClosingData({
   const cancelledOrderIds = uniqueIdStrings(
     cancelledOrders.map((order) => order?._id)
   );
+  const rangeStartCandidates = [...deliveredRows, ...cancelledRows]
+    .map((order) => order?.eventDate || order?.deliveryDate)
+    .filter(Boolean)
+    .map((value) => new Date(value))
+    .filter((value) => !Number.isNaN(value.getTime()))
+    .sort((left, right) => left.getTime() - right.getTime());
   return {
-    rangeStart: lowerBound,
+    rangeStart: rangeStartCandidates[0] || lowerBound,
     rangeEnd: effectivePaidAt,
-    totalSubmitted: orders.length + cancelledOrderIds.length,
+    totalSubmitted: deliveredRows.length + cancelledRows.length,
     totalCancelled: cancelledOrderIds.length,
-    totalDelivered: orders.length,
+    totalDelivered: deliveredRows.length,
     totalOrderValue: deliveredOrderValue + cancelledOrderValue,
     deliveredOrderValue,
     deliveredCommission,
-    orderCount: orders.length,
+    orderCount: deliveredRows.length,
     currency: commissionCurrency,
     deliveredOrderIds,
     cancelledOrderIds,
-    orders,
+    orders: [...deliveredRows, ...cancelledRows].sort(
+      (left, right) =>
+        new Date(left.eventDate || left.deliveryDate || 0).getTime() -
+        new Date(right.eventDate || right.deliveryDate || 0).getTime()
+    ),
   };
 }
 
@@ -1185,25 +1346,60 @@ async function buildDriverCommissionClosingDataFromStoredOrders({
     (sum, order) => sum + Number(computeOrderGrossAmount(order) || 0),
     0
   );
-  const deliveredCommission = orders.reduce(
+  const deliveredRows = orders.map((order) => ({
+    ...order,
+    status: "delivered",
+    eventDate: order.deliveryDate,
+  }));
+  const cancelledRows = cancelledOrders.map((order) => ({
+    id: String(order._id || ""),
+    orderId:
+      order.invoiceNumber || `DRV-${String(order._id || "").slice(-8)}`,
+    deliveryDate: order.updatedAt || order.createdAt,
+    eventDate: order.updatedAt || order.createdAt,
+    amount: computeOrderGrossAmount(order),
+    priceCurrency: resolveOrderCurrency(order, commissionCurrency),
+    productName: buildOrderProductName(order),
+    commission: 0,
+    commissionCurrency,
+    status: "cancelled",
+  }));
+  const deliveredCommission = deliveredRows.reduce(
     (sum, order) => sum + Number(order.commission || 0),
     0
   );
   const nextRangeEnd = rangeEnd ? new Date(rangeEnd) : new Date(paidAt || new Date());
+  const rangeStartCandidates = [...deliveredRows, ...cancelledRows]
+    .map((order) => order?.eventDate || order?.deliveryDate)
+    .filter(Boolean)
+    .map((value) => new Date(value))
+    .filter((value) => !Number.isNaN(value.getTime()))
+    .sort((left, right) => left.getTime() - right.getTime());
+  const providedRangeStart = rangeStart ? new Date(rangeStart) : null;
+  const safeRangeStart =
+    providedRangeStart &&
+    !Number.isNaN(providedRangeStart.getTime()) &&
+    providedRangeStart.getTime() > 86400000
+      ? providedRangeStart
+      : null;
   return {
-    rangeStart: rangeStart ? new Date(rangeStart) : new Date(0),
+    rangeStart: safeRangeStart || rangeStartCandidates[0] || new Date(0),
     rangeEnd: nextRangeEnd,
-    totalSubmitted: orders.length + cancelledOrders.length,
-    totalCancelled: cancelledOrders.length,
-    totalDelivered: orders.length,
+    totalSubmitted: deliveredRows.length + cancelledRows.length,
+    totalCancelled: cancelledRows.length,
+    totalDelivered: deliveredRows.length,
     totalOrderValue: deliveredOrderValue + cancelledOrderValue,
     deliveredOrderValue,
     deliveredCommission,
-    orderCount: orders.length,
+    orderCount: deliveredRows.length,
     currency: commissionCurrency,
     deliveredOrderIds: uniqueIdStrings(deliveredOrders.map((order) => order?._id)),
     cancelledOrderIds: uniqueIdStrings(cancelledOrders.map((order) => order?._id)),
-    orders,
+    orders: [...deliveredRows, ...cancelledRows].sort(
+      (left, right) =>
+        new Date(left.eventDate || left.deliveryDate || 0).getTime() -
+        new Date(right.eventDate || right.deliveryDate || 0).getTime()
+    ),
   };
 }
 
@@ -2279,7 +2475,7 @@ router.get(
   async (req, res) => {
     try {
       const me = await User.findById(req.user.id).select(
-        "role firstName lastName country createdBy"
+        "role firstName lastName phone country createdBy driverProfile"
       );
       if (!me || me.role !== "driver") {
         return res.status(404).json({ message: "Driver not found" });
@@ -2289,57 +2485,99 @@ router.get(
           driver: req.user.id,
           status: "accepted",
           driverCommission: { $gt: 0 },
-          $or: [
-            { acceptedPdfPath: { $exists: true, $ne: "" } },
-            { pdfPath: { $exists: true, $ne: "" } },
-          ],
         })
           .select(
-            "amount driverCommission currency note createdAt paidAt acceptedAt fromDate toDate totalDeliveredOrders acceptedPdfPath pdfPath"
+            "amount driverCommission currency note createdAt paidAt acceptedAt fromDate toDate totalDeliveredOrders acceptedPdfPath pdfPath closingOrderIds closingCancelledOrderIds"
           )
           .sort({ paidAt: -1, createdAt: -1 })
           .lean(),
         PartnerDriverPayment.find({
           driverId: req.user.id,
-          pdfPath: { $exists: true, $ne: "" },
         })
           .select(
-            "amount currency note createdAt paidAt rangeStart rangeEnd orderCount paymentType pdfPath"
+            "amount currency note createdAt paidAt rangeStart rangeEnd orderCount paymentType pdfPath closingOrderIds closingCancelledOrderIds"
           )
           .sort({ paidAt: -1, createdAt: -1 })
           .lean(),
       ]);
-      const closings = [
-        ...remittances.map((item) => ({
-          id: String(item._id),
-          source: "owner",
-          paymentType: "per_order",
-          amount: Number(item.driverCommission || item.amount || 0),
-          currency:
-            item.currency || currencyFromCountry(me.country || "") || "SAR",
-          note: item.note || "",
-          paidAt: item.paidAt || item.acceptedAt || item.createdAt,
-          rangeStart: item.fromDate || item.createdAt,
-          rangeEnd:
-            item.toDate || item.paidAt || item.acceptedAt || item.createdAt,
-          orderCount: Number(item.totalDeliveredOrders || 0),
-          pdfPath: item.acceptedPdfPath || item.pdfPath || "",
-        })),
-        ...partnerPayments.map((item) => ({
-          id: String(item._id),
-          source: "partner",
-          paymentType: item.paymentType || "per_order",
-          amount: Number(item.amount || 0),
-          currency:
-            item.currency || currencyFromCountry(me.country || "") || "SAR",
-          note: item.note || "",
-          paidAt: item.paidAt || item.createdAt,
-          rangeStart: item.rangeStart || item.createdAt,
-          rangeEnd: item.rangeEnd || item.paidAt || item.createdAt,
-          orderCount: Number(item.orderCount || 0),
-          pdfPath: item.pdfPath || "",
-        })),
-      ].sort(
+      const ownerClosings = await Promise.all(
+        remittances.map(async (item) => {
+          const fallbackEnd =
+            item.toDate || item.paidAt || item.acceptedAt || item.createdAt;
+          let rangeStart = item.fromDate || item.createdAt;
+          let rangeEnd = fallbackEnd;
+          let orderCount = Number(item.totalDeliveredOrders || 0);
+          if (
+            Array.isArray(item.closingOrderIds) &&
+            item.closingOrderIds.length
+          ) {
+            const closingData = await buildDriverCommissionClosingDataFromStoredOrders({
+              driver: me,
+              paidAt: item.paidAt || item.acceptedAt || item.createdAt,
+              rangeStart: item.fromDate || null,
+              rangeEnd: fallbackEnd,
+              deliveredOrderIds: item.closingOrderIds || [],
+              cancelledOrderIds: item.closingCancelledOrderIds || [],
+            });
+            rangeStart = closingData.rangeStart || rangeStart;
+            rangeEnd = closingData.rangeEnd || rangeEnd;
+            orderCount = Number(closingData.orderCount || orderCount || 0);
+          }
+          return {
+            id: String(item._id),
+            source: "owner",
+            paymentType: "per_order",
+            amount: Number(item.driverCommission || item.amount || 0),
+            currency:
+              item.currency || currencyFromCountry(me.country || "") || "SAR",
+            note: item.note || "",
+            paidAt: item.paidAt || item.acceptedAt || item.createdAt,
+            rangeStart,
+            rangeEnd,
+            orderCount,
+            pdfPath: item.acceptedPdfPath || item.pdfPath || "",
+          };
+        })
+      );
+      const partnerClosings = await Promise.all(
+        partnerPayments.map(async (item) => {
+          const fallbackEnd = item.rangeEnd || item.paidAt || item.createdAt;
+          let rangeStart = item.rangeStart || item.createdAt;
+          let rangeEnd = fallbackEnd;
+          let orderCount = Number(item.orderCount || 0);
+          if (
+            Array.isArray(item.closingOrderIds) &&
+            item.closingOrderIds.length
+          ) {
+            const closingData = await buildDriverCommissionClosingDataFromStoredOrders({
+              driver: me,
+              paidAt: item.paidAt || item.createdAt,
+              rangeStart: item.rangeStart || null,
+              rangeEnd: fallbackEnd,
+              deliveredOrderIds: item.closingOrderIds || [],
+              cancelledOrderIds: item.closingCancelledOrderIds || [],
+            });
+            rangeStart = closingData.rangeStart || rangeStart;
+            rangeEnd = closingData.rangeEnd || rangeEnd;
+            orderCount = Number(closingData.orderCount || orderCount || 0);
+          }
+          return {
+            id: String(item._id),
+            source: "partner",
+            paymentType: item.paymentType || "per_order",
+            amount: Number(item.amount || 0),
+            currency:
+              item.currency || currencyFromCountry(me.country || "") || "SAR",
+            note: item.note || "",
+            paidAt: item.paidAt || item.createdAt,
+            rangeStart,
+            rangeEnd,
+            orderCount,
+            pdfPath: item.pdfPath || "",
+          };
+        })
+      );
+      const closings = [...ownerClosings, ...partnerClosings].sort(
         (left, right) =>
           new Date(right.paidAt || 0).getTime() -
           new Date(left.paidAt || 0).getTime()
@@ -2348,6 +2586,116 @@ router.get(
     } catch (error) {
       console.error("Load driver closings error:", error);
       return res.status(500).json({ message: "Failed to load closings" });
+    }
+  }
+);
+
+router.get(
+  "/drivers/me/closings/:source/:id/download",
+  auth,
+  allowRoles("driver"),
+  async (req, res) => {
+    try {
+      const me = await User.findById(req.user.id).select(
+        "role firstName lastName phone country createdBy driverProfile"
+      );
+      if (!me || me.role !== "driver") {
+        return res.status(404).json({ message: "Driver not found" });
+      }
+      const source = String(req.params.source || "").toLowerCase();
+      const paidAt = new Date();
+      let pdfPath = "";
+
+      if (source === "owner") {
+        const remit = await Remittance.findOne({
+          _id: req.params.id,
+          driver: req.user.id,
+          status: { $in: ["accepted", "manager_accepted"] },
+        }).lean();
+        if (!remit) {
+          return res.status(404).json({ message: "Closing not found" });
+        }
+        const closingData = await buildDriverCommissionClosingDataFromStoredOrders({
+          driver: me,
+          paidAt: remit.paidAt || remit.acceptedAt || remit.createdAt,
+          rangeStart: remit.fromDate,
+          rangeEnd: remit.toDate || remit.paidAt || remit.acceptedAt || remit.createdAt,
+          deliveredOrderIds: remit.closingOrderIds || [],
+          cancelledOrderIds: remit.closingCancelledOrderIds || [],
+        });
+        pdfPath = await generateCommissionPayoutPDF({
+          driverName:
+            `${me?.firstName || ""} ${me?.lastName || ""}`.trim() || "Driver",
+          driverPhone: me?.phone || "",
+          totalSubmitted: closingData.totalSubmitted,
+          totalDeliveredOrders: closingData.orderCount,
+          totalCancelled: closingData.totalCancelled,
+          totalOrderValue: closingData.totalOrderValue,
+          deliveredOrderValue: closingData.deliveredOrderValue,
+          totalCommissionPaid: Number(
+            remit.driverCommission || remit.amount || closingData.deliveredCommission || 0
+          ),
+          totalCommissionEarned: Number(closingData.deliveredCommission || 0),
+          currency:
+            remit.currency || currencyFromCountry(me.country || "") || "SAR",
+          paidAt: remit.paidAt || remit.acceptedAt || remit.createdAt || paidAt,
+          rangeStart: closingData.rangeStart,
+          rangeEnd: closingData.rangeEnd,
+          orders: closingData.orders,
+        });
+      } else if (source === "partner") {
+        const payment = await PartnerDriverPayment.findOne({
+          _id: req.params.id,
+          driverId: req.user.id,
+        }).lean();
+        if (!payment) {
+          return res.status(404).json({ message: "Closing not found" });
+        }
+        const closingData = await buildDriverCommissionClosingDataFromStoredOrders({
+          driver: me,
+          paidAt: payment.paidAt || payment.createdAt,
+          rangeStart: payment.rangeStart,
+          rangeEnd: payment.rangeEnd || payment.paidAt || payment.createdAt,
+          deliveredOrderIds: payment.closingOrderIds || [],
+          cancelledOrderIds: payment.closingCancelledOrderIds || [],
+        });
+        pdfPath = await generateCommissionPayoutPDF({
+          driverName:
+            `${me?.firstName || ""} ${me?.lastName || ""}`.trim() || "Driver",
+          driverPhone: me?.phone || "",
+          totalSubmitted: closingData.totalSubmitted,
+          totalDeliveredOrders: closingData.orderCount,
+          totalCancelled: closingData.totalCancelled,
+          totalOrderValue: closingData.totalOrderValue,
+          deliveredOrderValue: closingData.deliveredOrderValue,
+          totalCommissionPaid: Number(payment.amount || 0),
+          totalCommissionEarned: Number(closingData.deliveredCommission || 0),
+          currency:
+            payment.currency || currencyFromCountry(me.country || "") || "SAR",
+          paidAt: payment.paidAt || payment.createdAt || paidAt,
+          rangeStart: closingData.rangeStart,
+          rangeEnd: closingData.rangeEnd,
+          orders: closingData.orders,
+        });
+      } else {
+        return res.status(400).json({ message: "Invalid closing source" });
+      }
+
+      const fullPath = path.join(process.cwd(), pdfPath);
+      return res.download(
+        fullPath,
+        `Driver_Closing_${source}_${Date.now()}.pdf`,
+        () => {
+          setTimeout(() => {
+            try {
+              if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath);
+            } catch {}
+          }, 5000);
+        }
+      );
+    } catch (error) {
+      console.error("Download driver closing PDF error:", error);
+      return res.status(500).json({ message: "Failed to download closing PDF" });
     }
   }
 );
@@ -2973,6 +3321,8 @@ router.post(
           amountAED,
           amountPKR: amt,
           paidAt,
+          rangeStart: closingData.rangeStart,
+          rangeEnd: closingData.rangeEnd,
           orders: closingData.orders,
         });
       } catch (err) {
@@ -3534,31 +3884,28 @@ router.get(
       let orders = [];
       let totalSubmitted = 0;
       let totalDelivered = 0;
+      let totalCancelled = 0;
+      let totalOrderValueAED = 0;
+      let deliveredOrderValueAED = 0;
+      let rangeStart = remit.sentAt || remit.createdAt;
+      let rangeEnd = remit.sentAt || remit.createdAt;
       try {
-        const agentOrders = await Order.find({ agent: agent._id })
-          .populate("productId", "price baseCurrency")
-          .lean();
+        const closingData = await buildAgentClosingOrderDataFromStoredOrders({
+          paidAt: remit.sentAt || remit.createdAt,
+          rangeStart: null,
+          rangeEnd: remit.sentAt || remit.createdAt,
+          deliveredOrderIds: remit.closingOrderIds || [],
+          cancelledOrderIds: remit.closingCancelledOrderIds || [],
+        });
 
-        orders = agentOrders
-          .filter(
-            (o) => String(o.shipmentStatus || "").toLowerCase() === "delivered"
-          )
-          .map((o) => {
-            const price = o.total || o.productId?.price || 0;
-            const currency =
-              o.items?.[0]?.productId?.baseCurrency ||
-              o.productId?.baseCurrency ||
-              "AED";
-            return {
-              orderId: o.invoiceId || `INV-${o._id.toString().slice(-8)}`,
-              date: o.updatedAt || o.createdAt,
-              amount: price,
-              currency: currency,
-            };
-          });
-
-        totalSubmitted = agentOrders.length;
-        totalDelivered = orders.length;
+        orders = closingData.orders || [];
+        totalSubmitted = Number(closingData.totalSubmitted || 0);
+        totalDelivered = Number(closingData.totalDelivered || 0);
+        totalCancelled = Number(closingData.totalCancelled || 0);
+        totalOrderValueAED = Number(closingData.totalOrderValueAED || 0);
+        deliveredOrderValueAED = Number(closingData.deliveredOrderValueAED || 0);
+        rangeStart = closingData.rangeStart || rangeStart;
+        rangeEnd = closingData.rangeEnd || rangeEnd;
       } catch (err) {
         console.error("Error fetching agent orders:", err);
       }
@@ -3574,8 +3921,14 @@ router.get(
         agentPhone: agent.phone || "",
         totalSubmitted,
         totalDelivered,
+        totalCancelled,
+        totalOrderValueAED,
+        deliveredOrderValueAED,
         amountAED,
         amountPKR: remit.amount,
+        paidAt: remit.sentAt || remit.createdAt,
+        rangeStart,
+        rangeEnd,
         orders,
       });
 

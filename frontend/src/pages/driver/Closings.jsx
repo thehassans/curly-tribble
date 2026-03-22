@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { apiGet, mediaUrl } from '../../api.js'
+import { API_BASE, apiGet } from '../../api.js'
 
 function formatMoney(value, currency = 'SAR') {
   try {
@@ -47,6 +47,7 @@ export default function DriverClosings() {
   const [closings, setClosings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const financeBase = `${String(API_BASE || '/api').replace(/\/$/, '')}/finance`
 
   useEffect(() => {
     let active = true
@@ -141,25 +142,21 @@ export default function DriverClosings() {
                         <div style={{ color: '#64748b', fontSize: 13 }}>Orders included: {Number(item?.orderCount || 0)} • Model: {item?.paymentType === 'salary' ? 'Salary' : 'Per order'}</div>
                         <div style={{ color: '#64748b', fontSize: 13 }}>Note: {item?.note || '-'}</div>
                       </div>
-                      {item?.pdfPath ? (
-                        <a
-                          href={mediaUrl(item.pdfPath)}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{
-                            textDecoration: 'none',
-                            borderRadius: 16,
-                            padding: '11px 16px',
-                            background: '#0f172a',
-                            color: '#fff',
-                            fontWeight: 800,
-                          }}
-                        >
-                          Open PDF
-                        </a>
-                      ) : (
-                        <div style={{ borderRadius: 16, padding: '11px 16px', background: 'rgba(148,163,184,0.12)', color: '#64748b', fontWeight: 800 }}>PDF pending</div>
-                      )}
+                      <a
+                        href={`${financeBase}/drivers/me/closings/${item.source}/${item.id}/download`}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{
+                          textDecoration: 'none',
+                          borderRadius: 16,
+                          padding: '11px 16px',
+                          background: '#0f172a',
+                          color: '#fff',
+                          fontWeight: 800,
+                        }}
+                      >
+                        Open PDF
+                      </a>
                     </div>
                   </div>
                 )

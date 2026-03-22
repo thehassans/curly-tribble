@@ -28,6 +28,25 @@ const formatCurrency = (amount, curr) => {
   return `${curr} ${Number(amount || 0).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`
 }
 
+const formatDateTime = (value, withTime = true) => {
+  if (!value) return 'N/A'
+  try {
+    return new Date(value).toLocaleString('en-US', withTime
+      ? { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }
+      : { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch {
+    return 'N/A'
+  }
+}
+
+const statusMeta = (status) => {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'cancelled' || normalized === 'returned') {
+    return { label: 'Cancelled', color: '#b91c1c' }
+  }
+  return { label: 'Delivered', color: '#047857' }
+}
+
 /**
  * Generate a minimal, premium Commission Payout Statement PDF
  * @param {Object} data - Payout data
@@ -99,14 +118,14 @@ export async function generateCommissionPayoutPDF(data) {
       y += 80
 
       // === ELEGANT TITLE WITH UNDERLINE ===
-      doc.fontSize(32)
+      doc.fontSize(24)
          .font('Helvetica-Bold')
          .fillColor(colors.primary)
          .text('Commission Closing Statement', margin, y, {
            width: contentWidth,
            align: 'center'
          })
-      y += 45
+      y += 34
       
       // Premium gold underline
       doc.rect(margin + (contentWidth / 2) - 100, y, 200, 3)
@@ -137,16 +156,16 @@ export async function generateCommissionPayoutPDF(data) {
         width: contentWidth,
         align: 'center'
       })
-      y += 50
+      y += 42
 
       // === PREMIUM DRIVER DETAILS CARD ===
       const hasClosingRange = Boolean(data.rangeStart || data.rangeEnd)
       const detailsBoxHeight = data.driverPhone
         ? hasClosingRange
-          ? 126
+          ? 110
           : 100
         : hasClosingRange
-        ? 106
+        ? 92
         : 80
       
       // Elegant border box with shadow effect
@@ -207,7 +226,7 @@ export async function generateCommissionPayoutPDF(data) {
            )
       }
       
-      y += detailsBoxHeight + 35
+      y += detailsBoxHeight + 22
 
       // === PREMIUM SUMMARY CARD WITH GOLD ACCENTS ===
       const hasExtendedSummary =
@@ -215,7 +234,7 @@ export async function generateCommissionPayoutPDF(data) {
         Number(data.totalCancelled || 0) > 0 ||
         Number(data.totalOrderValue || 0) > 0 ||
         Number(data.deliveredOrderValue || 0) > 0
-      const summaryBoxHeight = hasExtendedSummary ? 180 : 140
+      const summaryBoxHeight = hasExtendedSummary ? 128 : 104
       
       // Main summary box with gradient-like effect (layered rectangles)
       doc.roundedRect(margin, y, contentWidth, summaryBoxHeight, 15)
@@ -227,7 +246,7 @@ export async function generateCommissionPayoutPDF(data) {
       doc.roundedRect(margin, y, contentWidth, 6, 15)
          .fill(colors.accent)
       
-      y += 30
+      y += 22
 
       // Left section - Total Orders
       const leftX = margin + 40
@@ -235,34 +254,29 @@ export async function generateCommissionPayoutPDF(data) {
          .font('Helvetica')
          .fillColor(colors.muted)
          .text('TOTAL DELIVERED ORDERS', leftX, y)
-      y += 20
-      doc.fontSize(40)
+      y += 14
+      doc.fontSize(28)
          .font('Helvetica-Bold')
          .fillColor(colors.primary)
          .text(String(data.totalDeliveredOrders || 0), leftX, y)
       
       // Right section - Total Commission with premium styling
-      const rightX = margin + (contentWidth / 2) + 40
+      const rightX = margin + (contentWidth / 2) + 24
       doc.fontSize(10)
          .font('Helvetica')
          .fillColor(colors.muted)
-         .text('TOTAL COMMISSION EARNED', rightX, y - 20)
+         .text('TOTAL COMMISSION EARNED', rightX, y - 14)
       
       // Large commission amount with gold color
       const commissionText = formatCurrency(data.totalCommissionPaid || 0, data.currency || 'SAR')
-      doc.fontSize(40)
+      doc.fontSize(24)
          .font('Helvetica-Bold')
          .fillColor(colors.success)
          .text(commissionText, rightX, y)
-      
-      // Gold checkmark icon (premium verified indicator)
-      doc.fontSize(16)
-         .fillColor(colors.accent)
-         .text('✓ ', rightX + doc.widthOfString(commissionText, { fontSize: 40 }) - 20, y + 10)
 
       if (hasExtendedSummary) {
-        y += 58
-        doc.fontSize(10)
+        y += 40
+        doc.fontSize(9)
            .font('Helvetica')
            .fillColor(colors.muted)
            .text(
@@ -273,12 +287,12 @@ export async function generateCommissionPayoutPDF(data) {
         doc.text(
           `Order Value: ${formatCurrency(data.totalOrderValue || 0, data.currency || 'SAR')}   Delivered Value: ${formatCurrency(data.deliveredOrderValue || 0, data.currency || 'SAR')}`,
           leftX,
-          y + 18,
+          y + 14,
           { width: contentWidth - 80 }
         )
       }
 
-      y += hasExtendedSummary ? 48 : 65
+      y += hasExtendedSummary ? 34 : 46
 
       // === PREMIUM ORDER DETAILS TABLE ===
       // Section header with gold accent
@@ -290,44 +304,65 @@ export async function generateCommissionPayoutPDF(data) {
       // Gold underline for section
       doc.rect(margin, y + 18, 80, 2)
          .fill(colors.accent)
-      y += 35
+      y += 28
 
       // Table Header with premium styling
-      const tableTop = y
       const col1X = margin
       const col2X = margin + 150
-      const col3X = margin + 280
-      const col4X = margin + 405
+      const col3X = margin + 270
+      const col4X = margin + 370
+      const col5X = margin + 455
 
       // Header background with gradient effect
-      doc.roundedRect(margin, y, contentWidth, 40, 8)
+      doc.roundedRect(margin, y, contentWidth, 34, 8)
          .fill(colors.primary)
 
       // Header text in white
       doc.fontSize(10)
          .font('Helvetica-Bold')
          .fillColor('#ffffff')
-         .text('ORDER NUMBER', col1X + 20, y + 14)
-         .text('DELIVERY DATE', col2X + 20, y + 14)
-         .text('PRICE', col3X + 20, y + 14)
-         .text('COMMISSION', col4X + 12, y + 14)
+         .text('ORDER NUMBER', col1X + 16, y + 11)
+         .text('DATE', col2X + 10, y + 11)
+         .text('STATUS', col3X + 10, y + 11)
+         .text('PRICE', col4X + 10, y + 11)
+         .text('COMMISSION', col5X + 4, y + 11)
 
-      y += 40
+      y += 34
 
       // Premium Table Rows
       const orders = data.orders || []
-      const rowHeight = 45
+      const rowHeight = 34
       
       orders.forEach((order, index) => {
         // Check if we need a new page
-        if (y + rowHeight + 150 > pageHeight - margin) {
+        if (y + rowHeight + 40 > pageHeight - margin) {
           doc.addPage()
           
           // Add gold accent bar on new page
-          doc.rect(0, 0, pageWidth, 8)
+          doc.rect(0, 0, pageWidth, 6)
              .fill(colors.accent)
           
-          y = margin + 20
+          y = margin + 18
+
+          doc.fontSize(12)
+             .font('Helvetica-Bold')
+             .fillColor(colors.primary)
+             .text('ORDER BREAKDOWN', margin, y)
+          doc.rect(margin, y + 16, 80, 2)
+             .fill(colors.accent)
+          y += 24
+
+          doc.roundedRect(margin, y, contentWidth, 34, 8)
+             .fill(colors.primary)
+          doc.fontSize(10)
+             .font('Helvetica-Bold')
+             .fillColor('#ffffff')
+             .text('ORDER NUMBER', col1X + 16, y + 11)
+             .text('DATE', col2X + 10, y + 11)
+             .text('STATUS', col3X + 10, y + 11)
+             .text('PRICE', col4X + 10, y + 11)
+             .text('COMMISSION', col5X + 4, y + 11)
+          y += 34
         }
 
         // Elegant alternating row background
@@ -352,91 +387,48 @@ export async function generateCommissionPayoutPDF(data) {
         doc.fontSize(10)
            .font('Helvetica-Bold')
            .fillColor(colors.secondary)
-           .text(order.orderId || 'N/A', col1X + 20, y + 15, {
-             width: 130,
+           .text(order.orderId || 'N/A', col1X + 16, y + 11, {
+             width: 118,
              ellipsis: true
            })
 
         // Delivery Date with elegant formatting
-        const deliveryDate = order.deliveryDate ? 
-          new Date(order.deliveryDate).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-          }) : 'N/A'
+        const deliveryDate = formatDateTime(order.deliveryDate, false)
         
-        doc.fontSize(10)
+        doc.fontSize(9)
            .font('Helvetica')
            .fillColor(colors.muted)
-           .text(deliveryDate, col2X + 20, y + 15, { width: 100 })
+           .text(deliveryDate, col2X + 10, y + 11, { width: 92 })
 
-        doc.fontSize(11)
+        const orderStatus = statusMeta(order.status)
+        doc.fontSize(9)
+           .font('Helvetica-Bold')
+           .fillColor(orderStatus.color)
+           .text(orderStatus.label, col3X + 10, y + 11, { width: 80 })
+
+        doc.fontSize(10)
            .font('Helvetica-Bold')
            .fillColor(colors.secondary)
-           .text(formatCurrency(order.amount || 0, order.priceCurrency || data.currency || 'SAR'), col3X + 20, y + 15, { width: 90 })
+           .text(formatCurrency(order.amount || 0, order.priceCurrency || data.currency || 'SAR'), col4X + 10, y + 11, { width: 78 })
 
         // Commission with premium green and bold styling
-        doc.fontSize(12)
+        doc.fontSize(10)
            .font('Helvetica-Bold')
-           .fillColor(colors.success)
-           .text(formatCurrency(order.commission || 0, order.commissionCurrency || data.currency || 'SAR'), col4X + 12, y + 15, { width: 90 })
+           .fillColor(orderStatus.label === 'Cancelled' ? colors.muted : colors.success)
+           .text(formatCurrency(order.commission || 0, order.commissionCurrency || data.currency || 'SAR'), col5X + 4, y + 11, { width: 74 })
 
         y += rowHeight
       })
 
       // === PREMIUM FOOTER WITH SIGNATURE ===
-      const footerY = pageHeight - 140
+      const footerY = pageHeight - 54
 
       // Ensure we're on the same page or add new page if needed
-      if (y > footerY - 50) {
-        doc.addPage()
-        
-        // Add gold accent bar on new page
-        doc.rect(0, 0, pageWidth, 6)
-           .fill(colors.accent)
-        
-        y = margin + 20
-      } else {
-        y = footerY
-      }
-
-      // Elite signature box with border
-      doc.roundedRect(margin, y, contentWidth, 90, 12)
-         .lineWidth(2)
-         .strokeOpacity(0.1)
-         .fillAndStroke(colors.lightBg, colors.border)
-      
-      // Gold accent at top of signature box
-      doc.roundedRect(margin, y, contentWidth, 5, 12)
-         .fill(colors.accent)
-      
-      y += 20
-      
-      // Signature line
-      const sigLineY = y + 25
-      const sigLineWidth = 200
-      const sigLineX = margin + (contentWidth / 2) - (sigLineWidth / 2)
-      
-      doc.moveTo(sigLineX, sigLineY)
-         .lineTo(sigLineX + sigLineWidth, sigLineY)
-         .strokeColor(colors.muted)
-         .lineWidth(1.5)
-         .stroke()
-      
-      // Authorized signature text
-      doc.fontSize(12)
-         .font('Helvetica-Bold')
-         .fillColor(colors.primary)
-         .text('Authorized Signature', margin, sigLineY + 10, {
-           width: contentWidth,
-           align: 'center'
-         })
-      
-      // Company name
-      doc.fontSize(8)
+      y = Math.min(Math.max(y + 12, footerY), footerY)
+      doc.fontSize(9)
          .font('Helvetica')
          .fillColor(colors.muted)
-         .text('BuySial Commerce', margin, sigLineY + 35, {
+         .text('BuySial Commerce', margin, y, {
            width: contentWidth,
            align: 'center'
          })

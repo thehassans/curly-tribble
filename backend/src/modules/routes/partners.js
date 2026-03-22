@@ -239,24 +239,52 @@ async function buildPartnerDriverClosingData({ scope, driver, paidAt }) {
     (sum, order) => sum + Number(computePartnerOrderAmount(order) || 0),
     0
   );
-  const deliveredCommission = orders.reduce(
+  const deliveredRows = orders.map((order) => ({
+    ...order,
+    status: "delivered",
+    eventDate: order.deliveryDate,
+  }));
+  const cancelledRows = cancelledOrders.map((order) => ({
+    id: String(order._id || ""),
+    orderId:
+      order.invoiceNumber || `DRV-${String(order._id || "").slice(-8)}`,
+    deliveryDate: order.updatedAt || order.createdAt,
+    eventDate: order.updatedAt || order.createdAt,
+    amount: computePartnerOrderAmount(order),
+    priceCurrency: resolvePartnerOrderCurrency(order, commissionCurrency),
+    productName: buildPartnerOrderProductName(order),
+    commission: 0,
+    commissionCurrency,
+    status: "cancelled",
+  }));
+  const deliveredCommission = deliveredRows.reduce(
     (sum, order) => sum + Number(order.commission || 0),
     0
   );
+  const rangeStartCandidates = [...deliveredRows, ...cancelledRows]
+    .map((order) => order?.eventDate || order?.deliveryDate)
+    .filter(Boolean)
+    .map((value) => new Date(value))
+    .filter((value) => !Number.isNaN(value.getTime()))
+    .sort((left, right) => left.getTime() - right.getTime());
   return {
-    rangeStart: lowerBound,
+    rangeStart: rangeStartCandidates[0] || lowerBound,
     rangeEnd: effectivePaidAt,
-    totalSubmitted: orders.length + cancelledOrders.length,
+    totalSubmitted: deliveredRows.length + cancelledRows.length,
     totalCancelled: cancelledOrders.length,
-    totalDelivered: orders.length,
+    totalDelivered: deliveredRows.length,
     totalOrderValue: deliveredOrderValue + cancelledOrderValue,
     deliveredOrderValue,
     deliveredCommission,
-    orderCount: orders.length,
+    orderCount: deliveredRows.length,
     currency: commissionCurrency,
     deliveredOrderIds: uniqueIdStrings(internalOrders.map((order) => order?._id)),
     cancelledOrderIds: uniqueIdStrings(cancelledOrders.map((order) => order?._id)),
-    orders,
+    orders: [...deliveredRows, ...cancelledRows].sort(
+      (left, right) =>
+        new Date(left.eventDate || left.deliveryDate || 0).getTime() -
+        new Date(right.eventDate || right.deliveryDate || 0).getTime()
+    ),
   };
 }
 

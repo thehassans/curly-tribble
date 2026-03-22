@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { apiGet, mediaUrl } from '../../api.js'
+import { API_BASE, apiGet } from '../../api.js'
 
 function formatMoney(value, currency = 'PKR') {
   try {
@@ -48,6 +48,7 @@ export default function AgentClosings() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const financeBase = `${String(API_BASE || '/api').replace(/\/$/, '')}/finance`
 
   useEffect(() => {
     let active = true
@@ -129,25 +130,21 @@ export default function AgentClosings() {
                       <div style={{ color: '#64748b', fontSize: 13 }}>Rate: {Number(item?.commissionRate || 0)}% {item?.totalOrderValueAED ? `• Order value AED ${Number(item.totalOrderValueAED || 0).toFixed(2)}` : ''}</div>
                       <div style={{ color: '#64748b', fontSize: 13 }}>Note: {item?.note || '-'}</div>
                     </div>
-                    {item?.receiptPdf ? (
-                      <a
-                        href={mediaUrl(item.receiptPdf)}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{
-                          textDecoration: 'none',
-                          borderRadius: 16,
-                          padding: '11px 16px',
-                          background: '#0f172a',
-                          color: '#fff',
-                          fontWeight: 800,
-                        }}
-                      >
-                        Open PDF
-                      </a>
-                    ) : (
-                      <div style={{ borderRadius: 16, padding: '11px 16px', background: 'rgba(148,163,184,0.12)', color: '#64748b', fontWeight: 800 }}>PDF pending</div>
-                    )}
+                    <a
+                      href={`${financeBase}/agent-remittances/${item._id}/download-receipt`}
+                      target="_blank"
+                      rel="noreferrer"
+                      style={{
+                        textDecoration: 'none',
+                        borderRadius: 16,
+                        padding: '11px 16px',
+                        background: '#0f172a',
+                        color: '#fff',
+                        fontWeight: 800,
+                      }}
+                    >
+                      Open PDF
+                    </a>
                   </div>
                 </div>
               ))

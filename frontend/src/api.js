@@ -96,18 +96,26 @@ export function mediaUrl(input) {
   const apiBase = String(API_BASE || '').trim()
   const mediaBase = String(MEDIA_BASE || '').trim()
   const uploadsBase = String(UPLOADS_BASE || MEDIA_BASE_EXPLICIT || '').trim() || apiBase || mediaBase
+  const preferDirectUploads =
+    !UPLOADS_BASE &&
+    !MEDIA_BASE_EXPLICIT &&
+    (!apiBase || !/^https?:\/\//i.test(apiBase))
 
   if (u.startsWith('/api/uploads/')) {
+    if (preferDirectUploads) return `/uploads/${u.slice(13)}`
     if (UPLOADS_BASE || MEDIA_BASE_EXPLICIT) return `${uploadsBase}/uploads/${u.slice(13)}`
     if (!apiBase) return `${mediaBase}${u}`
     return `${apiBase}${u.slice(4)}`
   }
   if (u.startsWith('api/uploads/')) {
+    if (preferDirectUploads) return `/uploads/${u.slice(12)}`
     if (UPLOADS_BASE || MEDIA_BASE_EXPLICIT) return `${uploadsBase}/uploads/${u.slice(12)}`
     if (!apiBase) return `${mediaBase}/${u}`
     return `${apiBase}/${u.slice(4)}`
   }
 
+  if (u.startsWith('/uploads/') && preferDirectUploads) return u
+  if (u.startsWith('uploads/') && preferDirectUploads) return `/${u}`
   if (u.startsWith('/uploads/')) return `${uploadsBase}/uploads/${u.slice(9)}`
   if (u.startsWith('uploads/')) return `${uploadsBase}/uploads/${u.slice(8)}`
 

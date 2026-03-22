@@ -26,6 +26,25 @@ function formatCurrency(val, code = 'PKR') {
   return `${code} ${num.toFixed(2)}`
 }
 
+function formatDateTime(value, withTime = true) {
+  if (!value) return 'N/A'
+  try {
+    return new Date(value).toLocaleString('en-US', withTime
+      ? { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }
+      : { month: 'short', day: 'numeric', year: 'numeric' })
+  } catch {
+    return 'N/A'
+  }
+}
+
+function statusMeta(status) {
+  const normalized = String(status || '').toLowerCase()
+  if (normalized === 'cancelled' || normalized === 'returned') {
+    return { label: 'Cancelled', color: '#b91c1c' }
+  }
+  return { label: 'Delivered', color: '#047857' }
+}
+
 export async function generateAgentCommissionReceiptPDF(data) {
   return new Promise((resolve, reject) => {
     try {
@@ -86,14 +105,14 @@ export async function generateAgentCommissionReceiptPDF(data) {
       y += 80
 
       // === ELITE TITLE ===
-      doc.fontSize(32)
+      doc.fontSize(24)
          .font('Helvetica-Bold')
          .fillColor(colors.primary)
          .text('Commission Closing Statement', margin, y, {
            width: contentWidth,
            align: 'center'
          })
-      y += 45
+      y += 34
       
       // Elite blue underline
       doc.rect(margin + (contentWidth / 2) - 100, y, 200, 3)
@@ -124,77 +143,84 @@ export async function generateAgentCommissionReceiptPDF(data) {
         width: contentWidth,
         align: 'center'
       })
-      y += 50
+      y += 42
 
       // === AGENT INFORMATION SECTION ===
-      doc.fontSize(12)
+      const hasClosingRange = Boolean(data.rangeStart || data.rangeEnd)
+      const infoHeight = data.agentPhone
+        ? hasClosingRange
+          ? 110
+          : 92
+        : hasClosingRange
+        ? 92
+        : 76
+      doc.roundedRect(margin, y, contentWidth, infoHeight, 12)
+         .lineWidth(2)
+         .strokeOpacity(0.1)
+         .fillAndStroke(colors.lightBg, colors.border)
+      doc.rect(margin + 1, y + 1, 4, infoHeight - 2).fill(colors.accent)
+      const leftCol = margin + 28
+      const rightCol = margin + (contentWidth / 2) + 8
+      let infoY = y + 18
+
+      doc.fontSize(11)
          .font('Helvetica-Bold')
          .fillColor(colors.accent)
-         .text('AGENT INFORMATION', margin, y)
-      y += 20
+         .text('AGENT INFORMATION', leftCol, infoY)
+      infoY += 22
 
-      // Agent details in two columns
-      const leftCol = margin
-      const rightCol = margin + (contentWidth / 2)
-
-      // Left column - Name and Contact
       doc.fontSize(10)
          .font('Helvetica')
          .fillColor(colors.muted)
-         .text('Agent Name', leftCol, y)
-      doc.fontSize(14)
-         .font('Helvetica-Bold')
-         .fillColor(colors.secondary)
-         .text(data.agentName || 'N/A', leftCol, y + 15)
+         .text('Agent Name:', leftCol, infoY, { continued: true })
+      doc.font('Helvetica-Bold').fillColor(colors.secondary).text(`  ${data.agentName || 'N/A'}`)
+      infoY += 18
 
       if (data.agentPhone) {
         doc.fontSize(10)
            .font('Helvetica')
            .fillColor(colors.muted)
-           .text('Contact', leftCol, y + 35)
-        doc.fontSize(11)
-           .font('Helvetica')
-           .fillColor(colors.secondary)
-           .text(data.agentPhone, leftCol, y + 50)
+           .text('Contact:', leftCol, infoY, { continued: true })
+        doc.font('Helvetica-Bold').fillColor(colors.secondary).text(`  ${data.agentPhone}`)
+        infoY += 18
       }
 
-      // Right column - Performance metrics
+      if (hasClosingRange) {
+        doc.fontSize(10)
+           .font('Helvetica')
+           .fillColor(colors.muted)
+           .text('Closing Range:', leftCol, infoY, { continued: true })
+        doc.font('Helvetica-Bold').fillColor(colors.secondary).text(
+          `  ${formatDateTime(data.rangeStart)} → ${formatDateTime(data.rangeEnd)}`
+        )
+      }
+
       doc.fontSize(10)
          .font('Helvetica')
          .fillColor(colors.muted)
-         .text('Total Orders Submitted', rightCol, y)
+         .text('Submitted', rightCol, y + 24)
       doc.fontSize(20)
          .font('Helvetica-Bold')
          .fillColor(colors.accent)
-         .text(String(data.totalSubmitted || 0), rightCol, y + 15)
-
+         .text(String(data.totalSubmitted || 0), rightCol, y + 38)
       doc.fontSize(10)
          .font('Helvetica')
          .fillColor(colors.muted)
-         .text('Orders Delivered', rightCol, y + 45)
+         .text('Delivered', rightCol, y + 62)
       doc.fontSize(20)
          .font('Helvetica-Bold')
          .fillColor(colors.success)
-         .text(String(data.totalDelivered || 0), rightCol, y + 60)
-
+         .text(String(data.totalDelivered || 0), rightCol, y + 76)
       doc.fontSize(10)
          .font('Helvetica')
          .fillColor(colors.muted)
-         .text('Orders Cancelled', rightCol, y + 90)
+         .text('Cancelled', rightCol + 92, y + 62)
       doc.fontSize(20)
          .font('Helvetica-Bold')
          .fillColor('#dc2626')
-         .text(String(data.totalCancelled || 0), rightCol, y + 105)
+         .text(String(data.totalCancelled || 0), rightCol + 92, y + 76)
 
-      y += 140
-
-      // Divider
-      doc.strokeColor(colors.border)
-         .lineWidth(1)
-         .moveTo(margin, y)
-         .lineTo(pageWidth - margin, y)
-         .stroke()
-      y += 30
+      y += infoHeight + 22
 
       // === PAYMENT SUMMARY ===
       doc.fontSize(12)
@@ -204,7 +230,7 @@ export async function generateAgentCommissionReceiptPDF(data) {
       y += 25
 
       // Summary box with amounts
-      const boxHeight = 150
+      const boxHeight = 124
       doc.roundedRect(margin, y, contentWidth, boxHeight, 10)
          .fillAndStroke(colors.lightBg, colors.border)
 
@@ -216,7 +242,7 @@ export async function generateAgentCommissionReceiptPDF(data) {
          .font('Helvetica')
          .fillColor(colors.muted)
          .text('Amount (AED)', margin + boxPadding, boxY)
-      doc.fontSize(24)
+      doc.fontSize(20)
          .font('Helvetica-Bold')
          .fillColor(colors.accent)
          .text(formatCurrency(data.amountAED || 0, 'AED'), margin + boxPadding, boxY + 15)
@@ -226,7 +252,7 @@ export async function generateAgentCommissionReceiptPDF(data) {
          .font('Helvetica')
          .fillColor(colors.muted)
          .text('Amount (PKR)', rightCol + boxPadding, boxY)
-      doc.fontSize(24)
+      doc.fontSize(20)
          .font('Helvetica-Bold')
          .fillColor(colors.success)
          .text(formatCurrency(data.amountPKR || 0, 'PKR'), rightCol + boxPadding, boxY + 15)
@@ -249,11 +275,11 @@ export async function generateAgentCommissionReceiptPDF(data) {
          .fillColor(colors.accent)
          .text(formatCurrency(data.deliveredOrderValueAED || 0, 'AED'), rightCol + boxPadding, boxY + 76)
 
-      y += boxHeight + 10
+      y += boxHeight + 8
       doc.fontSize(9)
          .font('Helvetica')
          .fillColor(colors.muted)
-         .text(`This closing includes ${Number(data.totalDelivered || 0)} delivered orders with editable per-order PKR commission values.`, margin, y, {
+         .text(`This closing includes ${Number(data.totalDelivered || 0)} delivered orders and ${Number(data.totalCancelled || 0)} cancelled orders.`, margin, y, {
            width: contentWidth,
            align: 'center'
          })
@@ -264,42 +290,61 @@ export async function generateAgentCommissionReceiptPDF(data) {
         doc.fontSize(12)
            .font('Helvetica-Bold')
            .fillColor(colors.accent)
-           .text('DELIVERED ORDERS BREAKDOWN', margin, y)
-        y += 25
+           .text('ORDER BREAKDOWN', margin, y)
+        y += 20
 
         // Table header
         const col1X = margin
-        const col2X = margin + 220
-        const col3X = margin + 320
-        const col4X = margin + 410
+        const col2X = margin + 150
+        const col3X = margin + 270
+        const col4X = margin + 370
+        const col5X = margin + 455
 
-        doc.roundedRect(margin, y, contentWidth, 35, 5)
+        doc.roundedRect(margin, y, contentWidth, 34, 5)
            .fill(colors.primary)
 
         doc.fontSize(10)
            .font('Helvetica-Bold')
            .fillColor('#ffffff')
-           .text('ORDER / PRODUCT', col1X + 15, y + 12)
-           .text('DATE', col2X + 15, y + 12)
-           .text('PRICE', col3X + 15, y + 12)
-           .text('COMMISSION', col4X + 15, y + 12)
+           .text('ORDER NUMBER', col1X + 16, y + 11)
+           .text('DATE', col2X + 10, y + 11)
+           .text('STATUS', col3X + 10, y + 11)
+           .text('PRICE', col4X + 10, y + 11)
+           .text('COMMISSION', col5X + 4, y + 11)
 
-        y += 35
+        y += 34
 
         // Table rows (show all orders)
         const displayOrders = data.orders
-        const rowHeight = 48
+        const rowHeight = 34
 
         displayOrders.forEach((order, index) => {
           // Check if we need a new page
-          if (y + rowHeight + 120 > pageHeight - margin) {
+          if (y + rowHeight + 40 > pageHeight - margin) {
             doc.addPage()
             
             // Add blue accent bar on new page
             doc.rect(0, 0, pageWidth, 6)
                .fill(colors.accent)
             
-            y = margin + 20
+            y = margin + 18
+
+            doc.fontSize(12)
+               .font('Helvetica-Bold')
+               .fillColor(colors.accent)
+               .text('ORDER BREAKDOWN', margin, y)
+            y += 20
+            doc.roundedRect(margin, y, contentWidth, 34, 5)
+               .fill(colors.primary)
+            doc.fontSize(10)
+               .font('Helvetica-Bold')
+               .fillColor('#ffffff')
+               .text('ORDER NUMBER', col1X + 16, y + 11)
+               .text('DATE', col2X + 10, y + 11)
+               .text('STATUS', col3X + 10, y + 11)
+               .text('PRICE', col4X + 10, y + 11)
+               .text('COMMISSION', col5X + 4, y + 11)
+            y += 34
           }
 
           // Alternating row background
@@ -322,95 +367,49 @@ export async function generateAgentCommissionReceiptPDF(data) {
           doc.fontSize(10)
              .font('Helvetica-Bold')
              .fillColor(colors.secondary)
-             .text(order.orderId || 'N/A', col1X + 15, y + 12, {
-               width: 190,
-               ellipsis: true
-             })
-          doc.fontSize(8)
-             .font('Helvetica')
-             .fillColor(colors.muted)
-             .text(order.productName || '-', col1X + 15, y + 28, {
-               width: 190,
+             .text(order.orderId || 'N/A', col1X + 16, y + 11, {
+               width: 118,
                ellipsis: true
              })
 
           // Date
-          const orderDate = order.date
-            ? new Date(order.date).toLocaleDateString('en-US', {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric'
-              })
-            : 'N/A'
+          const orderDate = formatDateTime(order.date, false)
 
-          doc.fontSize(10)
+          doc.fontSize(9)
              .font('Helvetica')
              .fillColor(colors.muted)
-             .text(orderDate, col2X + 15, y + 12, { width: 90 })
+             .text(orderDate, col2X + 10, y + 11, { width: 92 })
+
+          const orderStatus = statusMeta(order.status)
+          doc.fontSize(9)
+             .font('Helvetica-Bold')
+             .fillColor(orderStatus.color)
+             .text(orderStatus.label, col3X + 10, y + 11, { width: 80 })
 
           // Price
-          doc.fontSize(11)
+          doc.fontSize(10)
              .font('Helvetica-Bold')
              .fillColor(colors.secondary)
-             .text(formatCurrency(order.amount || 0, order.currency || 'AED'), col3X + 15, y + 12, { width: 90 })
+             .text(formatCurrency(order.amount || 0, order.currency || 'AED'), col4X + 10, y + 11, { width: 78 })
 
           // Commission
-          doc.fontSize(11)
+          doc.fontSize(10)
              .font('Helvetica-Bold')
-             .fillColor(colors.success)
-             .text(formatCurrency(order.commission || 0, order.commissionCurrency || 'PKR'), col4X + 15, y + 12, { width: 90 })
+             .fillColor(orderStatus.label === 'Cancelled' ? colors.muted : colors.success)
+             .text(formatCurrency(order.commission || 0, order.commissionCurrency || 'PKR'), col5X + 4, y + 11, { width: 74 })
 
           y += rowHeight
         })
       }
 
       // === ELITE FOOTER ===
-      const footerY = pageHeight - 120
+      const footerY = pageHeight - 54
+      y = Math.min(Math.max(y + 12, footerY), footerY)
 
-      if (y < footerY - 30) {
-        y = footerY
-      } else {
-        doc.addPage()
-        
-        // Add blue accent bar on new page
-        doc.rect(0, 0, pageWidth, 6)
-           .fill(colors.accent)
-        
-        y = margin + 20
-      }
-
-      // Elite thank you section
-      doc.roundedRect(margin, y, contentWidth, 90, 12)
-         .lineWidth(2)
-         .strokeOpacity(0.1)
-         .fillAndStroke(colors.lightBg, colors.border)
-      
-      // Blue accent at top
-      doc.roundedRect(margin, y, contentWidth, 5, 12)
-         .fill(colors.accent)
-      
-      y += 20
-
-      doc.fontSize(14)
-         .font('Helvetica-Bold')
-         .fillColor(colors.primary)
-         .text('Thank You for Your Hard Work!', margin, y, {
-           width: contentWidth,
-           align: 'center'
-         })
-
-      doc.fontSize(10)
+      doc.fontSize(9)
          .font('Helvetica')
          .fillColor(colors.muted)
-         .text('This commission has been successfully processed and paid.', margin, y + 25, {
-           width: contentWidth,
-           align: 'center'
-         })
-      
-      doc.fontSize(8)
-         .font('Helvetica')
-         .fillColor(colors.muted)
-         .text('BuySial Commerce', margin, y + 50, {
+         .text('BuySial Commerce', margin, y, {
            width: contentWidth,
            align: 'center'
          })
