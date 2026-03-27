@@ -371,18 +371,33 @@ export default function CartPage() {
       if (!alive) return
       // Merge payment method enabled/disabled settings
       const methods = methodSettings?.methods || {}
+      const isMethodEnabled = (key, fallback = false) => methods[key]?.enabled ?? fallback
       const mergedConfig = {
         ...cfg,
-        cod: { ...cfg.cod, enabled: methods.cod?.enabled ?? cfg.cod?.enabled ?? true },
-        stripe: { ...cfg.stripe, enabled: methods.stripe?.enabled ?? cfg.stripe?.enabled ?? false },
-        paypal: { ...cfg.paypal, enabled: methods.paypal?.enabled ?? cfg.paypal?.enabled ?? false },
-        applepay: { ...cfg.applepay, enabled: methods.applepay?.enabled ?? cfg.applepay?.enabled ?? false },
-        googlepay: { ...cfg.googlepay, enabled: methods.googlepay?.enabled ?? cfg.googlepay?.enabled ?? false }
+        cod: { ...cfg.cod, enabled: isMethodEnabled('cod', cfg.cod?.enabled ?? true) },
+        stripe: {
+          ...cfg.stripe,
+          enabled:
+            Boolean(cfg.stripe?.enabled && cfg.stripe?.publishableKey) &&
+            isMethodEnabled('stripe', true)
+        },
+        paypal: {
+          ...cfg.paypal,
+          enabled: Boolean(cfg.paypal?.enabled && cfg.paypal?.clientId) && isMethodEnabled('paypal', false)
+        },
+        applepay: {
+          ...cfg.applepay,
+          enabled: Boolean(cfg.applepay?.enabled) && isMethodEnabled('applepay', false)
+        },
+        googlepay: {
+          ...cfg.googlepay,
+          enabled: Boolean(cfg.googlepay?.enabled) && isMethodEnabled('googlepay', false)
+        }
       }
       setPaymentConfig(mergedConfig)
       // Load Stripe.js if enabled
-      if (mergedConfig.stripe?.enabled && cfg.stripe?.publishableKey) {
-        loadStripeJs(cfg.stripe.publishableKey)
+      if (mergedConfig.stripe?.enabled && mergedConfig.stripe?.publishableKey) {
+        loadStripeJs(mergedConfig.stripe.publishableKey)
       }
     })
     // Load maps API key
@@ -536,13 +551,22 @@ export default function CartPage() {
   const NO_COD_COUNTRIES = ['GB', 'UK']
   const isCodAvailable = !NO_COD_COUNTRIES.includes(selectedCountry.code)
   const displayCurrency = COUNTRY_TO_CURRENCY[selectedCountry.code] || 'SAR'
+  const isStripeAvailable = !!paymentConfig?.stripe?.enabled
+  const isPaypalAvailable = !!paymentConfig?.paypal?.enabled
+  const availablePaymentMethods = [
+    ...(isCodAvailable && paymentConfig?.cod?.enabled !== false ? ['cod'] : []),
+    ...(isStripeAvailable ? ['stripe'] : []),
+    ...(isPaypalAvailable ? ['paypal'] : []),
+    ...(isApplePayAvailable ? ['applepay'] : []),
+    ...(isGooglePayAvailable ? ['googlepay'] : []),
+  ]
   
-  // Auto-switch to stripe if COD not available and currently selected
+  // Keep payment method on a valid configured option
   useEffect(() => {
-    if (!isCodAvailable && paymentMethod === 'cod') {
-      setPaymentMethod('stripe')
+    if (!availablePaymentMethods.includes(paymentMethod)) {
+      setPaymentMethod(availablePaymentMethods[0] || 'cod')
     }
-  }, [isCodAvailable, paymentMethod])
+  }, [availablePaymentMethods, paymentMethod])
   const convertPrice = (value, fromCurrency, toCurrency) => fxConvert(value, fromCurrency || 'SAR', toCurrency || displayCurrency, ccyCfg)
   const formatPrice = (value, currency) => formatMoney(Number(value||0), currency || displayCurrency)
   const renderPrice = (value, currency, size) => <FormattedPrice amount={Number(value||0)} currency={currency || displayCurrency} size={size || 14} />
@@ -1449,7 +1473,7 @@ export default function CartPage() {
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#64748b', marginBottom: 10 }}>Payment Method</label>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {/* Cash on Delivery - Hidden for UK */}
-                    {isCodAvailable && (
+                    {isCodAvailable && paymentConfig?.cod?.enabled !== false && (
                       <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px', background: paymentMethod === 'cod' ? '#fff7ed' : '#f8fafc', border: paymentMethod === 'cod' ? '2px solid #f97316' : '1px solid #e2e8f0', borderRadius: 10, cursor: 'pointer' }}>
                         <input type="radio" name="payment" value="cod" checked={paymentMethod === 'cod'} onChange={() => setPaymentMethod('cod')} style={{ width: 16, height: 16, accentColor: '#f97316' }} />
                         <div style={{ width: 32, height: 32, borderRadius: 8, background: 'linear-gradient(135deg, #10b981, #059669)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -1463,6 +1487,7 @@ export default function CartPage() {
                     )}
 
                     {/* Stripe Card */}
+                    {isStripeAvailable && (
                     <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px', background: paymentMethod === 'stripe' ? '#fff7ed' : '#f8fafc', border: paymentMethod === 'stripe' ? '2px solid #f97316' : '1px solid #e2e8f0', borderRadius: 10, cursor: 'pointer' }}>
                       <input type="radio" name="payment" value="stripe" checked={paymentMethod === 'stripe'} onChange={() => setPaymentMethod('stripe')} style={{ width: 16, height: 16, accentColor: '#f97316' }} />
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
@@ -1475,9 +1500,10 @@ export default function CartPage() {
                         <div style={{ fontSize: 11, color: '#64748b' }}>Visa, Mastercard, Amex</div>
                       </div>
                     </label>
+                    )}
                     
                     {/* Stripe Card Element - Show when Stripe selected */}
-                    {paymentMethod === 'stripe' && (
+                    {isStripeAvailable && paymentMethod === 'stripe' && (
                       <div style={{ marginLeft: 26, padding: '16px', background: '#fafafa', borderRadius: 10, border: '1px solid #e2e8f0' }}>
                         <div style={{ marginBottom: 12 }}>
                           <label htmlFor="card-holder-name" style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 6, textTransform: 'uppercase' }}>Cardholder Name</label>
@@ -1522,6 +1548,7 @@ export default function CartPage() {
                     )}
 
                     {/* PayPal */}
+                    {isPaypalAvailable && (
                     <label style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px', background: paymentMethod === 'paypal' ? '#fff7ed' : '#f8fafc', border: paymentMethod === 'paypal' ? '2px solid #f97316' : '1px solid #e2e8f0', borderRadius: 10, cursor: 'pointer' }}>
                       <input type="radio" name="payment" value="paypal" checked={paymentMethod === 'paypal'} onChange={() => setPaymentMethod('paypal')} style={{ width: 16, height: 16, accentColor: '#f97316' }} />
                       <svg width="80" height="22" viewBox="0 0 80 22" style={{ flexShrink: 0 }}>
@@ -1534,9 +1561,10 @@ export default function CartPage() {
                         <div style={{ fontSize: 11, color: '#64748b' }}>Pay with PayPal account</div>
                       </div>
                     </label>
+                    )}
 
                     {/* PayPal Info Box - Shows when PayPal is selected */}
-                    {paymentMethod === 'paypal' && (
+                    {isPaypalAvailable && paymentMethod === 'paypal' && (
                       <div style={{ marginTop: 12, padding: 16, background: 'linear-gradient(135deg, #0070ba 0%, #003087 100%)', borderRadius: 12, color: 'white' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
                           <svg width="24" height="24" viewBox="0 0 24 24" fill="white">

@@ -2462,6 +2462,10 @@ router.get("/payments/config", async (req, res) => {
     // Stripe: check env first, then database
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY || val.stripeSecretKey;
     const stripePublishableKey = process.env.STRIPE_PUBLISHABLE_KEY || val.stripePublishableKey;
+    const stripeConfigured = !!(
+      String(stripeSecretKey || "").trim() &&
+      String(stripePublishableKey || "").trim()
+    );
     
     // PayPal: check database first, then env
     const paypalClientId = val.paypalClientId || process.env.PAYPAL_CLIENT_ID;
@@ -2480,7 +2484,7 @@ router.get("/payments/config", async (req, res) => {
     
     const config = {
       stripe: {
-        enabled: !!stripeSecretKey,
+        enabled: stripeConfigured,
         publishableKey: stripePublishableKey || null
       },
       paypal: {
