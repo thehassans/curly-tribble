@@ -818,6 +818,7 @@ function computeOrderGrossAmount(order) {
 function resolveOrderCurrency(order, fallback = "SAR") {
   return String(
     order?.currency ||
+      currencyFromCountry(order?.orderCountry || "") ||
       order?.baseCurrency ||
       order?.items?.[0]?.productId?.baseCurrency ||
       order?.productId?.baseCurrency ||
@@ -918,7 +919,7 @@ async function buildAgentClosingOrderData({ agentId, paidAt = new Date() }) {
       ...baseMatch,
       createdAt: { $lte: effectivePaidAt },
     },
-    "invoiceNumber invoiceId shipmentStatus createdAt updatedAt deliveredAt total grandTotal subTotal productId quantity items agentCommissionPKR"
+    "invoiceNumber invoiceId shipmentStatus createdAt updatedAt deliveredAt total grandTotal subTotal productId quantity items agentCommissionPKR orderCountry currency"
   )
     .populate("productId", "name price baseCurrency")
     .populate("items.productId", "name price baseCurrency")
@@ -929,7 +930,7 @@ async function buildAgentClosingOrderData({ agentId, paidAt = new Date() }) {
       shipmentStatus: { $in: ["cancelled", "returned"] },
       updatedAt: { $lte: effectivePaidAt },
     },
-    "invoiceNumber invoiceId shipmentStatus createdAt updatedAt deliveredAt total grandTotal subTotal productId quantity items agentCommissionPKR"
+    "invoiceNumber invoiceId shipmentStatus createdAt updatedAt deliveredAt total grandTotal subTotal productId quantity items agentCommissionPKR orderCountry currency"
   )
     .populate("productId", "name price baseCurrency")
     .populate("items.productId", "name price baseCurrency")
@@ -940,7 +941,7 @@ async function buildAgentClosingOrderData({ agentId, paidAt = new Date() }) {
       shipmentStatus: "delivered",
       deliveredAt: { $lte: effectivePaidAt },
     },
-    "invoiceNumber invoiceId deliveredAt updatedAt createdAt total grandTotal subTotal productId quantity items agentCommissionPKR"
+    "invoiceNumber invoiceId deliveredAt updatedAt createdAt total grandTotal subTotal productId quantity items agentCommissionPKR orderCountry currency"
   )
     .populate("productId", "name price baseCurrency")
     .populate("items.productId", "name price baseCurrency")
@@ -1052,7 +1053,7 @@ async function buildAgentClosingOrderDataFromStoredOrders({
     deliveredIds.length
       ? Order.find(
           { _id: { $in: deliveredIds } },
-          "invoiceNumber invoiceId deliveredAt updatedAt createdAt total grandTotal subTotal productId quantity items agentCommissionPKR"
+          "invoiceNumber invoiceId deliveredAt updatedAt createdAt total grandTotal subTotal productId quantity items agentCommissionPKR orderCountry currency"
         )
           .populate("productId", "name price baseCurrency")
           .populate("items.productId", "name price baseCurrency")
@@ -1061,7 +1062,7 @@ async function buildAgentClosingOrderDataFromStoredOrders({
     cancelledIds.length
       ? Order.find(
           { _id: { $in: cancelledIds } },
-          "invoiceNumber invoiceId shipmentStatus createdAt updatedAt total grandTotal subTotal productId quantity items agentCommissionPKR"
+          "invoiceNumber invoiceId shipmentStatus createdAt updatedAt total grandTotal subTotal productId quantity items agentCommissionPKR orderCountry currency"
         )
           .populate("productId", "name price baseCurrency")
           .populate("items.productId", "name price baseCurrency")
