@@ -90,6 +90,22 @@ export default function ProductDetail() {
     return c
   }
 
+  const partnerPurchasingCountries = useMemo(() => {
+    return Array.from(
+      new Set([
+        ...Object.keys(warehouseData?.stockLeft || {}),
+        ...Object.keys(product?.stockByCountry || {})
+      ].map((c) => normalizeStockCountryKey(c)).filter(Boolean))
+    )
+  }, [warehouseData?.stockLeft, product?.stockByCountry])
+
+  const defaultPartnerPricePerPiece = useMemo(() => {
+    const value = Number(product?.purchasePrice || 0)
+    return Number.isFinite(value) && value > 0 ? String(value) : ''
+  }, [product?.purchasePrice])
+
+  const defaultPartnerPurchasingCurrency = String(product?.baseCurrency || 'SAR')
+
   // Helper to resolve image URLs
   const resolveImageUrl = (imagePath) => {
     if (!imagePath) return '/placeholder-product.svg'
@@ -613,21 +629,53 @@ export default function ProductDetail() {
 
   useEffect(() => {
     if (!showPartnerPurchasing) return
-    setPartnerPurchasingDraft((prev) => {
-      const next = {}
-      for (const row of partnerPurchasing || []) {
-        const pid = String(row?.partnerId?._id || row?.partnerId || '')
-        const ck = String(row?.country || '')
-        if (!pid || !ck) continue
-        next[`${pid}-${ck}`] = {
-          stock: String(Number(row?.stock || 0)),
-          price: String(Number((row?.pricePerPiece ?? row?.price) || 0)),
-          currency: String(row?.currency || 'SAR')
+    const next = {}
+    for (const row of partnerPurchasing || []) {
+      const pid = String(row?.partnerId?._id || row?.partnerId || '')
+      const ck = String(row?.country || '')
+      if (!pid || !ck) continue
+      next[`${pid}-${ck}`] = {
+        stock: String(Number(row?.stock || 0)),
+        price: String(Number((row?.pricePerPiece ?? row?.price) || 0)),
+        currency: String(row?.currency || defaultPartnerPurchasingCurrency)
+      }
+    }
+    for (const partner of partners || []) {
+      const partnerId = String(partner?._id || '')
+      if (!partnerId) continue
+      for (const country of partnerPurchasingCountries) {
+        const key = `${partnerId}-${country}`
+        if (next[key]) continue
+        next[key] = {
+          stock: '',
+          price: defaultPartnerPricePerPiece,
+          currency: defaultPartnerPurchasingCurrency,
         }
       }
-      return next
-    })
-  }, [showPartnerPurchasing, partnerPurchasing])
+    }
+    setPartnerPurchasingDraft(next)
+  }, [
+    showPartnerPurchasing,
+    partnerPurchasing,
+    partners,
+    partnerPurchasingCountries,
+    defaultPartnerPricePerPiece,
+    defaultPartnerPurchasingCurrency,
+  ])
+
+  function updatePartnerPurchasingDraft(key, field, value) {
+    setPartnerPurchasingDraft((prev) => ({
+      ...prev,
+      [key]: {
+        ...(prev[key] || {
+          stock: '',
+          price: defaultPartnerPricePerPiece,
+          currency: defaultPartnerPurchasingCurrency,
+        }),
+        [field]: value,
+      },
+    }))
+  }
 
   async function setPartnerPurchasingAllocation(partnerId, country, data) {
     const key = `${partnerId}-${country}`
@@ -638,8 +686,8 @@ export default function ProductDetail() {
         partnerId,
         country,
         stock: Number(data.stock || 0),
-        pricePerPiece: Number(data.price || 0),
-        currency: data.currency || 'SAR'
+        pricePerPiece: Number(data.price || product?.purchasePrice || 0),
+        currency: data.currency || defaultPartnerPurchasingCurrency
       })
       toast.success('Partner purchasing updated')
       await loadPartnerPurchasing()
@@ -3453,26 +3501,14 @@ export default function ProductDetail() {
                     })
                     .map((partner) => {
                       const pName = `${partner.firstName || ''} ${partner.lastName || ''}`.trim() || partner.email
-                      
-                      let allCountriesForProduct = Array.from(
-                        new Set([
-                            ...Object.keys(warehouseData?.stockLeft || {}),
-                            ...Object.keys(product?.stockByCountry || {})
-                        ].map((c) => normalizeStockCountryKey(c)).filter(Boolean))
-                      )
 
-                      if (partner.assignedCountry || partner.country) {
-                        const pCountry = normalizeStockCountryKey(partner.assignedCountry || partner.country)
-                        allCountriesForProduct = [pCountry]
-                      }
-                      
-                      if (allCountriesForProduct.length === 0) return null
+                      if (partnerPurchasingCountries.length === 0) return null
                       
                       return (
                         <div key={partner._id} style={{ border: '1px solid rgba(15,23,42,0.1)', borderRadius: 16, background: '#fff', overflow: 'hidden' }}>
                           <div style={{ padding: 14, fontWeight: 950 }}>{pName}</div>
                           <div style={{ padding: 14, borderTop: '1px solid rgba(15,23,42,0.06)', display: 'grid', gap: 10 }}>
-                            {allCountriesForProduct.map((normalizedCountry) => {
+                            {partnerPurchasingCountries.map((normalizedCountry) => {
                                 const key = `${partner._id}-${normalizedCountry}`
                                 const stockItem = partnerPurchasing.find(s => 
                                   String(s.partnerId?._id || s.partnerId || '') === String(partner._id) && s.country === normalizedCountry
@@ -3480,26 +3516,25 @@ export default function ProductDetail() {
                                 const hasExistingAllocation = Boolean(stockItem)
                                 const currentStock = stockItem?.stock || 0
                                 const currentPrice = (stockItem?.pricePerPiece ?? stockItem?.price) || 0
-                                const currentCcy = stockItem?.currency || 'SAR'
-                                
+                                const currentCcy = stockItem?.currency || defaultPartnerPurchasingCurrency
                                 const draft = partnerPurchasingDraft[key] || {
                                   stock: hasExistingAllocation ? String(Number(currentStock)) : '',
-                                  price: hasExistingAllocation ? String(Number(currentPrice)) : '',
+                                  price: hasExistingAllocation ? String(Number(currentPrice)) : defaultPartnerPricePerPiece,
                                   currency: currentCcy,
                                 }
                                 const draftStock = String(draft.stock ?? '')
                                 const draftPrice = String(draft.price ?? '')
                                 const isChanged = hasExistingAllocation
                                   ? Number(draftStock || 0) !== Number(currentStock) || Number(draftPrice || 0) !== Number(currentPrice) || draft.currency !== currentCcy
-                                  : draftStock.trim() !== '' || draftPrice.trim() !== ''
+                                  : draftStock.trim() !== '' || Number(draftPrice || 0) !== Number(defaultPartnerPricePerPiece || 0) || draft.currency !== defaultPartnerPurchasingCurrency
                                 
                                 return (
                                   <div key={normalizedCountry} style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 12, background: '#f8fafc' }}>
                                     <div style={{ fontWeight: 600, marginBottom: 8 }}>{normalizedCountry} <span style={{fontSize: 12, fontWeight: 400, opacity: 0.7, marginLeft: 8}}>{hasExistingAllocation ? `(Current Stock: ${currentStock})` : '(No allocation yet)'}</span></div>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 1fr) minmax(80px, 1fr) 80px auto', gap: 8, alignItems: 'center' }}>
-                                      <input type="number" min="0" placeholder="Stock" value={draftStock} onChange={e => setPartnerPurchasingDraft(p => ({...p, [key]: {...(p[key]||draft), stock: e.target.value}}))} className="input" style={{ width: '100%' }} />
-                                      <input type="number" min="0" step="0.01" placeholder="Price" value={draftPrice} onChange={e => setPartnerPurchasingDraft(p => ({...p, [key]: {...(p[key]||draft), price: e.target.value}}))} className="input" style={{ width: '100%' }} />
-                                      <select className="input" value={draft.currency} onChange={e => setPartnerPurchasingDraft(p => ({...p, [key]: {...(p[key]||draft), currency: e.target.value}}))} style={{ width: '100%' }}>
+                                      <input type="number" min="0" placeholder="Stock" value={draftStock} onChange={e => updatePartnerPurchasingDraft(key, 'stock', e.target.value)} className="input" style={{ width: '100%' }} />
+                                      <input type="number" min="0" step="0.01" placeholder="Price per piece" value={draftPrice} onChange={e => updatePartnerPurchasingDraft(key, 'price', e.target.value)} className="input" style={{ width: '100%' }} />
+                                      <select className="input" value={draft.currency} onChange={e => updatePartnerPurchasingDraft(key, 'currency', e.target.value)} style={{ width: '100%' }}>
                                         <option value="SAR">SAR</option>
                                         <option value="AED">AED</option>
                                         <option value="USD">USD</option>
