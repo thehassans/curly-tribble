@@ -1201,19 +1201,34 @@ router.post("/admin/purchasing/add", auth, allowRoles("admin", "user"), async (r
     const product = await Product.findOne({ _id: productId, createdBy: ownerId });
     if (!product) return res.status(404).json({ message: "Product not found" });
 
-    // Validate warehouse stock
     if (!product.stockByCountry) product.stockByCountry = {};
-    const available = product.stockByCountry[country] || 0;
-    if (available < addStock) {
-      return res.status(400).json({ message: `Insufficient warehouse stock for ${country}. Available: ${available}` });
+    const stockCountryCandidates = Array.from(new Set(expandCountryVariants(country).flatMap((item) => [item, normalizeCountryKey(item)]).filter(Boolean)));
+    const availableByCountry = stockCountryCandidates.reduce((sum, key) => sum + Math.max(0, Number(product.stockByCountry?.[key] || 0)), 0);
+    if (availableByCountry < addStock) {
+      return res.status(400).json({ message: `Insufficient warehouse stock for ${country}. Available: ${availableByCountry}` });
     }
 
-    // Deduct from warehouse stock
-    product.stockByCountry[country] = available - addStock;
+    let remainingToDeduct = addStock;
+    const stockHistoryEntries = [];
+    for (const stockCountry of stockCountryCandidates) {
+      const available = Math.max(0, Number(product.stockByCountry?.[stockCountry] || 0));
+      if (available <= 0 || remainingToDeduct <= 0) continue;
+      const deductQty = Math.min(available, remainingToDeduct);
+      product.stockByCountry[stockCountry] = available - deductQty;
+      remainingToDeduct -= deductQty;
+      stockHistoryEntries.push({
+        country: stockCountry,
+        quantity: -deductQty,
+        notes: `Transferred to Partner: ${partner.firstName} ${partner.lastName || ''}`.trim(),
+        addedBy: req.user.id,
+        date: new Date()
+      });
+    }
     product.markModified('stockByCountry');
 
     let totalStock = 0;
-    Object.values(product.stockByCountry).forEach(val => {
+    const sbcJSON = typeof product.stockByCountry.toJSON === 'function' ? product.stockByCountry.toJSON() : product.stockByCountry;
+    Object.values(sbcJSON).forEach(val => {
       const num = Number(val);
       if (!isNaN(num) && isFinite(num)) {
         totalStock += num;
@@ -1222,15 +1237,8 @@ router.post("/admin/purchasing/add", auth, allowRoles("admin", "user"), async (r
     product.stockQty = Math.max(0, totalStock);
     product.inStock = product.stockQty > 0;
 
-    // Track history
     if (!product.stockHistory) product.stockHistory = [];
-    product.stockHistory.push({
-      country,
-      quantity: -addStock,
-      notes: `Transferred to Partner: ${partner.firstName} ${partner.lastName || ''}`.trim(),
-      addedBy: req.user.id,
-      date: new Date()
-    });
+    product.stockHistory.push(...stockHistoryEntries);
 
     await product.save();
 
