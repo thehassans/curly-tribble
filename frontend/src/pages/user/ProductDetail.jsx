@@ -14,22 +14,21 @@ function PartnerPurchasingRow({ partnerId, country, savedRow, defaultPrice, defa
   const [saving, setSaving] = React.useState(false)
 
   async function handleSave() {
-    if (!addStock || Number(addStock) <= 0) {
+    const stockNum = Number(addStock || 0)
+    if (stockNum <= 0) {
       toast.error('Enter a valid quantity to add');
       return;
     }
     setSaving(true)
     try {
-      await apiPost('/api/partners/admin/purchasing/add', {
-        productId,
+      await apiPost(`/api/products/${productId}/partner-purchasing/set`, {
         partnerId,
         country,
-        addStock: Number(addStock || 0),
+        stock: stockNum,
         pricePerPiece: Number(price || defaultPrice || 0),
         currency: currency || defaultCurrency || 'SAR',
       })
       toast.success('Stock assigned')
-      setAddStock('')
       onRefresh()
     } catch (err) {
       toast.error(err?.message || 'Failed to save')
@@ -48,14 +47,14 @@ function PartnerPurchasingRow({ partnerId, country, savedRow, defaultPrice, defa
       </div>
       <div style={{ display: 'flex', gap: 6 }}>
         <input
-          type="number" min="1" placeholder="Add Stock"
+          type="number" min="1" placeholder="Qty to Add" title="Quantity to Add"
           value={addStock}
           onChange={e => setAddStock(e.target.value)}
           className="input"
-          style={{ flex: 1, minHeight: 38 }}
+          style={{ flex: 1, minHeight: 38, border: '1px solid #3b82f6', background: '#eff6ff' }}
         />
         <input
-          type="number" min="0" step="0.01" placeholder="Price/pc"
+          type="number" min="0" step="0.01" placeholder="Price/pc" title="Price per piece"
           value={price}
           onChange={e => setPrice(e.target.value)}
           className="input"
@@ -675,8 +674,8 @@ export default function ProductDetail() {
     setLoadingPartnerPurchasing(true)
     try {
       const [partnersRes, purRes] = await Promise.all([
-        apiGet('/api/partners/admin/list'),
-        apiGet(`/api/partners/admin/purchasing?productId=${encodeURIComponent(id)}`)
+        apiGet('/api/partners/admin/list', { skipCache: true }),
+        apiGet(`/api/partners/admin/purchasing?productId=${encodeURIComponent(id)}`, { skipCache: true })
       ])
       setPartners(Array.isArray(partnersRes?.users) ? partnersRes.users : [])
       setPartnerPurchasing(Array.isArray(purRes?.rows) ? purRes.rows : [])
