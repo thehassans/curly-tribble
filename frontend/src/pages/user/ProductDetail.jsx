@@ -104,7 +104,7 @@ export default function ProductDetail() {
     return Number.isFinite(value) && value > 0 ? String(value) : ''
   }, [product?.purchasePrice])
 
-  const defaultPartnerPurchasingCurrency = String(product?.baseCurrency || 'SAR')
+  const defaultPartnerPurchasingCurrency = useMemo(() => String(product?.baseCurrency || 'SAR'), [product?.baseCurrency])
 
   const getPartnerAssignedCountries = (partner) => {
     const values = Array.isArray(partner?.assignedCountries) && partner.assignedCountries.length
