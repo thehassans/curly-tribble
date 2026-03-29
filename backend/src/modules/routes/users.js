@@ -45,6 +45,31 @@ import {
 const router = Router();
 const TOTAL_AMOUNT_SNAPSHOT_VERSION = LIVE_TOTAL_AMOUNT_SNAPSHOT_VERSION;
 
+router.get("/partners", auth, allowRoles("admin", "user"), async (req, res) => {
+  try {
+    const ownerId = req.user.role === "user"
+      ? String(req.user.id)
+      : String(req.query?.ownerId || req.body?.ownerId || "").trim();
+    if (!ownerId || !mongoose.Types.ObjectId.isValid(ownerId)) {
+      return res.status(400).json({ message: "ownerId required" });
+    }
+    const q = String(req.query.q || "").trim();
+    const match = { role: "partner", createdBy: ownerId };
+    if (q) {
+      const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const rx = new RegExp(safe, "i");
+      match.$or = [{ firstName: rx }, { lastName: rx }, { email: rx }, { phone: rx }, { assignedCountry: rx }];
+    }
+    const users = await User.find(match)
+      .select("firstName lastName email phone assignedCountry country createdAt")
+      .sort({ createdAt: -1 })
+      .lean();
+    return res.json({ users });
+  } catch (error) {
+    return res.status(500).json({ message: "Failed to load partners", error: error.message });
+  }
+});
+
 function defaultPerAED() {
   return {
     AED: 1,

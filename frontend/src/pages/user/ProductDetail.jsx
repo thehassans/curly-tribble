@@ -596,11 +596,11 @@ export default function ProductDetail() {
     setLoadingPartnerPurchasing(true)
     try {
       const [partnersRes, purRes] = await Promise.all([
-        apiGet('/api/users/partners'),
-        apiGet(`/api/products/${id}/partner-purchasing`)
+        apiGet('/api/partners/admin/list'),
+        apiGet(`/api/partners/admin/purchasing?productId=${encodeURIComponent(id)}`)
       ])
       setPartners(Array.isArray(partnersRes?.users) ? partnersRes.users : [])
-      setPartnerPurchasing(Array.isArray(purRes?.records) ? purRes.records : [])
+      setPartnerPurchasing(Array.isArray(purRes?.rows) ? purRes.rows : [])
     } catch (err) {
       console.error('Failed to load partner purchasing:', err)
       toast.error('Failed to load partner purchasing')
@@ -622,7 +622,7 @@ export default function ProductDetail() {
         if (!pid || !ck) continue
         next[`${pid}-${ck}`] = {
           stock: String(Number(row?.stock || 0)),
-          price: String(Number(row?.price || 0)),
+          price: String(Number(row?.pricePerPiece ?? row?.price || 0)),
           currency: String(row?.currency || 'SAR')
         }
       }
@@ -634,11 +634,12 @@ export default function ProductDetail() {
     const key = `${partnerId}-${country}`
     setSettingPartnerPurchasing(prev => ({ ...prev, [key]: true }))
     try {
-      await apiPost(`/api/products/${id}/partner-purchasing/set`, {
+      await apiPost(`/api/partners/admin/purchasing/set`, {
+        productId: id,
         partnerId,
         country,
         stock: Number(data.stock || 0),
-        price: Number(data.price || 0),
+        pricePerPiece: Number(data.price || 0),
         currency: data.currency || 'SAR'
       })
       toast.success('Partner purchasing updated')
@@ -3473,7 +3474,7 @@ export default function ProductDetail() {
                                   String(s.partnerId?._id || s.partnerId || '') === String(partner._id) && s.country === normalizedCountry
                                 )
                                 const currentStock = stockItem?.stock || 0
-                                const currentPrice = stockItem?.price || 0
+                                const currentPrice = stockItem?.pricePerPiece ?? stockItem?.price || 0
                                 const currentCcy = stockItem?.currency || 'SAR'
                                 
                                 const draft = partnerPurchasingDraft[key] || { stock: currentStock, price: currentPrice, currency: currentCcy }

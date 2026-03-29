@@ -2422,11 +2422,40 @@ router.post('/migrate/total-purchased', auth, allowRoles('admin'), async (req, r
   }
 })
 
+// Legacy owner read for partner purchasing baseline
+router.get('/:id/partner-purchasing', auth, allowRoles('admin', 'user'), async (req, res) => {
+  try {
+    const productId = req.params.id
+    const product = await Product.findById(productId).select('_id createdBy').lean()
+    if (!product) {
+      return res.status(404).json({ message: 'Product not found' })
+    }
+    if (req.user.role !== 'admin' && String(product.createdBy || '') !== String(req.user.id || '')) {
+      return res.status(404).json({ message: 'Product not found or not owned by you' })
+    }
+
+    const rows = await PartnerPurchasing.find({ ownerId: product.createdBy, productId })
+      .populate('partnerId', 'firstName lastName email phone assignedCountry')
+      .sort({ updatedAt: -1 })
+      .lean()
+
+    const records = rows.map((row) => ({
+      ...row,
+      price: Number(row?.pricePerPiece || 0),
+    }))
+
+    res.json({ records })
+  } catch (error) {
+    console.error('Failed to load partner purchasing:', error)
+    res.status(500).json({ message: 'Failed to load partner purchasing', error: error.message })
+  }
+})
+
 // Owner sets partner purchasing baseline
 router.post('/:id/partner-purchasing/set', auth, allowRoles('admin', 'user'), async (req, res) => {
   try {
     const productId = req.params.id
-    const { partnerId, country, pricePerPiece, stock, currency } = req.body
+    const { partnerId, country, pricePerPiece, price, stock, currency } = req.body
 
     if (!partnerId || !country) {
       return res.status(400).json({ message: 'partnerId and country are required' })
@@ -2449,7 +2478,7 @@ router.post('/:id/partner-purchasing/set', auth, allowRoles('admin', 'user'), as
       {
         $set: {
           stock: Number(stock || 0),
-          pricePerPiece: Number(pricePerPiece || 0),
+          pricePerPiece: Number(pricePerPiece ?? price ?? 0),
           currency: String(currency || 'SAR'),
           updatedBy: req.user.id,
         }
