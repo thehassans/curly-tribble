@@ -76,7 +76,7 @@ export default function ProductDetail() {
     const u = c.toUpperCase()
     if (u === 'UAE' || u === 'UNITED ARAB EMIRATES' || u === 'AE') return 'UAE'
     if (u === 'OMAN' || u === 'OM') return 'Oman'
-    if (u === 'KSA' || u === 'SAUDI ARABIA' || u === 'SA') return 'KSA'
+    if (u === 'KSA' || u === 'SAUDI ARABIA' || u === 'SA' || u === 'SAUDIA') return 'KSA'
     if (u === 'BAHRAIN' || u === 'BH') return 'Bahrain'
     if (u === 'INDIA' || u === 'IN') return 'India'
     if (u === 'KUWAIT' || u === 'KW') return 'Kuwait'
@@ -3455,12 +3455,17 @@ export default function ProductDetail() {
                     .map((partner) => {
                       const pName = `${partner.firstName || ''} ${partner.lastName || ''}`.trim() || partner.email
                       
-                      const allCountriesForProduct = Array.from(
+                      let allCountriesForProduct = Array.from(
                         new Set([
                             ...Object.keys(warehouseData?.stockLeft || {}),
                             ...Object.keys(product?.stockByCountry || {})
                         ].map((c) => normalizeStockCountryKey(c)).filter(Boolean))
                       )
+
+                      if (partner.assignedCountry || partner.country) {
+                        const pCountry = normalizeStockCountryKey(partner.assignedCountry || partner.country)
+                        allCountriesForProduct = [pCountry]
+                      }
                       
                       if (allCountriesForProduct.length === 0) return null
                       
