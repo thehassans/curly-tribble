@@ -21,15 +21,17 @@ function PartnerPurchasingRow({ partnerId, country, savedRow, defaultPrice, defa
     }
     setSaving(true)
     try {
-      await apiPost(`/api/products/${productId}/partner-purchasing/set`, {
+      await apiPost('/api/partners/admin/purchasing/add', {
+        productId,
         partnerId,
         country,
-        stock: stockNum,
+        addStock: stockNum,
         pricePerPiece: Number(price || defaultPrice || 0),
         currency: currency || defaultCurrency || 'SAR',
       })
-      toast.success('Stock assigned')
-      onRefresh()
+      toast.success('Stock added to partner')
+      setAddStock('')
+      await onRefresh()
     } catch (err) {
       toast.error(err?.message || 'Failed to save')
     } finally {
@@ -166,6 +168,12 @@ export default function ProductDetail() {
     if (u === 'AUSTRALIA' || u === 'AU') return 'Australia'
     return c
   }
+
+  useEffect(() => {
+    if (!showPartnerPurchasing) return
+    setPartnerPurchasingSearch('')
+    loadPartnerPurchasing()
+  }, [showPartnerPurchasing, id])
 
 
   // Helper to resolve image URLs
@@ -689,6 +697,40 @@ export default function ProductDetail() {
     }
   }
 
+  const partnerPurchasingRowsByKey = useMemo(() => {
+    const next = {}
+    for (const row of partnerPurchasing || []) {
+      const partnerIdKey = String(row?.partnerId?._id || row?.partnerId || '')
+      const countryKey = normalizeStockCountryKey(String(row?.country || ''))
+      if (!partnerIdKey || !countryKey) continue
+      next[`${partnerIdKey}-${countryKey}`] = row
+    }
+    return next
+  }, [partnerPurchasing])
+
+  const visiblePartnerPurchasingItems = useMemo(() => {
+    const q = String(partnerPurchasingSearch || '').trim().toLowerCase()
+    return (partners || [])
+      .map((partner) => {
+        const pName = `${partner?.firstName || ''} ${partner?.lastName || ''}`.trim() || partner?.email || 'Partner'
+        const email = String(partner?.email || '').toLowerCase()
+        const rawCountries = Array.isArray(partner?.assignedCountries) && partner.assignedCountries.length
+          ? partner.assignedCountries
+          : [partner?.assignedCountry || partner?.country].filter(Boolean)
+        const countries = Array.from(new Set(rawCountries.map((country) => normalizeStockCountryKey(country)).filter(Boolean)))
+        return { partner, pName, email, countries }
+      })
+      .filter(({ pName, email, countries }) => {
+        if (!countries.length) return false
+        if (!q) return true
+        return pName.toLowerCase().includes(q) || email.includes(q)
+      })
+  }, [partners, partnerPurchasingSearch])
+
+  async function refreshPartnerPurchasingView() {
+    await Promise.all([loadPartnerPurchasing(), loadProductAndOrders()])
+  }
+
   async function loadCurrencyRates() {
     try {
       const data = await apiGet('/api/settings/currency')
@@ -1147,11 +1189,7 @@ export default function ProductDetail() {
           </button>
           <button
             className="btn secondary"
-            onClick={() => {
-              setShowPartnerPurchasing(true)
-              setPartnerPurchasingSearch('')
-              loadPartnerPurchasing()
-            }}
+            onClick={() => setShowPartnerPurchasing(true)}
             style={{ padding: '10px 20px', background: '#111827', color: 'white', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
           >
             Partner Purchasing
@@ -3406,100 +3444,62 @@ export default function ProductDetail() {
           </div>
         </div>
         {/* Partner Purchasing Modal */}
-      {showPartnerPurchasing && (
-        <div
-          onMouseDown={() => setShowPartnerPurchasing(false)}
-          style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            background: 'rgba(0,0,0,0.45)',
-            zIndex: 9999,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            padding: 16,
-          }}
-        >
-          <div
-            onMouseDown={e => e.stopPropagation()}
-            style={{
-              background: '#fff', borderRadius: 16,
-              width: '100%', maxWidth: 480, maxHeight: '85vh',
-              display: 'flex', flexDirection: 'column',
-              boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
-            }}
-          >
-            <div style={{ padding: '16px 20px', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <div>
-                <div style={{ fontWeight: 800, fontSize: 18, color: '#0f172a' }}>Assign Stock to Partners</div>
-                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Set stock per partner &amp; country</div>
-              </div>
-              <button
-                onClick={() => setShowPartnerPurchasing(false)}
-                style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 8, width: 34, height: 34, cursor: 'pointer', fontSize: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#374151', flexShrink: 0 }}
-              >×</button>
-            </div>
-            <div style={{ padding: '10px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 8 }}>
-              <input
-                className="input"
-                type="text"
-                placeholder="Search partners..."
-                value={partnerPurchasingSearch}
-                onChange={e => setPartnerPurchasingSearch(e.target.value)}
-                style={{ flex: 1, minHeight: 38 }}
-              />
-              <button
-                className="btn"
-                onClick={loadPartnerPurchasing}
-                disabled={loadingPartnerPurchasing}
-                style={{ minHeight: 38, padding: '0 16px', fontWeight: 700 }}
-              >{loadingPartnerPurchasing ? '...' : 'Refresh'}</button>
-            </div>
-            <div style={{ overflowY: 'auto', flex: 1, padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {loadingPartnerPurchasing ? (
-                <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>Loading...</div>
-              ) : partners.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>No partners found</div>
-              ) : partners
-                  .filter(p => {
-                    const q = partnerPurchasingSearch.trim().toLowerCase()
-                    if (!q) return true
-                    const name = `${p.firstName || ''} ${p.lastName || ''}`.toLowerCase()
-                    return name.includes(q) || (p.email || '').toLowerCase().includes(q)
-                  })
-                  .map(partner => {
-                    const pName = `${partner.firstName || ''} ${partner.lastName || ''}`.trim() || partner.email
-                    const rawCountries = Array.isArray(partner.assignedCountries) && partner.assignedCountries.length
-                      ? partner.assignedCountries
-                      : [partner.assignedCountry || partner.country].filter(Boolean)
-                    const countries = [...new Set(rawCountries.map(c => normalizeStockCountryKey(c)).filter(Boolean))]
-                    if (countries.length === 0) return null
+      <Modal
+        title="Assign Stock to Partners"
+        open={showPartnerPurchasing}
+        onClose={() => setShowPartnerPurchasing(false)}
+        maxWidth="560px"
+        bodyStyle={{ padding: 0 }}
+        footerStyle={{ display: 'none' }}
+      >
+        <div style={{ display: 'grid', gridTemplateRows: 'auto 1fr', maxHeight: '75vh' }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9', display: 'flex', gap: 8 }}>
+            <input
+              className="input"
+              type="text"
+              placeholder="Search partners..."
+              value={partnerPurchasingSearch}
+              onChange={(e) => setPartnerPurchasingSearch(e.target.value)}
+              style={{ flex: 1, minHeight: 38 }}
+            />
+            <button
+              className="btn"
+              onClick={loadPartnerPurchasing}
+              disabled={loadingPartnerPurchasing}
+              style={{ minHeight: 38, padding: '0 16px', fontWeight: 700 }}
+            >{loadingPartnerPurchasing ? '...' : 'Refresh'}</button>
+          </div>
+
+          <div style={{ overflowY: 'auto', padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {loadingPartnerPurchasing ? (
+              <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>Loading...</div>
+            ) : visiblePartnerPurchasingItems.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>No partners found</div>
+            ) : (
+              visiblePartnerPurchasingItems.map(({ partner, pName, countries }) => (
+                <div key={partner._id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
+                  <div style={{ padding: '10px 14px', fontWeight: 700, fontSize: 14, background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>{pName}</div>
+                  {countries.map((country) => {
+                    const saved = partnerPurchasingRowsByKey[`${partner._id}-${country}`]
                     return (
-                      <div key={partner._id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, overflow: 'hidden' }}>
-                        <div style={{ padding: '10px 14px', fontWeight: 700, fontSize: 14, background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>{pName}</div>
-                        {countries.map(country => {
-                          const saved = partnerPurchasing.find(r =>
-                            String(r.partnerId?._id || r.partnerId) === String(partner._id) &&
-                            normalizeStockCountryKey(String(r.country || '')) === country
-                          )
-                          return (
-                            <PartnerPurchasingRow
-                              key={`${partner._id}-${country}-${saved?._id || 'new'}`}
-                              partnerId={String(partner._id)}
-                              country={country}
-                              savedRow={saved}
-                              defaultPrice={String(Number(product?.purchasePrice || 0) || '')}
-                              defaultCurrency={product?.baseCurrency || 'SAR'}
-                              productId={id}
-                              onRefresh={loadPartnerPurchasing}
-                            />
-                          )
-                        })}
-                      </div>
+                      <PartnerPurchasingRow
+                        key={`${partner._id}-${country}-${saved?._id || 'new'}`}
+                        partnerId={String(partner._id)}
+                        country={country}
+                        savedRow={saved}
+                        defaultPrice={String(Number(product?.purchasePrice || 0) || '')}
+                        defaultCurrency={product?.baseCurrency || 'SAR'}
+                        productId={id}
+                        onRefresh={refreshPartnerPurchasingView}
+                      />
                     )
-                  })
-              }
-            </div>
+                  })}
+                </div>
+              ))
+            )}
           </div>
         </div>
-      )}
+      </Modal>
     </div>
     </div>
   )
