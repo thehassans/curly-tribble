@@ -61,7 +61,7 @@ router.get("/partners", auth, allowRoles("admin", "user"), async (req, res) => {
       match.$or = [{ firstName: rx }, { lastName: rx }, { email: rx }, { phone: rx }, { assignedCountry: rx }];
     }
     const users = await User.find(match)
-      .select("firstName lastName email phone assignedCountry country createdAt")
+      .select("firstName lastName email phone assignedCountry assignedCountries country createdAt")
       .sort({ createdAt: -1 })
       .lean();
     return res.json({ users });

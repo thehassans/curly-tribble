@@ -106,6 +106,13 @@ export default function ProductDetail() {
 
   const defaultPartnerPurchasingCurrency = String(product?.baseCurrency || 'SAR')
 
+  const getPartnerAssignedCountries = (partner) => {
+    const values = Array.isArray(partner?.assignedCountries) && partner.assignedCountries.length
+      ? partner.assignedCountries
+      : [partner?.assignedCountry || partner?.country].filter(Boolean)
+    return Array.from(new Set(values.map((c) => normalizeStockCountryKey(c)).filter(Boolean)))
+  }
+
   // Helper to resolve image URLs
   const resolveImageUrl = (imagePath) => {
     if (!imagePath) return '/placeholder-product.svg'
@@ -643,7 +650,8 @@ export default function ProductDetail() {
     for (const partner of partners || []) {
       const partnerId = String(partner?._id || '')
       if (!partnerId) continue
-      for (const country of partnerPurchasingCountries) {
+      const visibleCountries = partnerPurchasingCountries.filter((country) => getPartnerAssignedCountries(partner).includes(country))
+      for (const country of visibleCountries) {
         const key = `${partnerId}-${country}`
         if (next[key]) continue
         next[key] = {
@@ -3430,16 +3438,16 @@ export default function ProductDetail() {
             alignItems: 'center',
             justifyContent: 'center',
             zIndex: 1000,
-            padding: 20
+            padding: 12
           }}
           onClick={() => setShowPartnerPurchasing(false)}
         >
           <div
             className="card"
             style={{
-              maxWidth: 600,
+              maxWidth: 520,
               width: '100%',
-              maxHeight: '85vh',
+              maxHeight: '88vh',
               display: 'flex',
               flexDirection: 'column',
               padding: 0,
@@ -3450,11 +3458,11 @@ export default function ProductDetail() {
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ padding: '24px 24px 20px', background: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ padding: '18px 18px 14px', background: '#fff', borderBottom: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <h2 style={{ fontSize: 24, fontWeight: 950, margin: 0, color: '#0f172a', letterSpacing: '-0.02em' }}>Partner Purchasing</h2>
-                  <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>Allocate stock and pricing to partners.</div>
+                  <h2 style={{ fontSize: 22, fontWeight: 900, margin: 0, color: '#0f172a', letterSpacing: '-0.02em' }}>Partner Purchasing</h2>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 4 }}>Only the partner&apos;s assigned country is shown.</div>
                 </div>
                 <button
                   className="btn secondary"
@@ -3464,33 +3472,33 @@ export default function ProductDetail() {
                   ✕
                 </button>
               </div>
-              <div style={{ display: 'flex', gap: 12 }}>
+              <div style={{ display: 'flex', gap: 10 }}>
                 <input
                   type="text"
                   className="input"
                   value={partnerPurchasingSearch}
                   onChange={(e) => setPartnerPurchasingSearch(e.target.value)}
                   placeholder="Search partners"
-                  style={{ flex: 1, minWidth: 0, borderRadius: 12 }}
+                  style={{ flex: 1, minWidth: 0, borderRadius: 10, minHeight: 40 }}
                 />
                 <button
                   className="btn"
                   onClick={loadPartnerPurchasing}
                   disabled={loadingPartnerPurchasing}
-                  style={{ padding: '10px 14px', borderRadius: 12, fontWeight: 800 }}
+                  style={{ padding: '10px 14px', borderRadius: 10, fontWeight: 800, minWidth: 84 }}
                 >
                   {loadingPartnerPurchasing ? '...' : 'Refresh'}
                 </button>
               </div>
             </div>
 
-            <div style={{ padding: 16, overflowY: 'auto' }}>
+            <div style={{ padding: 12, overflowY: 'auto' }}>
               {loadingPartnerPurchasing ? (
                 <div style={{ textAlign: 'center', padding: '44px 0', opacity: 0.6 }}>Loading partners...</div>
               ) : partners.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '44px 0', opacity: 0.6 }}>No partners found</div>
               ) : (
-                <div style={{ display: 'grid', gap: 12 }}>
+                <div style={{ display: 'grid', gap: 10 }}>
                   {partners
                     .filter((p) => {
                       const q = String(partnerPurchasingSearch || '').trim().toLowerCase()
@@ -3501,14 +3509,15 @@ export default function ProductDetail() {
                     })
                     .map((partner) => {
                       const pName = `${partner.firstName || ''} ${partner.lastName || ''}`.trim() || partner.email
+                      const visibleCountries = partnerPurchasingCountries.filter((country) => getPartnerAssignedCountries(partner).includes(country))
 
-                      if (partnerPurchasingCountries.length === 0) return null
+                      if (visibleCountries.length === 0) return null
                       
                       return (
-                        <div key={partner._id} style={{ border: '1px solid rgba(15,23,42,0.1)', borderRadius: 16, background: '#fff', overflow: 'hidden' }}>
-                          <div style={{ padding: 14, fontWeight: 950 }}>{pName}</div>
-                          <div style={{ padding: 14, borderTop: '1px solid rgba(15,23,42,0.06)', display: 'grid', gap: 10 }}>
-                            {partnerPurchasingCountries.map((normalizedCountry) => {
+                        <div key={partner._id} style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, background: '#fff', overflow: 'hidden' }}>
+                          <div style={{ padding: '12px 14px', fontWeight: 850, fontSize: 14, borderBottom: '1px solid rgba(15,23,42,0.06)' }}>{pName}</div>
+                          <div style={{ padding: 12, display: 'grid', gap: 8 }}>
+                            {visibleCountries.map((normalizedCountry) => {
                                 const key = `${partner._id}-${normalizedCountry}`
                                 const stockItem = partnerPurchasing.find(s => 
                                   String(s.partnerId?._id || s.partnerId || '') === String(partner._id) && s.country === normalizedCountry
@@ -3529,17 +3538,20 @@ export default function ProductDetail() {
                                   : draftStock.trim() !== '' || Number(draftPrice || 0) !== Number(defaultPartnerPricePerPiece || 0) || draft.currency !== defaultPartnerPurchasingCurrency
                                 
                                 return (
-                                  <div key={normalizedCountry} style={{ border: '1px solid rgba(15,23,42,0.08)', borderRadius: 14, padding: 12, background: '#f8fafc' }}>
-                                    <div style={{ fontWeight: 600, marginBottom: 8 }}>{normalizedCountry} <span style={{fontSize: 12, fontWeight: 400, opacity: 0.7, marginLeft: 8}}>{hasExistingAllocation ? `(Current Stock: ${currentStock})` : '(No allocation yet)'}</span></div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(80px, 1fr) minmax(80px, 1fr) 80px auto', gap: 8, alignItems: 'center' }}>
-                                      <input type="number" min="0" placeholder="Stock" value={draftStock} onChange={e => updatePartnerPurchasingDraft(key, 'stock', e.target.value)} className="input" style={{ width: '100%' }} />
-                                      <input type="number" min="0" step="0.01" placeholder="Price per piece" value={draftPrice} onChange={e => updatePartnerPurchasingDraft(key, 'price', e.target.value)} className="input" style={{ width: '100%' }} />
-                                      <select className="input" value={draft.currency} onChange={e => updatePartnerPurchasingDraft(key, 'currency', e.target.value)} style={{ width: '100%' }}>
+                                  <div key={normalizedCountry} style={{ border: '1px solid rgba(15,23,42,0.06)', borderRadius: 12, padding: 10, background: '#f8fafc' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', marginBottom: 8, flexWrap: 'wrap' }}>
+                                      <div style={{ fontWeight: 700, fontSize: 13 }}>{normalizedCountry}</div>
+                                      <div style={{ fontSize: 11, opacity: 0.65 }}>{hasExistingAllocation ? `Current stock: ${currentStock}` : 'No allocation yet'}</div>
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 78px 72px', gap: 8, alignItems: 'center' }}>
+                                      <input type="number" min="0" placeholder="Stock" value={draftStock} onChange={e => updatePartnerPurchasingDraft(key, 'stock', e.target.value)} className="input" style={{ width: '100%', minHeight: 40 }} />
+                                      <input type="number" min="0" step="0.01" placeholder="Per piece" value={draftPrice} onChange={e => updatePartnerPurchasingDraft(key, 'price', e.target.value)} className="input" style={{ width: '100%', minHeight: 40 }} />
+                                      <select className="input" value={draft.currency} onChange={e => updatePartnerPurchasingDraft(key, 'currency', e.target.value)} style={{ width: '100%', minHeight: 40 }}>
                                         <option value="SAR">SAR</option>
                                         <option value="AED">AED</option>
                                         <option value="USD">USD</option>
                                       </select>
-                                      <button className="btn success" onClick={() => setPartnerPurchasingAllocation(partner._id, normalizedCountry, draft)} disabled={settingPartnerPurchasing[key] || !isChanged} style={{ padding: '8px 12px' }}>
+                                      <button className="btn success" onClick={() => setPartnerPurchasingAllocation(partner._id, normalizedCountry, draft)} disabled={settingPartnerPurchasing[key] || !isChanged} style={{ minHeight: 40, padding: '8px 10px', fontWeight: 800 }}>
                                         {settingPartnerPurchasing[key] ? '...' : 'Save'}
                                       </button>
                                     </div>

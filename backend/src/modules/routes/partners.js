@@ -1028,7 +1028,7 @@ router.get("/admin/list", auth, allowRoles("admin", "user"), async (req, res) =>
       const rx = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
       base.$or = [{ firstName: rx }, { lastName: rx }, { email: rx }, { phone: rx }, { assignedCountry: rx }];
     }
-    const users = await User.find(base, "firstName lastName email phone assignedCountry country createdAt")
+    const users = await User.find(base, "firstName lastName email phone assignedCountry assignedCountries country createdAt")
       .sort({ createdAt: -1 })
       .lean();
     res.json({ users });
