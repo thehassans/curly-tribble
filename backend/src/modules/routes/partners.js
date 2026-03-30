@@ -1486,7 +1486,17 @@ router.get("/me/orders", auth, allowRoles("partner"), async (req, res) => {
       .populate("deliveryBoy", "firstName lastName email phone country driverProfile")
       .populate("createdBy", "firstName lastName email role")
       .lean();
-    res.json({ orders, page, limit, total, hasMore: skip + orders.length < total, country: scope.assignedCountry });
+    res.json({
+      orders: orders.map((order) => ({
+        ...order,
+        productName: buildPartnerOrderProductName(order),
+      })),
+      page,
+      limit,
+      total,
+      hasMore: skip + orders.length < total,
+      country: scope.assignedCountry,
+    });
   } catch (error) {
     res.status(500).json({ message: "Failed to load orders", error: error.message });
   }

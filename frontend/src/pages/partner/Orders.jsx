@@ -166,9 +166,6 @@ export default function PartnerOrders() {
                 </select>
               </div>
               <textarea className="input" style={textAreaStyle()} value={notes[orderId] || ''} onChange={(e) => setNotes((prev) => ({ ...prev, [orderId]: e.target.value }))} placeholder="Optional internal note for the assignment flow" />
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button className="btn" style={primaryButtonStyle()} disabled={busyId === orderId}>{busyId === orderId ? 'Updating…' : 'Synced'}</button>
-              </div>
             </article>
           )
         })}
