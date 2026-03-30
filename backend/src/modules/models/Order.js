@@ -74,6 +74,16 @@ const OrderSchema = new mongoose.Schema(
     trackingNumber: { type: String },
     deliveryBoy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     driverCommission: { type: Number, default: 0 },
+    adExpense: {
+      amount: { type: Number, default: 0 },
+      currency: {
+        type: String,
+        enum: ["AED", "SAR", "OMR", "BHD", "INR", "KWD", "QAR", "PKR", "JOD", "USD", "GBP", "CAD", "AUD", ""],
+        default: "",
+      },
+      updatedAt: { type: Date },
+      updatedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    },
 
     // Manager assignment (distinct from deliveryBoy/driver assignment)
     assignedManager: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

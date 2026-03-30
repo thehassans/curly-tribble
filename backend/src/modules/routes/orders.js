@@ -136,6 +136,24 @@ function buildOrderProductQuantity(order) {
   return Math.max(1, Number(order?.quantity || 1));
 }
 
+function currencyCodeFromOrderCountry(country) {
+  const upper = String(country || "").trim().toUpperCase();
+  if (["KSA", "SAUDI ARABIA", "SA"].includes(upper)) return "SAR";
+  if (["UAE", "UNITED ARAB EMIRATES", "AE"].includes(upper)) return "AED";
+  if (["OMAN", "OM"].includes(upper)) return "OMR";
+  if (["BAHRAIN", "BH"].includes(upper)) return "BHD";
+  if (["KUWAIT", "KW"].includes(upper)) return "KWD";
+  if (["QATAR", "QA"].includes(upper)) return "QAR";
+  if (["INDIA", "IN"].includes(upper)) return "INR";
+  if (["PAKISTAN", "PK"].includes(upper)) return "PKR";
+  if (["JORDAN", "JO"].includes(upper)) return "JOD";
+  if (["USA", "US", "UNITED STATES", "UNITED STATES OF AMERICA"].includes(upper)) return "USD";
+  if (["UK", "GB", "UNITED KINGDOM"].includes(upper)) return "GBP";
+  if (["CANADA", "CA"].includes(upper)) return "CAD";
+  if (["AUSTRALIA", "AU"].includes(upper)) return "AUD";
+  return "SAR";
+}
+
 function enrichOrderForResponse(order) {
   if (!order || typeof order !== "object") return order;
   return {
@@ -2430,7 +2448,7 @@ router.get(
         .limit(limit)
         .populate("productId")
         .populate("items.productId")
-        .populate("deliveryBoy", "firstName lastName email")
+        .populate("deliveryBoy", "firstName lastName email phone")
         .populate("assignedManager", "firstName lastName email")
         .populate("investorProfit.investor", "firstName lastName email")
         .populate("createdBy", "firstName lastName email role")
@@ -5262,6 +5280,7 @@ router.patch(
         deliveryBoy,
         driverCommission,
         agentCommissionPKR,
+        adExpense,
         shipmentStatus,
         items,
         productId,
@@ -5402,6 +5421,31 @@ router.patch(
       }
       if (driverCommission !== undefined)
         ord.driverCommission = Math.max(0, Number(driverCommission || 0));
+      if (adExpense !== undefined) {
+        if (adExpense && typeof adExpense === "object") {
+          const parsedAmount = Math.max(0, Number(adExpense.amount || 0));
+          const parsedCurrency = String(
+            adExpense.currency ||
+              ord.adExpense?.currency ||
+              currencyCodeFromOrderCountry(ord.orderCountry)
+          )
+            .trim()
+            .toUpperCase();
+          ord.adExpense = {
+            amount: parsedAmount,
+            currency: parsedCurrency,
+            updatedAt: new Date(),
+            updatedBy: req.user.id,
+          };
+        } else {
+          ord.adExpense = {
+            amount: Math.max(0, Number(adExpense || 0)),
+            currency: String(ord.adExpense?.currency || currencyCodeFromOrderCountry(ord.orderCountry)).trim().toUpperCase(),
+            updatedAt: new Date(),
+            updatedBy: req.user.id,
+          };
+        }
+      }
       if (customerName !== undefined) ord.customerName = customerName;
       if (customerPhone !== undefined) ord.customerPhone = customerPhone;
       if (phoneCountryCode !== undefined)
@@ -5668,7 +5712,7 @@ router.patch(
         .populate("investorProfit.investor", "firstName lastName email")
         .populate("createdBy", "firstName lastName email role");
 
-      res.json({ message: "Order updated", order: updated });
+      res.json({ message: "Order updated", order: enrichOrderForResponse(updated?.toObject ? updated.toObject() : updated) });
     } catch (err) {
       console.error("[PATCH order] Error:", err);
       res

@@ -115,6 +115,7 @@ export default function UserOrders() {
   const [editingStatus, setEditingStatus] = useState({}) // Track edited status per order
   const [editingCommission, setEditingCommission] = useState({}) // Track edited commission per order
   const [editingAgentCommission, setEditingAgentCommission] = useState({})
+  const [editingAdExpense, setEditingAdExpense] = useState({})
   const [curCfg, setCurCfg] = useState(null)
   // Infinite scroll state
   const [page, setPage] = useState(1)
@@ -807,7 +808,7 @@ export default function UserOrders() {
     }
   }, [API_BASE])
 
-  async function saveOrder(orderId, driverId, status, commission, agentCommissionPKR) {
+  async function saveOrder(orderId, driverId, status, commission, agentCommissionPKR, adExpense, adExpenseCurrency) {
     const key = `save-${orderId}`
     setUpdating((prev) => ({ ...prev, [key]: true }))
     try {
@@ -819,6 +820,8 @@ export default function UserOrders() {
         if (commission !== undefined) payload.driverCommission = Number(commission) || 0
         if (agentCommissionPKR !== undefined && agentCommissionPKR !== null)
           payload.agentCommissionPKR = Math.max(0, Number(agentCommissionPKR) || 0)
+        if (adExpense !== undefined)
+          payload.adExpense = { amount: Math.max(0, Number(adExpense) || 0), currency: String(adExpenseCurrency || '').toUpperCase() }
         const r = await apiPatch(`/api/orders/${orderId}`, payload)
         const updated = r?.order
         if (updated) {
@@ -1614,11 +1617,16 @@ export default function UserOrders() {
                 : editingAgentCommission[id] !== undefined
                 ? editingAgentCommission[id]
                 : o.agentCommissionPKR || 0
+            const currentAdExpense =
+              editingAdExpense[id] !== undefined
+                ? editingAdExpense[id]
+                : o.adExpense?.amount || 0
             const saveKey = `save-${id}`
             const hasChanges =
               currentDriver !== (o.deliveryBoy?._id || o.deliveryBoy || '') ||
               currentStatus !== (o.shipmentStatus || 'pending') ||
               Number(currentCommission) !== Number(o.driverCommission || 0) ||
+              Number(currentAdExpense) !== Number(o.adExpense?.amount || 0) ||
               (isAgentCreatedOrder &&
                 Number(currentAgentCommissionPKR) !== Number(o.agentCommissionPKR || 0))
             const isReturnSubmitted = o.returnSubmittedToCompany && !o.returnVerified
@@ -1626,6 +1634,7 @@ export default function UserOrders() {
 
             // Calculate net profit per order
             const driverCommissionNum = Number(currentCommission) || 0
+            const adExpenseNum = Math.max(0, Number(currentAdExpense) || 0)
             const safePrice = Number(price) || 0
             const agentAmountRaw = convert(
               Number(currentAgentCommissionPKR) || 0,
@@ -1660,10 +1669,10 @@ export default function UserOrders() {
             let netProfit = 0
             if (isDropshipper) {
               // Dropshipper order: Net Profit = What dropshipper pays - Company cost - Driver
-              netProfit = dropshipperPays - companyPurchaseCost - driverCommissionNum
+              netProfit = dropshipperPays - companyPurchaseCost - driverCommissionNum - adExpenseNum
             } else {
               // Regular/Agent order: Net Profit = Total - Purchase Cost - Driver - Agent - Investor - etc
-              netProfit = safePrice - companyPurchaseCost - driverCommissionNum - agentAmount - investorProfit - commissionerCommission - referenceProfit
+              netProfit = safePrice - companyPurchaseCost - driverCommissionNum - agentAmount - investorProfit - commissionerCommission - referenceProfit - adExpenseNum
             }
 
             return (
@@ -1953,6 +1962,38 @@ export default function UserOrders() {
                     )}
                   </div>
 
+                  <div>
+                    <div
+                      className="label"
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: 'var(--muted)',
+                        marginBottom: 6,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                      }}
+                    >
+                      Ad Expense
+                    </div>
+                    <input
+                      type="number"
+                      className="input"
+                      value={currentAdExpense}
+                      onChange={(e) =>
+                        setEditingAdExpense((prev) => ({ ...prev, [id]: e.target.value }))
+                      }
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      disabled={updating[saveKey]}
+                      style={{ width: '100%', maxWidth: 180, fontSize: 16, fontWeight: 600 }}
+                    />
+                    <div className="helper" style={{ marginTop: 4, fontSize: 11 }}>
+                      {targetCode}
+                    </div>
+                  </div>
+
                   {hasChanges && (
                     <button
                       className="btn success"
@@ -1962,7 +2003,9 @@ export default function UserOrders() {
                           editingDriver[id],
                           editingStatus[id],
                           editingCommission[id],
-                          isAgentCreatedOrder ? editingAgentCommission[id] : null
+                          isAgentCreatedOrder ? editingAgentCommission[id] : null,
+                          editingAdExpense[id],
+                          targetCode
                         )
                         setEditingDriver((prev) => {
                           const n = { ...prev }
@@ -1980,6 +2023,11 @@ export default function UserOrders() {
                           return n
                         })
                         setEditingAgentCommission((prev) => {
+                          const n = { ...prev }
+                          delete n[id]
+                          return n
+                        })
+                        setEditingAdExpense((prev) => {
                           const n = { ...prev }
                           delete n[id]
                           return n
@@ -2081,6 +2129,12 @@ export default function UserOrders() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
                         <span style={{ color: 'var(--muted)' }}>🏷️ Commissioner:</span>
                         <span style={{ fontWeight: 600, color: '#6366f1' }}>{targetCode} {commissionerCommission < 1 ? commissionerCommission.toFixed(3) : commissionerCommission.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {adExpenseNum > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}>
+                        <span style={{ color: 'var(--muted)' }}>Ad Expense:</span>
+                        <span style={{ fontWeight: 600, color: '#d97706' }}>{targetCode} {adExpenseNum.toFixed(2)}</span>
                       </div>
                     )}
                     {/* Dropshipper Earning - Show for dropshipper orders */}

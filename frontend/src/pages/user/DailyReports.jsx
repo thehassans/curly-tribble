@@ -72,6 +72,29 @@ function buildSubmitterLabel(type, name) {
   return `${safeType} · ${safeName}`
 }
 
+function statusKey(value) {
+  return String(value || 'pending').trim().toLowerCase().replaceAll(' ', '_').replaceAll('-', '_') || 'pending'
+}
+
+function statusLabel(value) {
+  return statusKey(value).replaceAll('_', ' ')
+}
+
+function phoneLabel(prefix, phone) {
+  const parts = [String(prefix || '').trim(), String(phone || '').trim()].filter(Boolean)
+  return parts.length ? parts.join(' ') : '-'
+}
+
+function resolveExplicitAdExpense(order, currency, cfg) {
+  const source = order?.adExpense
+  const hasExplicit = !!(source && typeof source === 'object' && ('amount' in source || 'currency' in source))
+  if (!hasExplicit) return { explicitAdExpense: 0, hasExplicitAdExpense: false }
+  return {
+    explicitAdExpense: safeConvert(source?.amount || 0, source?.currency || currency, currency, cfg),
+    hasExplicitAdExpense: true,
+  }
+}
+
 function displayOrderNumber(order) {
   return order?.invoiceNumber ? `#${order.invoiceNumber}` : `#${String(order?._id || order?.id || '').slice(-6).toUpperCase()}`
 }
@@ -146,6 +169,7 @@ function buildInternalRow(order, cfg) {
   const currency = currencyFromCountry(country)
   const orderPrice = Number(order?.total || 0)
   const purchaseCost = buildInternalPurchaseCost(order, cfg)
+  const { explicitAdExpense, hasExplicitAdExpense } = resolveExplicitAdExpense(order, currency, cfg)
   const submitterType = role === 'agent' ? 'agent' : role === 'dropshipper' ? 'dropshipper' : role === 'driver' ? 'driver' : 'owner'
   const submitterName = role === 'agent' || role === 'dropshipper' || role === 'driver'
     ? personName(order?.createdBy)
@@ -165,13 +189,18 @@ function buildInternalRow(order, cfg) {
     submitterType,
     submitterName,
     submitterLabel: buildSubmitterLabel(submitterType, submitterName),
+    customerPhone: phoneLabel(order?.phoneCountryCode, order?.customerPhone),
     driverName: order?.deliveryBoy ? personName(order.deliveryBoy) : '-',
+    driverPhone: order?.deliveryBoy?.phone || '-',
     productName: order?.productName || '-',
     productQuantity: Math.max(1, Number(order?.productQuantity || order?.quantity || 1)),
     paymentLabel: String(order?.paymentStatus || '').toLowerCase() === 'paid' ? 'Paid' : String(order?.paymentMethod || '').toLowerCase() === 'cod' || Number(order?.codAmount || 0) > 0 ? 'COD' : String(order?.paymentMethod || 'COD').toUpperCase(),
     orderPrice,
-    status: String(order?.shipmentStatus || order?.status || 'pending').replaceAll('_', ' '),
+    status: statusLabel(order?.shipmentStatus || order?.status || 'pending'),
+    statusKey: statusKey(order?.shipmentStatus || order?.status || 'pending'),
     purchaseCost,
+    explicitAdExpense,
+    hasExplicitAdExpense,
     submitterCommission,
     driverCommission,
     profitBeforeAds: orderPrice - purchaseCost - submitterCommission - driverCommission,
@@ -186,6 +215,7 @@ function buildWebRow(order, cfg) {
   const orderPrice = Number(order?.total || 0)
   const purchaseCost = buildWebPurchaseCost(order, cfg)
   const driverCommission = Number(order?.driverCommission || 0)
+  const { explicitAdExpense, hasExplicitAdExpense } = resolveExplicitAdExpense(order, currency, cfg)
   return {
     id: String(order?._id || order?.id || ''),
     orderNumber: displayOrderNumber(order),
@@ -195,13 +225,18 @@ function buildWebRow(order, cfg) {
     submitterType: 'online',
     submitterName: 'BuySial Website',
     submitterLabel: buildSubmitterLabel('online', 'BuySial Website'),
+    customerPhone: phoneLabel(order?.phoneCountryCode, order?.customerPhone),
     driverName: order?.deliveryBoy ? personName(order.deliveryBoy) : '-',
+    driverPhone: order?.deliveryBoy?.phone || '-',
     productName,
     productQuantity,
     paymentLabel: String(order?.paymentStatus || '').toLowerCase() === 'paid' ? 'Paid' : String(order?.paymentMethod || '').toLowerCase() === 'cod' ? 'COD' : String(order?.paymentMethod || 'Pending').toUpperCase(),
     orderPrice,
-    status: String(order?.shipmentStatus || order?.status || 'pending').replaceAll('_', ' '),
+    status: statusLabel(order?.shipmentStatus || order?.status || 'pending'),
+    statusKey: statusKey(order?.shipmentStatus || order?.status || 'pending'),
     purchaseCost,
+    explicitAdExpense,
+    hasExplicitAdExpense,
     submitterCommission: 0,
     driverCommission,
     profitBeforeAds: orderPrice - purchaseCost - driverCommission,
@@ -211,7 +246,7 @@ function buildWebRow(order, cfg) {
 export default function DailyReports() {
   const toast = useToast()
   const reportRef = useRef(null)
-  const logoSrc = '/logo.png'
+  const logoSrc = '/mobile-app-launch-logo.png'
   const [dayKey, setDayKey] = useState(todayKey())
   const [selectedCountry, setSelectedCountry] = useState('all')
   const [loading, setLoading] = useState(true)
@@ -277,10 +312,10 @@ export default function DailyReports() {
   const sections = useMemo(() => {
     const cfg = currencyCfg
     if (!cfg) return []
-    const baseRows = [
+    const scopedRows = [
       ...internalOrders.map((order) => buildInternalRow(order, cfg)),
       ...onlineOrders.map((order) => buildWebRow(order, cfg)),
-    ]
+    ].filter((row) => selectedCountry === 'all' ? true : row.country === selectedCountry)
     const expenseByCountry = (Array.isArray(expenses) ? expenses : []).reduce((map, expense) => {
       if (String(expense?.status || '').toLowerCase() !== 'approved') return map
       if (String(expense?.type || '').toLowerCase() !== 'advertisement') return map
@@ -290,28 +325,34 @@ export default function DailyReports() {
       map.set(country, Number(map.get(country) || 0) + safeConvert(expense?.amount || 0, expense?.currency || currency, currency, cfg))
       return map
     }, new Map())
-    const revenueByCountry = baseRows.reduce((map, row) => {
-      map.set(row.country, Number(map.get(row.country) || 0) + Number(row.orderPrice || 0))
-      return map
-    }, new Map())
-    const visibleRows = baseRows
-      .map((row) => {
-        const countryRevenue = Number(revenueByCountry.get(row.country) || 0)
-        const countryAdExpense = Number(expenseByCountry.get(row.country) || 0)
-        const adExpense = countryRevenue > 0 ? (countryAdExpense * Number(row.orderPrice || 0)) / countryRevenue : 0
-        return { ...row, adExpense, profit: Number(row.profitBeforeAds || 0) - adExpense }
-      })
-      .filter((row) => selectedCountry === 'all' ? true : row.country === selectedCountry)
     const grouped = new Map()
-    for (const row of visibleRows) {
+    for (const row of scopedRows) {
       const current = grouped.get(row.country) || []
       current.push(row)
       grouped.set(row.country, current)
     }
     return Array.from(grouped.entries())
       .sort((a, b) => COUNTRY_ORDER.indexOf(a[0]) - COUNTRY_ORDER.indexOf(b[0]))
-      .map(([country, rows]) => {
-        const totals = rows.reduce((acc, row) => {
+      .map(([country, upperRows]) => {
+        const deliveredBaseRows = upperRows.filter((row) => row.statusKey === 'delivered')
+        const explicitDeliveredAdExpense = deliveredBaseRows.reduce((sum, row) => sum + (row.hasExplicitAdExpense ? Number(row.explicitAdExpense || 0) : 0), 0)
+        const distributableDeliveredExpense = Math.max(0, Number(expenseByCountry.get(country) || 0) - explicitDeliveredAdExpense)
+        const distributableDeliveredRevenue = deliveredBaseRows.reduce((sum, row) => sum + (row.hasExplicitAdExpense ? 0 : Number(row.orderPrice || 0)), 0)
+        const lowerRows = deliveredBaseRows.map((row) => {
+          const adExpense = row.hasExplicitAdExpense
+            ? Number(row.explicitAdExpense || 0)
+            : distributableDeliveredRevenue > 0
+            ? (distributableDeliveredExpense * Number(row.orderPrice || 0)) / distributableDeliveredRevenue
+            : 0
+          return { ...row, adExpense, profit: Number(row.profitBeforeAds || 0) - adExpense }
+        })
+        const upperTotals = upperRows.reduce((acc, row) => {
+          acc.orders += 1
+          acc.qty += Number(row.productQuantity || 0)
+          acc.orderPrice += Number(row.orderPrice || 0)
+          return acc
+        }, { orders: 0, qty: 0, orderPrice: 0 })
+        const lowerTotals = lowerRows.reduce((acc, row) => {
           acc.orders += 1
           acc.qty += Number(row.productQuantity || 0)
           acc.orderPrice += Number(row.orderPrice || 0)
@@ -322,17 +363,27 @@ export default function DailyReports() {
           acc.profit += Number(row.profit || 0)
           return acc
         }, { orders: 0, qty: 0, orderPrice: 0, purchaseCost: 0, submitterCommission: 0, driverCommission: 0, adExpense: 0, profit: 0 })
-        return { country, currency: currencyFromCountry(country), rows, totals }
+        return {
+          country,
+          currency: currencyFromCountry(country),
+          upperRows,
+          lowerRows,
+          upperTotals,
+          lowerTotals,
+          pendingOrders: upperRows.filter((row) => row.statusKey === 'pending').length,
+        }
       })
   }, [currencyCfg, dayKey, expenses, internalOrders, onlineOrders, selectedCountry])
 
   const summary = useMemo(() => sections.reduce((acc, section) => {
-    acc.orders += section.totals.orders
-    acc.revenue += safeConvert(section.totals.orderPrice, section.currency, 'AED', currencyCfg)
-    acc.profit += safeConvert(section.totals.profit, section.currency, 'AED', currencyCfg)
-    acc.adExpense += safeConvert(section.totals.adExpense, section.currency, 'AED', currencyCfg)
+    acc.orders += section.upperTotals.orders
+    acc.pendingOrders += section.pendingOrders
+    acc.deliveredOrders += section.lowerTotals.orders
+    acc.revenue += safeConvert(section.upperTotals.orderPrice, section.currency, 'AED', currencyCfg)
+    acc.profit += safeConvert(section.lowerTotals.profit, section.currency, 'AED', currencyCfg)
+    acc.adExpense += safeConvert(section.lowerTotals.adExpense, section.currency, 'AED', currencyCfg)
     return acc
-  }, { orders: 0, revenue: 0, profit: 0, adExpense: 0 }), [currencyCfg, sections])
+  }, { orders: 0, pendingOrders: 0, deliveredOrders: 0, revenue: 0, profit: 0, adExpense: 0 }), [currencyCfg, sections])
 
   async function downloadPdf() {
     if (!reportRef.current) return
@@ -370,15 +421,15 @@ export default function DailyReports() {
       const logoUrl = `${window.location.origin}${logoSrc}`
       const tables = sections.map((section) => `
         <h2>${escapeHtml(section.country)} - ${escapeHtml(dayKey)}</h2>
-        <table border="1"><tr><th>Order</th><th>Submitter</th><th>Product</th><th>Payment</th><th>Price</th><th>Status</th></tr>
-        ${section.rows.map((row) => `<tr><td>${escapeHtml(row.orderNumber)}</td><td>${escapeHtml(row.submitterLabel)}</td><td>${escapeHtml(row.productName)}</td><td>${escapeHtml(row.paymentLabel)}</td><td>${escapeHtml(row.orderPrice.toFixed(2))}</td><td>${escapeHtml(row.status)}</td></tr>`).join('')}
-        <tr><td colspan="4"><strong>Total Orders</strong></td><td><strong>${escapeHtml(section.totals.orderPrice.toFixed(2))}</strong></td><td><strong>${escapeHtml(String(section.totals.orders))} orders</strong></td></tr></table>
+        <table border="1"><tr><th>Order</th><th>Submitter</th><th>Customer Phone</th><th>Product</th><th>Qty</th><th>Driver</th><th>Payment</th><th>Price</th><th>Status</th></tr>
+        ${section.upperRows.map((row) => `<tr><td>${escapeHtml(row.orderNumber)}</td><td>${escapeHtml(row.submitterLabel)}</td><td>${escapeHtml(row.customerPhone)}</td><td>${escapeHtml(row.productName)}</td><td>${escapeHtml(row.productQuantity)}</td><td>${escapeHtml(row.driverName)}${row.driverPhone && row.driverPhone !== '-' ? `<br/>${escapeHtml(row.driverPhone)}` : ''}</td><td>${escapeHtml(row.paymentLabel)}</td><td>${escapeHtml(row.orderPrice.toFixed(2))}</td><td>${escapeHtml(row.status)}</td></tr>`).join('')}
+        <tr><td colspan="7"><strong>Total Orders</strong></td><td><strong>${escapeHtml(section.upperTotals.orderPrice.toFixed(2))}</strong></td><td><strong>${escapeHtml(String(section.upperTotals.orders))} orders</strong></td></tr></table>
         <br/>
         <table border="1"><tr><th>Order</th><th>Product</th><th>Qty</th><th>Submitter</th><th>Submitter Commission</th><th>Driver</th><th>Driver Commission</th><th>Purchase Price</th><th>Ad Expense</th><th>Order Price</th><th>Profit</th></tr>
-        ${section.rows.map((row) => `<tr><td>${escapeHtml(row.orderNumber)}</td><td>${escapeHtml(row.productName)}</td><td>${escapeHtml(row.productQuantity)}</td><td>${escapeHtml(row.submitterLabel)}</td><td>${escapeHtml(row.submitterCommission.toFixed(2))}</td><td>${escapeHtml(row.driverName)}</td><td>${escapeHtml(row.driverCommission.toFixed(2))}</td><td>${escapeHtml(row.purchaseCost.toFixed(2))}</td><td>${escapeHtml(row.adExpense.toFixed(2))}</td><td>${escapeHtml(row.orderPrice.toFixed(2))}</td><td>${escapeHtml(row.profit.toFixed(2))}</td></tr>`).join('')}
-        <tr><td colspan="2"><strong>Sum</strong></td><td><strong>${escapeHtml(String(section.totals.qty))}</strong></td><td></td><td><strong>${escapeHtml(section.totals.submitterCommission.toFixed(2))}</strong></td><td></td><td><strong>${escapeHtml(section.totals.driverCommission.toFixed(2))}</strong></td><td><strong>${escapeHtml(section.totals.purchaseCost.toFixed(2))}</strong></td><td><strong>${escapeHtml(section.totals.adExpense.toFixed(2))}</strong></td><td><strong>${escapeHtml(section.totals.orderPrice.toFixed(2))}</strong></td><td><strong>${escapeHtml(section.totals.profit.toFixed(2))}</strong></td></tr></table>
+        ${section.lowerRows.map((row) => `<tr><td>${escapeHtml(row.orderNumber)}</td><td>${escapeHtml(row.productName)}</td><td>${escapeHtml(row.productQuantity)}</td><td>${escapeHtml(row.submitterLabel)}</td><td>${escapeHtml(row.submitterCommission.toFixed(2))}</td><td>${escapeHtml(row.driverName)}</td><td>${escapeHtml(row.driverCommission.toFixed(2))}</td><td>${escapeHtml(row.purchaseCost.toFixed(2))}</td><td>${escapeHtml(row.adExpense.toFixed(2))}</td><td>${escapeHtml(row.orderPrice.toFixed(2))}</td><td>${escapeHtml(row.profit.toFixed(2))}</td></tr>`).join('')}
+        <tr><td colspan="2"><strong>Sum</strong></td><td><strong>${escapeHtml(String(section.lowerTotals.qty))}</strong></td><td></td><td><strong>${escapeHtml(section.lowerTotals.submitterCommission.toFixed(2))}</strong></td><td></td><td><strong>${escapeHtml(section.lowerTotals.driverCommission.toFixed(2))}</strong></td><td><strong>${escapeHtml(section.lowerTotals.purchaseCost.toFixed(2))}</strong></td><td><strong>${escapeHtml(section.lowerTotals.adExpense.toFixed(2))}</strong></td><td><strong>${escapeHtml(section.lowerTotals.orderPrice.toFixed(2))}</strong></td><td><strong>${escapeHtml(section.lowerTotals.profit.toFixed(2))}</strong></td></tr></table>
       `).join('<br/><br/>')
-      const blob = new Blob([`<html><body><div style="text-align:center;margin-bottom:24px;"><img src="${escapeHtml(logoUrl)}" alt="BuySial" style="height:56px;display:block;margin:0 auto 12px;"/><div style="font-size:28px;font-weight:800;">Daily Report</div><div style="font-size:14px;color:#475569;">${escapeHtml(dayKey)}${selectedCountry === 'all' ? ' · All Countries' : ` · ${escapeHtml(selectedCountry)}`}</div></div>${tables}</body></html>`], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+      const blob = new Blob([`<html><body><div style="text-align:center;margin-bottom:24px;"><img src="${escapeHtml(logoUrl)}" alt="BuySial" style="height:82px;display:block;margin:0 auto 12px;"/><div style="font-size:28px;font-weight:800;">Daily Report</div><div style="font-size:14px;color:#475569;">${escapeHtml(dayKey)}${selectedCountry === 'all' ? ' · All Countries' : ` · ${escapeHtml(selectedCountry)}`}</div></div>${tables}</body></html>`], { type: 'application/vnd.ms-excel;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -415,6 +466,8 @@ export default function DailyReports() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
         <div className="card" style={{ padding: 16 }}><div className="helper">Orders</div><div style={{ fontSize: 24, fontWeight: 900 }}>{summary.orders}</div></div>
+        <div className="card" style={{ padding: 16 }}><div className="helper">Pending Orders</div><div style={{ fontSize: 24, fontWeight: 900 }}>{summary.pendingOrders}</div></div>
+        <div className="card" style={{ padding: 16 }}><div className="helper">Delivered Orders</div><div style={{ fontSize: 24, fontWeight: 900 }}>{summary.deliveredOrders}</div></div>
         <div className="card" style={{ padding: 16 }}><div className="helper">Revenue (AED)</div><div style={{ fontSize: 24, fontWeight: 900 }}>{formatMoney(summary.revenue, 'AED')}</div></div>
         <div className="card" style={{ padding: 16 }}><div className="helper">Ad Expense (AED)</div><div style={{ fontSize: 24, fontWeight: 900 }}>{formatMoney(summary.adExpense, 'AED')}</div></div>
         <div className="card" style={{ padding: 16 }}><div className="helper">Profit (AED)</div><div style={{ fontSize: 24, fontWeight: 900, color: summary.profit < 0 ? '#dc2626' : '#059669' }}>{formatMoney(summary.profit, 'AED')}</div></div>
@@ -422,7 +475,7 @@ export default function DailyReports() {
 
       <div ref={reportRef} style={{ display: 'grid', gap: 18 }}>
         <div className="card" style={{ padding: 20, textAlign: 'center', display: 'grid', gap: 10, justifyItems: 'center' }}>
-          <img src={logoSrc} alt="BuySial" style={{ width: 74, height: 74, objectFit: 'contain' }} />
+          <img src={logoSrc} alt="BuySial" style={{ width: 220, maxWidth: '100%', objectFit: 'contain' }} />
           <div style={{ fontSize: 30, fontWeight: 900, color: '#0f172a' }}>Daily Report</div>
           <div className="helper">{dayKey}{selectedCountry === 'all' ? ' · All Countries' : ` · ${selectedCountry}`}</div>
         </div>
@@ -433,33 +486,36 @@ export default function DailyReports() {
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
               <div>
                 <div className="card-title">{section.country}</div>
-                <div className="helper">{section.totals.orders} orders · {formatMoney(section.totals.orderPrice, section.currency)}</div>
+                <div className="helper">{section.upperTotals.orders} orders · {section.pendingOrders} pending · {formatMoney(section.upperTotals.orderPrice, section.currency)}</div>
               </div>
               <div className="chip">{dayKey}</div>
             </div>
 
             <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 860 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 1220 }}>
                 <thead>
                   <tr style={{ background: 'var(--panel-2)' }}>
-                    {['Order', 'Submitter', 'Product', 'Payment', 'Price', 'Status'].map((label) => <th key={label} style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>{label}</th>)}
+                    {['Order', 'Submitter', 'Customer Phone', 'Product', 'Qty', 'Driver', 'Payment', 'Price', 'Status'].map((label) => <th key={label} style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>{label}</th>)}
                   </tr>
                 </thead>
                 <tbody>
-                  {section.rows.map((row) => (
+                  {section.upperRows.map((row) => (
                     <tr key={row.id}>
                       <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}><div style={{ fontWeight: 700 }}>{row.orderNumber}</div><div className="helper">{formatDateTime(row.createdAt)}</div></td>
                       <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontWeight: 700 }}>{row.submitterLabel}</td>
+                      <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>{row.customerPhone}</td>
                       <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>{row.productName}</td>
+                      <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>{row.productQuantity}</td>
+                      <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}><div style={{ fontWeight: 700 }}>{row.driverName}</div><div className="helper">{row.driverPhone}</div></td>
                       <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>{row.paymentLabel}</td>
                       <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{formatMoney(row.orderPrice, section.currency)}</td>
                       <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>{row.status}</td>
                     </tr>
                   ))}
                   <tr style={{ background: 'rgba(15,23,42,0.04)', fontWeight: 800 }}>
-                    <td colSpan={4} style={{ padding: '10px 12px' }}>Total</td>
-                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{formatMoney(section.totals.orderPrice, section.currency)}</td>
-                    <td style={{ padding: '10px 12px' }}>{section.totals.orders} orders</td>
+                    <td colSpan={7} style={{ padding: '10px 12px' }}>Total</td>
+                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{formatMoney(section.upperTotals.orderPrice, section.currency)}</td>
+                    <td style={{ padding: '10px 12px' }}>{section.upperTotals.orders} orders</td>
                   </tr>
                 </tbody>
               </table>
@@ -473,7 +529,11 @@ export default function DailyReports() {
                   </tr>
                 </thead>
                 <tbody>
-                  {section.rows.map((row) => (
+                  {!section.lowerRows.length ? (
+                    <tr>
+                      <td colSpan={11} style={{ padding: '14px 12px', borderBottom: '1px solid var(--border)', color: 'var(--muted)' }}>No delivered orders for the selected date in this country.</td>
+                    </tr>
+                  ) : section.lowerRows.map((row) => (
                     <tr key={`${row.id}-profit`}>
                       <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>{row.orderNumber}</td>
                       <td style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)' }}>{row.productName}</td>
@@ -491,15 +551,15 @@ export default function DailyReports() {
                   <tr style={{ background: 'rgba(15,23,42,0.04)', fontWeight: 800 }}>
                     <td style={{ padding: '10px 12px' }}>Sum</td>
                     <td style={{ padding: '10px 12px' }} />
-                    <td style={{ padding: '10px 12px' }}>{section.totals.qty}</td>
+                    <td style={{ padding: '10px 12px' }}>{section.lowerTotals.qty}</td>
                     <td style={{ padding: '10px 12px' }} />
-                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{formatMoney(section.totals.submitterCommission, section.currency)}</td>
+                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{formatMoney(section.lowerTotals.submitterCommission, section.currency)}</td>
                     <td style={{ padding: '10px 12px' }} />
-                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{formatMoney(section.totals.driverCommission, section.currency)}</td>
-                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{formatMoney(section.totals.purchaseCost, section.currency)}</td>
-                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{formatMoney(section.totals.adExpense, section.currency)}</td>
-                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{formatMoney(section.totals.orderPrice, section.currency)}</td>
-                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', color: section.totals.profit < 0 ? '#dc2626' : '#059669' }}>{formatMoney(section.totals.profit, section.currency)}</td>
+                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{formatMoney(section.lowerTotals.driverCommission, section.currency)}</td>
+                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{formatMoney(section.lowerTotals.purchaseCost, section.currency)}</td>
+                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{formatMoney(section.lowerTotals.adExpense, section.currency)}</td>
+                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap' }}>{formatMoney(section.lowerTotals.orderPrice, section.currency)}</td>
+                    <td style={{ padding: '10px 12px', whiteSpace: 'nowrap', color: section.lowerTotals.profit < 0 ? '#dc2626' : '#059669' }}>{formatMoney(section.lowerTotals.profit, section.currency)}</td>
                   </tr>
                 </tbody>
               </table>
