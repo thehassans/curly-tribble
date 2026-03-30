@@ -55,9 +55,7 @@ export default function DeliveredOrders() {
       const customer = String(order?.customerName || '').toLowerCase()
       const phone = String(order?.customerPhone || '').toLowerCase()
       const city = String(order?.city || '').toLowerCase()
-      const product = Array.isArray(order?.items) && order.items.length
-        ? order.items.map((item) => String(item?.productId?.name || '')).join(' ').toLowerCase()
-        : String(order?.productId?.name || '').toLowerCase()
+      const product = String(order?.productName || '').toLowerCase()
       return invoice.includes(term) || customer.includes(term) || phone.includes(term) || city.includes(term) || product.includes(term)
     })
   }, [orders, query])
@@ -157,9 +155,8 @@ export default function DeliveredOrders() {
           const locked = !!order?.agentCommissionSetByAgent
           const saveKey = `save-${id}`
           const canSave = !locked && Number(currentValue) !== Number(order?.agentCommissionPKR || 0)
-          const productName = Array.isArray(order?.items) && order.items.length
-            ? order.items.map((item) => item?.productId?.name).filter(Boolean).join(', ')
-            : order?.productId?.name || '-'
+          const productName = order?.productName || '-'
+          const productQty = Math.max(1, Number(order?.productQuantity || order?.quantity || 1))
           const fullAddress = [order?.customerAddress, order?.customerArea, order?.city, order?.orderCountry]
             .filter(Boolean)
             .join(', ')
@@ -187,6 +184,7 @@ export default function DeliveredOrders() {
                 <div>
                   <div className="label">Product</div>
                   <div style={{ fontWeight: 700 }}>{productName}</div>
+                  <div className="helper">Qty: {productQty}</div>
                   <div className="helper">Delivered: {order?.deliveredAt ? new Date(order.deliveredAt).toLocaleString() : '-'}</div>
                   <div className="helper">Total: {Number(order?.total || 0).toFixed(2)}</div>
                 </div>

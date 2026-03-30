@@ -107,10 +107,7 @@ export default function AgentOrdersHistory(){
     const pq = productQuery.trim().toLowerCase()
     if (!pq) return orders
     return orders.filter(o=>{
-      if (Array.isArray(o.items) && o.items.length){
-        return o.items.some(it => String(it?.productId?.name||'').toLowerCase().includes(pq))
-      }
-      return String(o?.productId?.name||'').toLowerCase().includes(pq)
+      return String(o?.productName || '').toLowerCase().includes(pq)
     })
   }, [orders, productQuery])
 
@@ -234,10 +231,10 @@ export default function AgentOrdersHistory(){
             // Country to currency mapping
             const countryCurrencyMap = { UAE:'AED', KSA:'SAR', Oman:'OMR', Bahrain:'BHD', Kuwait:'KWD', Qatar:'QAR', India:'INR', Pakistan:'PKR', Jordan:'JOD', USA:'USD', UK:'GBP', Canada:'CAD', Australia:'AUD' }
             // Product summary (supports multi-items)
-            let productName = '-'
-            let qty = 1
+            let productName = String(o?.productName || '-').trim() || '-'
+            let qty = Math.max(1, Number(o?.productQuantity || o?.quantity || 1))
             let baseCur = countryCurrencyMap[o.orderCountry] || 'SAR'
-            if (o.items && Array.isArray(o.items) && o.items.length > 0) {
+            if (productName === '-' && o.items && Array.isArray(o.items) && o.items.length > 0) {
               const productNames = o.items.map(item => {
                 if (item.productId && typeof item.productId === 'object' && item.productId.name) {
                   return `${item.productId.name} (${item.quantity || 1})`
@@ -246,7 +243,7 @@ export default function AgentOrdersHistory(){
               }).filter(Boolean)
               productName = productNames.join(', ') || 'Multiple Products'
               qty = o.items.reduce((sum, item) => sum + (item.quantity || 1), 0)
-            } else if (o.productId) {
+            } else if (productName === '-' && o.productId) {
               if (typeof o.productId === 'object' && o.productId.name) {
                 productName = o.productId.name
               } else if (typeof o.productId === 'string') {

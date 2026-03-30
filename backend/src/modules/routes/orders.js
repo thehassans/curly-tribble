@@ -115,6 +115,36 @@ function getPartnerAvailableStock(partnerStockIndex, productId) {
   return rows.reduce((sum, row) => sum + Math.max(0, Number(row?.stock || 0)), 0);
 }
 
+function buildOrderProductName(order) {
+  const itemNames = Array.isArray(order?.items) && order.items.length
+    ? order.items
+        .map((item) => item?.productId?.name || item?.name || "")
+        .map((name) => String(name || "").trim())
+        .filter(Boolean)
+    : [];
+  if (itemNames.length) return itemNames.join(", ");
+  if (order?.productId?.name) return String(order.productId.name || "").trim() || "-";
+  if (typeof order?.productName === "string" && order.productName.trim()) return order.productName.trim();
+  if (typeof order?.details === "string" && order.details.trim()) return order.details.trim();
+  return "-";
+}
+
+function buildOrderProductQuantity(order) {
+  if (Array.isArray(order?.items) && order.items.length) {
+    return order.items.reduce((sum, item) => sum + Math.max(1, Number(item?.quantity || 1)), 0);
+  }
+  return Math.max(1, Number(order?.quantity || 1));
+}
+
+function enrichOrderForResponse(order) {
+  if (!order || typeof order !== "object") return order;
+  return {
+    ...order,
+    productName: buildOrderProductName(order),
+    productQuantity: buildOrderProductQuantity(order),
+  };
+}
+
 // Helper: Recalculate dropshipper profit for a single order
 async function recalculateDropshipperProfitForOrder(order) {
   if (!order) return;
@@ -2406,7 +2436,7 @@ router.get(
         .populate("createdBy", "firstName lastName email role")
         .lean();
       const hasMore = skip + orders.length < total;
-      res.json({ orders, page, limit, total, hasMore });
+      res.json({ orders: orders.map(enrichOrderForResponse), page, limit, total, hasMore });
     } catch (err) {
       res
         .status(500)
@@ -5695,7 +5725,7 @@ router.patch(
         .populate("createdBy", "firstName lastName email role");
       return res.json({
         message: "Agent commission saved",
-        order: updated,
+        order: enrichOrderForResponse(updated?.toObject ? updated.toObject() : updated),
       });
     } catch (err) {
       console.error("[PATCH agent commission] Error:", err);

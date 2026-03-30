@@ -96,6 +96,7 @@ const SocialLinks = lazy(() => import('./pages/user/SocialLinks.jsx'))
 const WebsiteModification = lazy(() => import('./pages/user/WebsiteModification.jsx'))
 const ErrorLogs = lazy(() => import('./pages/user/ErrorLogs.jsx'))
 const Reports = lazy(() => import('./pages/user/Reports.jsx'))
+const DailyReports = lazy(() => import('./pages/user/DailyReports.jsx'))
 const DriverReports = lazy(() => import('./pages/user/DriverReports.jsx'))
 const ProfitLoss = lazy(() => import('./pages/user/ProfitLoss.jsx'))
 const UserFinances = lazy(() => import('./pages/user/Finances.jsx'))
@@ -132,6 +133,7 @@ const ShopCatalogAssignments = lazy(() => import('./pages/user/ShopCatalogAssign
 // Agent pages
 const AgentDashboard = lazy(() => import('./pages/agent/Dashboard.jsx'))
 const AgentDeliveredOrders = lazy(() => import('./pages/agent/DeliveredOrders.jsx'))
+const AgentPendingOrders = lazy(() => import('./pages/agent/PendingOrders.jsx'))
 const AgentOrdersHistory = lazy(() => import('./pages/agent/OrdersHistory.jsx'))
 const AgentProfile = lazy(() => import('./pages/agent/Profile.jsx'))
 const AgentPayout = lazy(() => import('./pages/agent/Payout.jsx'))
@@ -916,6 +918,7 @@ export default function App() {
               <Route path="warehouses" element={<Warehouse />} />
               <Route path="shipments" element={<Shipments />} />
               <Route path="reports" element={<Reports />} />
+              <Route path="daily-reports" element={<DailyReports />} />
               <Route path="driver-reports" element={<DriverReports />} />
               <Route path="profit-loss" element={<ProfitLoss />} />
               <Route path="references" element={<References />} />
@@ -1015,6 +1018,8 @@ export default function App() {
               <Route index element={<AgentDashboard />} />
               <Route path="inbox/whatsapp" element={<WhatsAppInbox />} />
               <Route path="orders" element={<SubmitOrder />} />
+              <Route path="pending" element={<AgentPendingOrders />} />
+              <Route path="orders/pending" element={<AgentPendingOrders />} />
               <Route path="delivered" element={<AgentDeliveredOrders />} />
               <Route path="orders/delivered" element={<AgentDeliveredOrders />} />
               <Route path="orders/history" element={<AgentOrdersHistory />} />

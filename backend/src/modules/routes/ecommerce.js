@@ -1310,6 +1310,7 @@ router.get(
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
+        .populate("items.productId")
         .populate("deliveryBoy", "firstName lastName email city");
       const hasMore = skip + rows.length < total;
       return res.json({ orders: rows, page, limit, total, hasMore });
