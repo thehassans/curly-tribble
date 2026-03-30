@@ -12,6 +12,11 @@ import Product from '../models/Product.js'
 import User from '../models/User.js'
 import Setting from '../models/Setting.js'
 import PartnerPurchasing from '../models/PartnerPurchasing.js'
+import PartnerDriverStock from '../models/PartnerDriverStock.js'
+import ManagerProductStock from '../models/ManagerProductStock.js'
+import Review from '../models/Review.js'
+import Coupon from '../models/Coupon.js'
+import ShopifyListing from '../models/ShopifyListing.js'
 import { createNotification } from './notifications.js'
 import geminiService from '../services/geminiService.js'
 import imageGenService from '../services/imageGenService.js'
@@ -178,6 +183,15 @@ function buildVisualSearchTerms(intent = {}) {
     }
   })
   return phrases.slice(0, 24)
+}
+
+function deleteProductUploadFile(relativePath) {
+  const raw = String(relativePath || '').trim()
+  if (!raw || !raw.startsWith('/uploads/')) return
+  try {
+    const absPath = path.join(UPLOADS_DIR, path.basename(raw))
+    if (fs.existsSync(absPath)) fs.unlinkSync(absPath)
+  } catch {}
 }
 
 function scoreVisualSearchProduct(product, intent = {}, terms = []) {
@@ -1460,7 +1474,38 @@ router.get('/', auth, allowRoles('admin','user','agent','manager','customer','dr
     if (!prod.sku) prod.sku = fallbackSkuFromId(prod._id)
     return prod
   })
-  
+
+  if ((req.user.role === 'agent' || req.user.role === 'dropshipper') && productsWithTotal.length) {
+    const ownerId = String(base?.createdBy || '')
+    if (mongoose.Types.ObjectId.isValid(ownerId)) {
+      const productIds = productsWithTotal.map((prod) => prod._id).filter(Boolean)
+      const partnerRows = await PartnerPurchasing.find({
+        ownerId,
+        productId: { $in: productIds },
+        stock: { $gt: 0 },
+      })
+        .select('productId country stock')
+        .lean()
+
+      const partnerStockByProductId = {}
+      for (const row of partnerRows) {
+        const productIdKey = String(row?.productId || '')
+        const countryKey = normalizePublicCountryValue(row?.country) || String(row?.country || '').trim()
+        const stock = Math.max(0, Number(row?.stock || 0))
+        if (!productIdKey || !countryKey || stock <= 0) continue
+        if (!partnerStockByProductId[productIdKey]) partnerStockByProductId[productIdKey] = {}
+        partnerStockByProductId[productIdKey][countryKey] = (partnerStockByProductId[productIdKey][countryKey] || 0) + stock
+      }
+
+      return res.json({
+        products: productsWithTotal.map((prod) => ({
+          ...prod,
+          partnerStockByCountry: partnerStockByProductId[String(prod._id)] || {},
+        }))
+      })
+    }
+  }
+
   res.json({ products: productsWithTotal })
 })
 
@@ -2167,6 +2212,25 @@ router.delete('/:id', auth, allowRoles('admin','user','manager'), async (req, re
     }
     if (String(prod.createdBy) !== String(ownerId)) return res.status(403).json({ message: 'Not allowed' })
   }
+
+  const productObjectId = new mongoose.Types.ObjectId(String(id))
+
+  await Promise.all([
+    PartnerPurchasing.deleteMany({ productId: productObjectId }),
+    PartnerDriverStock.deleteMany({ productId: productObjectId }),
+    ManagerProductStock.deleteMany({ productId: productObjectId }),
+    ShopifyListing.deleteMany({ productId: productObjectId }),
+    Review.deleteMany({ product: productObjectId }),
+    Coupon.updateMany({ applicableProducts: productObjectId }, { $pull: { applicableProducts: productObjectId } }),
+    User.updateMany({ wishlist: productObjectId }, { $pull: { wishlist: productObjectId } }),
+    User.updateMany(
+      { 'investorProfile.assignedProducts.product': productObjectId },
+      { $pull: { 'investorProfile.assignedProducts': { product: productObjectId } } }
+    ),
+  ])
+
+  ;[prod.imagePath, ...(Array.isArray(prod.images) ? prod.images : []), prod.video].forEach(deleteProductUploadFile)
+
   await Product.deleteOne({ _id: id })
   res.json({ message: 'Deleted' })
 })

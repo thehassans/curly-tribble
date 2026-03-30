@@ -156,6 +156,15 @@ const OrderSchema = new mongoose.Schema(
     // Inventory adjustment bookkeeping (decrement stock once upon delivery)
     inventoryAdjusted: { type: Boolean, default: false },
     inventoryAdjustedAt: { type: Date },
+    partnerInventoryAllocations: [
+      {
+        partnerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        productId: { type: mongoose.Schema.Types.ObjectId, ref: "Product" },
+        country: { type: String, default: "" },
+        quantity: { type: Number, default: 0 },
+      },
+    ],
+    partnerInventoryRestoredAt: { type: Date },
 
     // Returns / delivery info
     deliveryNotes: { type: String },

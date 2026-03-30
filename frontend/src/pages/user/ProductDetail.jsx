@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { apiGet, apiPatch, apiPost, apiUploadPatch, API_BASE, clearApiCache } from '../../api'
+import { apiDelete, apiGet, apiPatch, apiPost, apiUploadPatch, API_BASE, clearApiCache } from '../../api'
 import { useToast } from '../../ui/Toast.jsx'
 import Modal from '../../components/Modal.jsx'
 import ProductSEOPanel from '../products/ProductSEOPanel.jsx'
@@ -150,6 +150,7 @@ export default function ProductDetail() {
   const [selectedMediaIndex, setSelectedMediaIndex] = useState(0)
   const mediaSwipeStartX = useRef(null)
   const [togglingPublish, setTogglingPublish] = useState(false)
+  const [deletingProduct, setDeletingProduct] = useState(false)
   
   // Media upload state for edit modal
   const [newImages, setNewImages] = useState([]) // New image files to upload
@@ -443,6 +444,27 @@ export default function ProductDetail() {
       toast.error(err?.message || 'Failed to update publish status')
     } finally {
       setTogglingPublish(false)
+    }
+  }
+
+  async function handleDeleteProduct() {
+    if (!product?._id || deletingProduct) return
+    if (!window.confirm(`Delete product "${product.name || 'this product'}"? This will also remove linked partner stock allocations and related product records.`)) {
+      return
+    }
+    try {
+      setDeletingProduct(true)
+      await apiDelete(`/api/products/${product._id}`)
+      clearApiCache('/api/products')
+      toast.success('Product deleted successfully')
+      const fallbackPath = typeof window !== 'undefined' && window.location.pathname.startsWith('/manager/')
+        ? '/manager/products'
+        : '/user/products'
+      navigate(fallbackPath)
+    } catch (err) {
+      toast.error(err?.message || 'Failed to delete product')
+    } finally {
+      setDeletingProduct(false)
     }
   }
 
@@ -1265,6 +1287,14 @@ export default function ProductDetail() {
             style={{ padding: '10px 20px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
           >
             ✏️ Edit Product
+          </button>
+          <button
+            className="btn secondary"
+            onClick={handleDeleteProduct}
+            disabled={deletingProduct}
+            style={{ padding: '10px 20px', background: '#dc2626', color: 'white', border: 'none', borderRadius: 8, fontWeight: 600, cursor: deletingProduct ? 'not-allowed' : 'pointer', opacity: deletingProduct ? 0.7 : 1 }}
+          >
+            {deletingProduct ? 'Deleting...' : '🗑️ Delete Product'}
           </button>
         </div>
       </div>

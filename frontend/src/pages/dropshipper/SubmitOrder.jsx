@@ -205,7 +205,16 @@ export default function SubmitOrder() {
   }, [form.orderCountry, form.phoneCountryCode])
   const cities = COUNTRY_CITIES[currentCountryKey] || []
 
+  const usesPartnerInventory = me?.role === 'agent' || me?.role === 'dropshipper'
+
+  function getSelectedCountryPartnerStock(product) {
+    return Math.max(0, Number(getLocalStockByCountry(product?.partnerStockByCountry, currentCountryKey) || 0))
+  }
+
   function getSelectedCountryStock(product) {
+    if (usesPartnerInventory) {
+      return getSelectedCountryPartnerStock(product)
+    }
     return Math.max(0, Number(getLocalStockByCountry(product?.stockByCountry, currentCountryKey) || 0))
   }
 
@@ -878,7 +887,8 @@ export default function SubmitOrder() {
     const searchLower = searchText.toLowerCase().trim()
     return products.filter(
       (p) =>
-        p.name?.toLowerCase().includes(searchLower) || p.sku?.toLowerCase().includes(searchLower)
+        (p.name?.toLowerCase().includes(searchLower) || p.sku?.toLowerCase().includes(searchLower)) &&
+        getSelectedCountryStock(p) > 0
     )
   }
 
@@ -1239,6 +1249,7 @@ export default function SubmitOrder() {
                                 selectedCurrency
                               )
                               const availableStock = getSelectedCountryStock(p)
+                              const partnerStock = getSelectedCountryPartnerStock(p)
                               return (
                                 <div
                                   key={p._id}
@@ -1294,7 +1305,7 @@ export default function SubmitOrder() {
                                 >
                                   <div style={{ fontWeight: 500 }}>{p.name}</div>
                                   <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>
-                                    {selectedCurrency} {display.toFixed(2)} • In {form.orderCountry}: {availableStock}
+                                    {selectedCurrency} {display.toFixed(2)} • {usesPartnerInventory ? `Partner Stock: ${partnerStock}` : `In ${form.orderCountry}: ${availableStock}`}
                                   </div>
                                 </div>
                               )
@@ -1303,7 +1314,7 @@ export default function SubmitOrder() {
                         )}
                         {selectedProduct ? (
                           <div className="helper" style={{ fontSize: 11, opacity: 0.8, marginTop: 4 }}>
-                            In {form.orderCountry}: {selectedProductStock}
+                            {usesPartnerInventory ? `Partner Stock: ${selectedProductStock}` : `In ${form.orderCountry}: ${selectedProductStock}`}
                           </div>
                         ) : null}
                         {it.searchText && it.searchText.length > 0 && it.searchText.length < 3 && (

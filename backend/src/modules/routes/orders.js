@@ -80,6 +80,41 @@ function totalStockFromByCountry(stockByCountry) {
   return total;
 }
 
+function getPartnerCountryCandidates(countryKey) {
+  const c = normalizeStockCountryKey(countryKey);
+  if (c === "UAE") return ["UAE", "United Arab Emirates", "AE", "ARE"];
+  if (c === "Oman") return ["Oman", "OM", "OMN"];
+  if (c === "KSA") return ["Saudi Arabia", "KSA", "SA", "SAU"];
+  if (c === "Bahrain") return ["Bahrain", "BH", "BHR"];
+  if (c === "India") return ["India", "IN", "IND"];
+  if (c === "Kuwait") return ["Kuwait", "KW", "KWT"];
+  if (c === "Qatar") return ["Qatar", "QA", "QAT"];
+  if (c === "Pakistan") return ["Pakistan", "PK", "PAK"];
+  if (c === "Jordan") return ["Jordan", "JO", "JOR"];
+  if (c === "USA") return ["USA", "US", "United States"];
+  if (c === "UK") return ["UK", "GB", "GBR", "United Kingdom"];
+  if (c === "Canada") return ["Canada", "CA", "CAN"];
+  if (c === "Australia") return ["Australia", "AU", "AUS"];
+  return [c];
+}
+
+function buildPartnerStockIndex(rows) {
+  const index = new Map();
+  for (const row of rows || []) {
+    const productIdKey = String(row?.productId || "");
+    if (!productIdKey) continue;
+    const existing = index.get(productIdKey) || [];
+    existing.push({ ...row });
+    index.set(productIdKey, existing);
+  }
+  return index;
+}
+
+function getPartnerAvailableStock(partnerStockIndex, productId) {
+  const rows = partnerStockIndex.get(String(productId || "")) || [];
+  return rows.reduce((sum, row) => sum + Math.max(0, Number(row?.stock || 0)), 0);
+}
+
 // Helper: Recalculate dropshipper profit for a single order
 async function recalculateDropshipperProfitForOrder(order) {
   if (!order) return;
@@ -1025,6 +1060,8 @@ router.post(
       }
     }
 
+    const usesPartnerInventory = req.user.role === "agent" || req.user.role === "dropshipper";
+
     // Resolve single or multiple products
     let prod = null;
     let normItems = [];
@@ -1064,6 +1101,7 @@ router.post(
           orderCountry &&
           p.availableCountries?.length &&
           !normalizeAvailableCountries(p.availableCountries).includes(orderStockCountryKey) &&
+          !usesPartnerInventory &&
           !hasStockForCountry(p, orderStockCountryKey)
         ) {
           return res
@@ -1087,6 +1125,7 @@ router.post(
         orderCountry &&
         prod.availableCountries?.length &&
         !normalizeAvailableCountries(prod.availableCountries).includes(orderStockCountryKey) &&
+        !usesPartnerInventory &&
         !hasStockForCountry(prod, orderStockCountryKey)
       ) {
         return res
@@ -1095,8 +1134,32 @@ router.post(
       }
     }
 
+    const requestedItemsForInventory = normItems.length
+      ? normItems
+      : prod
+      ? [{ productId: prod._id, quantity: Math.max(1, Number(quantity || 1)) }]
+      : [];
+
+    let partnerStockIndex = new Map();
+    if (usesPartnerInventory && ownerScopeId && requestedItemsForInventory.length) {
+      const partnerRows = await PartnerPurchasing.find({
+        ownerId: ownerScopeId,
+        productId: { $in: requestedItemsForInventory.map((item) => item.productId) },
+        country: { $in: getPartnerCountryCandidates(orderStockCountryKey) },
+        stock: { $gt: 0 },
+      })
+        .select("_id partnerId productId country stock")
+        .sort({ updatedAt: 1, _id: 1 })
+        .lean();
+
+      partnerStockIndex = buildPartnerStockIndex(partnerRows);
+    }
+
     // Check stock availability in the order country BEFORE creating the order
     const getCountryStock = (product) => {
+      if (usesPartnerInventory) {
+        return getPartnerAvailableStock(partnerStockIndex, product?._id);
+      }
       if (!product?.stockByCountry) return 0;
       return Math.max(0, Number(getStockByCountry(product.stockByCountry, orderStockCountryKey) || 0));
     };
@@ -1112,7 +1175,7 @@ router.post(
         const availableStock = getCountryStock(p);
         if (availableStock < requestedQty) {
           return res.status(400).json({
-            message: `No stock available for ${p.name} in ${finalOrderCountry}. Available: ${availableStock}, Requested: ${requestedQty}`,
+            message: `${usesPartnerInventory ? 'No partner stock available' : 'No stock available'} for ${p.name} in ${finalOrderCountry}. Available: ${availableStock}, Requested: ${requestedQty}`,
             error: "INSUFFICIENT_STOCK",
             product: p.name,
             available: availableStock,
@@ -1126,7 +1189,7 @@ router.post(
       const availableStock = getCountryStock(prod);
       if (availableStock < requestedQty) {
         return res.status(400).json({
-          message: `No stock available for ${prod.name} in ${finalOrderCountry}. Available: ${availableStock}, Requested: ${requestedQty}`,
+          message: `${usesPartnerInventory ? 'No partner stock available' : 'No stock available'} for ${prod.name} in ${finalOrderCountry}. Available: ${availableStock}, Requested: ${requestedQty}`,
           error: "INSUFFICIENT_STOCK",
           product: prod.name,
           available: availableStock,
@@ -1461,9 +1524,39 @@ router.post(
     }
 
     // Decrease stock immediately when order is created (reserve inventory)
+    let reservedPartnerAllocations = [];
     try {
       const countryKey = normalizeStockCountryKey(orderCountry);
-      if (normItems.length > 0) {
+      if (usesPartnerInventory) {
+        for (const item of requestedItemsForInventory) {
+          let remaining = Math.max(1, Number(item.quantity || 1));
+          const rows = partnerStockIndex.get(String(item.productId || "")) || [];
+          for (const row of rows) {
+            if (remaining <= 0) break;
+            const available = Math.max(0, Number(row?.stock || 0));
+            if (available <= 0) continue;
+            const deductQty = Math.min(available, remaining);
+            const updatedRow = await PartnerPurchasing.findOneAndUpdate(
+              { _id: row._id, stock: { $gte: deductQty } },
+              { $inc: { stock: -deductQty } },
+              { new: true }
+            ).lean();
+            if (!updatedRow) continue;
+            row.stock = Math.max(0, Number(updatedRow.stock || 0));
+            remaining -= deductQty;
+            reservedPartnerAllocations.push({
+              partnerId: updatedRow.partnerId || row.partnerId,
+              productId: updatedRow.productId || item.productId,
+              country: updatedRow.country || row.country || countryKey,
+              quantity: deductQty,
+            });
+          }
+          if (remaining > 0) {
+            throw new Error(`Failed to reserve partner stock for ${productNameById[String(item.productId)] || 'product'}`);
+          }
+        }
+        doc.partnerInventoryAllocations = reservedPartnerAllocations;
+      } else if (normItems.length > 0) {
         // Multi-item order
         for (const it of normItems) {
           const p = await Product.findById(it.productId);
@@ -1504,6 +1597,23 @@ router.post(
       doc.inventoryAdjustedAt = new Date();
       await doc.save();
     } catch (err) {
+      if (reservedPartnerAllocations.length > 0) {
+        try {
+          for (const allocation of reservedPartnerAllocations) {
+            if (!allocation?.partnerId || !allocation?.productId || Number(allocation?.quantity || 0) <= 0) continue;
+            await PartnerPurchasing.findOneAndUpdate(
+              {
+                partnerId: allocation.partnerId,
+                productId: allocation.productId,
+                country: allocation.country,
+              },
+              { $inc: { stock: Number(allocation.quantity || 0) } }
+            );
+          }
+        } catch (restoreErr) {
+          console.error("[Order Create] Failed to restore partner inventory after reservation error:", restoreErr);
+        }
+      }
       console.error("[Order Create] Failed to adjust inventory:", err);
     }
     // Broadcast create
@@ -5353,6 +5463,33 @@ router.patch(
           } catch (err) {
             console.error("Failed to recalculate dropshipper profit:", err);
           }
+        }
+      }
+
+      if (
+        shipmentStatus &&
+        shipmentStatus !== oldShipmentStatus &&
+        (shipmentStatus === "cancelled" || shipmentStatus === "returned") &&
+        Array.isArray(ord.partnerInventoryAllocations) &&
+        ord.partnerInventoryAllocations.length > 0 &&
+        !ord.partnerInventoryRestoredAt
+      ) {
+        try {
+          for (const allocation of ord.partnerInventoryAllocations) {
+            if (!allocation?.partnerId || !allocation?.productId || Number(allocation?.quantity || 0) <= 0) continue;
+            await PartnerPurchasing.findOneAndUpdate(
+              {
+                partnerId: allocation.partnerId,
+                productId: allocation.productId,
+                country: allocation.country,
+              },
+              { $inc: { stock: Number(allocation.quantity || 0) } }
+            );
+          }
+          ord.partnerInventoryRestoredAt = new Date();
+          await ord.save();
+        } catch (restoreErr) {
+          console.error("Partner stock restore error:", restoreErr);
         }
       }
 
