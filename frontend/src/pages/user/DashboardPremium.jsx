@@ -139,7 +139,7 @@ function sectionCardStyle() {
     background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,250,252,0.98) 100%)',
     border: '1px solid rgba(148,163,184,0.18)',
     borderRadius: 28,
-    padding: 22,
+    padding: 'clamp(16px, 4vw, 22px)',
     boxShadow: '0 24px 60px rgba(15, 23, 42, 0.06)',
   }
 }
@@ -150,7 +150,7 @@ function SummaryCard({ label, value, hint, accent = '#2563eb', onClick = null })
       onClick={onClick || undefined}
       style={{
         borderRadius: 24,
-        padding: 20,
+        padding: 'clamp(16px, 4vw, 20px)',
         background: '#ffffff',
         border: '1px solid rgba(148,163,184,0.16)',
         boxShadow: '0 12px 30px rgba(15, 23, 42, 0.05)',
@@ -178,15 +178,13 @@ function MetricRail({ title, subtitle, items }) {
         <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b' }}>{title}</div>
         <div style={{ fontSize: 14, color: '#475569' }}>{subtitle}</div>
       </div>
-      <div style={{ overflowX: 'auto', paddingBottom: 4 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${items.length}, minmax(180px, 1fr))`, gap: 14, minWidth: `${items.length * 180}px` }}>
-          {items.map((item) => (
-            <div key={item.label} style={{ borderRadius: 22, padding: 18, border: '1px solid rgba(148,163,184,0.14)', background: item.background || '#fff', display: 'grid', gap: 8 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: item.labelColor || '#64748b' }}>{item.label}</div>
-              <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: '-0.04em', color: item.valueColor || '#0f172a' }}>{item.value}</div>
-            </div>
-          ))}
-        </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 14 }}>
+        {items.map((item) => (
+          <div key={item.label} style={{ borderRadius: 22, padding: 'clamp(14px, 3.5vw, 18px)', border: '1px solid rgba(148,163,184,0.14)', background: item.background || '#fff', display: 'grid', gap: 8, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: item.labelColor || '#64748b', lineHeight: 1.35 }}>{item.label}</div>
+            <div style={{ fontSize: 'clamp(18px, 5vw, 22px)', fontWeight: 900, letterSpacing: '-0.04em', color: item.valueColor || '#0f172a', minWidth: 0, overflowWrap: 'anywhere' }}>{item.value}</div>
+          </div>
+        ))}
       </div>
     </section>
   )

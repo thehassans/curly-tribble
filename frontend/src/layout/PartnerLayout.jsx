@@ -324,6 +324,7 @@ export default function PartnerLayout() {
             bottom: max(10px, env(safe-area-inset-bottom));
             z-index: 30;
             display: flex;
+            align-items: stretch;
             gap: 4px;
             overflow: hidden;
             padding: 6px;
@@ -336,10 +337,13 @@ export default function PartnerLayout() {
             flex: 1 1 0;
             min-width: 0;
             text-decoration: none;
-            display: grid;
-            justify-items: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
             gap: 3px;
             padding: 8px 2px;
+            min-height: 54px;
             border-radius: 16px;
             color: rgba(226,232,240,0.84);
             transition: all 160ms ease;
@@ -358,6 +362,8 @@ export default function PartnerLayout() {
             min-height: 14px;
           }
           .partner-bottom-nav__label {
+            display: block;
+            width: 100%;
             font-size: 9px;
             font-weight: 800;
             line-height: 1.15;
@@ -393,6 +399,7 @@ export default function PartnerLayout() {
           }
           .partner-bottom-nav__item {
             padding: 8px 1px;
+            min-height: 50px;
           }
           .partner-bottom-nav__label {
             font-size: 8.5px;

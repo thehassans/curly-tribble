@@ -101,7 +101,7 @@ export default function PartnerOrders() {
 
       <section style={panelStyle()}>
         <div style={{ display: 'grid', gap: 14, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-          <input className="input" style={inputStyle()} value={filters.q} onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))} placeholder="Search invoice, phone, customer" />
+          <input className="input" style={inputStyle()} value={filters.q} onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))} placeholder="Search invoice, phone, customer, product" />
           <select className="input" style={inputStyle()} value={filters.ship} onChange={(e) => setFilters((prev) => ({ ...prev, ship: e.target.value }))}>
             <option value="">All statuses</option>
             {shipmentOptions.map((status) => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}
@@ -136,6 +136,10 @@ export default function PartnerOrders() {
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 12 }}>
+                <div>
+                  <div style={{ color: '#64748b', fontSize: 12, fontWeight: 700 }}>Product</div>
+                  <div style={{ marginTop: 8, color: '#0f172a', fontWeight: 700 }}>{order?.productName || '-'}</div>
+                </div>
                 <div>
                   <div style={{ color: '#64748b', fontSize: 12, fontWeight: 700 }}>Address</div>
                   <div style={{ marginTop: 8, color: '#0f172a', fontWeight: 700 }}>{[order?.customerAddress, order?.customerArea, order?.city].filter(Boolean).join(', ') || '-'}</div>
