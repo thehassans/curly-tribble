@@ -115,6 +115,29 @@ function getPartnerAvailableStock(partnerStockIndex, productId) {
   return rows.reduce((sum, row) => sum + Math.max(0, Number(row?.stock || 0)), 0);
 }
 
+function getCompanyAvailableStock(product, countryKey) {
+  if (!product?.stockByCountry) return 0;
+  return Math.max(0, Number(getStockByCountry(product.stockByCountry, countryKey) || 0));
+}
+
+async function deductProductCountryStock(product, countryKey, quantity) {
+  if (!product) return;
+  const qty = Math.max(1, Number(quantity || 1));
+  if (product.stockByCountry) {
+    const byC = product.stockByCountry;
+    const prev = Number(byC[countryKey] || 0);
+    byC[countryKey] = Math.max(0, prev - qty);
+    product.markModified("stockByCountry");
+    const totalLeft = totalStockFromByCountry(byC);
+    product.stockQty = totalLeft;
+    product.inStock = totalLeft > 0;
+  } else if (product.stockQty != null) {
+    product.stockQty = Math.max(0, (product.stockQty || 0) - qty);
+    product.inStock = product.stockQty > 0;
+  }
+  await product.save();
+}
+
 function buildOrderProductName(order) {
   const itemNames = Array.isArray(order?.items) && order.items.length
     ? order.items
@@ -1204,13 +1227,19 @@ router.post(
     }
 
     // Check stock availability in the order country BEFORE creating the order
-    const getCountryStock = (product) => {
-      if (usesPartnerInventory) {
-        return getPartnerAvailableStock(partnerStockIndex, product?._id);
-      }
-      if (!product?.stockByCountry) return 0;
-      return Math.max(0, Number(getStockByCountry(product.stockByCountry, orderStockCountryKey) || 0));
+    const getCountryStockBreakdown = (product) => {
+      const companyStock = getCompanyAvailableStock(product, orderStockCountryKey);
+      const partnerStock = usesPartnerInventory
+        ? getPartnerAvailableStock(partnerStockIndex, product?._id)
+        : 0;
+      return {
+        partnerStock,
+        companyStock,
+        total: usesPartnerInventory ? partnerStock + companyStock : companyStock,
+      };
     };
+
+    const getCountryStock = (product) => getCountryStockBreakdown(product).total;
 
     if (normItems.length > 0) {
       // Check stock for multi-item orders
@@ -1220,10 +1249,11 @@ router.post(
         );
         if (!p) continue;
         const requestedQty = Math.max(1, Number(it.quantity || 1));
-        const availableStock = getCountryStock(p);
+        const stockBreakdown = getCountryStockBreakdown(p);
+        const availableStock = stockBreakdown.total;
         if (availableStock < requestedQty) {
           return res.status(400).json({
-            message: `${usesPartnerInventory ? 'No partner stock available' : 'No stock available'} for ${p.name} in ${finalOrderCountry}. Available: ${availableStock}, Requested: ${requestedQty}`,
+            message: `No stock available for ${p.name} in ${finalOrderCountry}. Available: ${availableStock}, Requested: ${requestedQty}.${usesPartnerInventory ? ` Partner: ${stockBreakdown.partnerStock}, Company Warehouse: ${stockBreakdown.companyStock}.` : ''}`,
             error: "INSUFFICIENT_STOCK",
             product: p.name,
             available: availableStock,
@@ -1234,10 +1264,11 @@ router.post(
     } else if (prod) {
       // Check stock for single product order
       const requestedQty = Math.max(1, Number(quantity || 1));
-      const availableStock = getCountryStock(prod);
+      const stockBreakdown = getCountryStockBreakdown(prod);
+      const availableStock = stockBreakdown.total;
       if (availableStock < requestedQty) {
         return res.status(400).json({
-          message: `${usesPartnerInventory ? 'No partner stock available' : 'No stock available'} for ${prod.name} in ${finalOrderCountry}. Available: ${availableStock}, Requested: ${requestedQty}`,
+          message: `No stock available for ${prod.name} in ${finalOrderCountry}. Available: ${availableStock}, Requested: ${requestedQty}.${usesPartnerInventory ? ` Partner: ${stockBreakdown.partnerStock}, Company Warehouse: ${stockBreakdown.companyStock}.` : ''}`,
           error: "INSUFFICIENT_STOCK",
           product: prod.name,
           available: availableStock,
@@ -1600,7 +1631,18 @@ router.post(
             });
           }
           if (remaining > 0) {
-            throw new Error(`Failed to reserve partner stock for ${productNameById[String(item.productId)] || 'product'}`);
+            const companyProduct = await Product.findOne(
+              ownerScopeId ? { _id: item.productId, createdBy: ownerScopeId } : { _id: item.productId }
+            );
+            if (!companyProduct) {
+              throw new Error(`Failed to reserve company warehouse stock for ${productNameById[String(item.productId)] || 'product'}`);
+            }
+            const companyAvailable = getCompanyAvailableStock(companyProduct, countryKey);
+            if (companyAvailable < remaining) {
+              throw new Error(`Failed to reserve company warehouse stock for ${productNameById[String(item.productId)] || 'product'}`);
+            }
+            await deductProductCountryStock(companyProduct, countryKey, remaining);
+            remaining = 0;
           }
         }
         doc.partnerInventoryAllocations = reservedPartnerAllocations;
@@ -1610,36 +1652,12 @@ router.post(
           const p = await Product.findById(it.productId);
           if (!p) continue;
           const qty = Math.max(1, Number(it.quantity || 1));
-          if (p.stockByCountry) {
-            const byC = p.stockByCountry;
-            const prev = Number(byC[countryKey] || 0);
-            byC[countryKey] = Math.max(0, prev - qty);
-            p.markModified("stockByCountry");
-            const totalLeft = totalStockFromByCountry(byC);
-            p.stockQty = totalLeft;
-            p.inStock = totalLeft > 0;
-          } else if (p.stockQty != null) {
-            p.stockQty = Math.max(0, (p.stockQty || 0) - qty);
-            p.inStock = p.stockQty > 0;
-          }
-          await p.save();
+          await deductProductCountryStock(p, countryKey, qty);
         }
       } else if (prod) {
         // Single product order
         const qty = Math.max(1, Number(quantity || 1));
-        if (prod.stockByCountry) {
-          const byC = prod.stockByCountry;
-          const prev = Number(byC[countryKey] || 0);
-          byC[countryKey] = Math.max(0, prev - qty);
-          prod.markModified("stockByCountry");
-          const totalLeft = totalStockFromByCountry(byC);
-          prod.stockQty = totalLeft;
-          prod.inStock = totalLeft > 0;
-        } else if (prod.stockQty != null) {
-          prod.stockQty = Math.max(0, (prod.stockQty || 0) - qty);
-          prod.inStock = prod.stockQty > 0;
-        }
-        await prod.save();
+        await deductProductCountryStock(prod, countryKey, qty);
       }
       doc.inventoryAdjusted = true;
       doc.inventoryAdjustedAt = new Date();
