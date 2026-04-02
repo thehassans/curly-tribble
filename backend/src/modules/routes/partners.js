@@ -399,10 +399,10 @@ async function buildHiddenEmail(prefix, phone) {
 }
 
 function parseOwnerId(req) {
-  if (req.user.role === "user") return String(req.user.id);
   const ownerId = String(req.body?.ownerId || req.query?.ownerId || "").trim();
-  if (!ownerId || !mongoose.Types.ObjectId.isValid(ownerId)) return "";
-  return ownerId;
+  if (ownerId && mongoose.Types.ObjectId.isValid(ownerId)) return ownerId;
+  if (req.user.role === "user" || req.user.role === "admin") return String(req.user.id);
+  return "";
 }
 
 async function getWorkspaceCreatorIds(ownerId) {
