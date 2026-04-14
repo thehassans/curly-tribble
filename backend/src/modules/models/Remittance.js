@@ -5,7 +5,7 @@ const RemittanceSchema = new mongoose.Schema({
   manager: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   country: { type: String, default: '' },
-  currency: { type: String, enum: ['AED','SAR','OMR','BHD','INR','KWD','QAR',''], default: '' },
+  currency: { type: String, default: '' },
   amount: { type: Number, required: true, min: 0 },
   driverCommission: { type: Number, default: 0 },
   commissionRate: { type: Number, default: 0 },

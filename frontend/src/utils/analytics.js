@@ -1,4 +1,5 @@
 import { readCartItems } from './cartStorage'
+import { COUNTRY_TO_CURRENCY } from './constants'
 
 // Analytics utility - fires events across ALL pixel platforms with prices
 // Platforms: Facebook/Meta, TikTok, Snapchat, Pinterest, Twitter/X, LinkedIn, Google Analytics
@@ -6,8 +7,7 @@ import { readCartItems } from './cartStorage'
 function getCurrency() {
   try {
     const country = localStorage.getItem('selected_country') || 'GB'
-    const map = { SA: 'SAR', AE: 'AED', OM: 'OMR', BH: 'BHD', KW: 'KWD', QA: 'QAR', IN: 'INR', PK: 'PKR', GB: 'GBP', UK: 'GBP', US: 'USD', CA: 'CAD', AU: 'AUD' }
-    return map[country] || 'GBP'
+    return COUNTRY_TO_CURRENCY[country] || 'GBP'
   } catch { return 'GBP' }
 }
 

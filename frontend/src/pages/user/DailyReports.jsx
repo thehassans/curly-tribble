@@ -2,50 +2,22 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { apiGet } from '../../api.js'
 import { getCurrencyConfig, convert, formatMoney } from '../../util/currency.js'
 import { useToast } from '../../ui/Toast.jsx'
-
-const COUNTRY_ORDER = ['KSA', 'UAE', 'Oman', 'Bahrain', 'India', 'Kuwait', 'Qatar', 'Pakistan', 'Jordan', 'USA', 'UK', 'Canada', 'Australia', 'Other']
+import { COUNTRY_LIST, canonicalCountryName, resolveCountryEntry } from '../../utils/constants'
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10)
 }
 
+function countryOrder() {
+  return [...COUNTRY_LIST.map((country) => country.name), 'Other']
+}
+
 function canonicalCountry(value) {
-  const raw = String(value || '').trim()
-  const upper = raw.toUpperCase()
-  if (!upper) return 'Other'
-  if (['KSA', 'SAUDI ARABIA', 'SA'].includes(upper)) return 'KSA'
-  if (['UAE', 'UNITED ARAB EMIRATES', 'AE'].includes(upper)) return 'UAE'
-  if (['OMAN', 'OM'].includes(upper)) return 'Oman'
-  if (['BAHRAIN', 'BH'].includes(upper)) return 'Bahrain'
-  if (['INDIA', 'IN'].includes(upper)) return 'India'
-  if (['KUWAIT', 'KW'].includes(upper)) return 'Kuwait'
-  if (['QATAR', 'QA'].includes(upper)) return 'Qatar'
-  if (['PAKISTAN', 'PK'].includes(upper)) return 'Pakistan'
-  if (['JORDAN', 'JO'].includes(upper)) return 'Jordan'
-  if (['USA', 'US', 'UNITED STATES', 'UNITED STATES OF AMERICA'].includes(upper)) return 'USA'
-  if (['UK', 'GB', 'UNITED KINGDOM'].includes(upper)) return 'UK'
-  if (['CANADA', 'CA'].includes(upper)) return 'Canada'
-  if (['AUSTRALIA', 'AU'].includes(upper)) return 'Australia'
-  return raw
+  return canonicalCountryName(value)
 }
 
 function currencyFromCountry(country) {
-  switch (canonicalCountry(country)) {
-    case 'KSA': return 'SAR'
-    case 'UAE': return 'AED'
-    case 'Oman': return 'OMR'
-    case 'Bahrain': return 'BHD'
-    case 'India': return 'INR'
-    case 'Kuwait': return 'KWD'
-    case 'Qatar': return 'QAR'
-    case 'Pakistan': return 'PKR'
-    case 'Jordan': return 'JOD'
-    case 'USA': return 'USD'
-    case 'UK': return 'GBP'
-    case 'Canada': return 'CAD'
-    case 'Australia': return 'AUD'
-    default: return 'AED'
-  }
+  return resolveCountryEntry(country)?.currency || 'AED'
 }
 
 function buildDayRange(dayKey) {
@@ -332,7 +304,7 @@ export default function DailyReports() {
       grouped.set(row.country, current)
     }
     return Array.from(grouped.entries())
-      .sort((a, b) => COUNTRY_ORDER.indexOf(a[0]) - COUNTRY_ORDER.indexOf(b[0]))
+      .sort((a, b) => countryOrder().indexOf(a[0]) - countryOrder().indexOf(b[0]))
       .map(([country, upperRows]) => {
         const deliveredBaseRows = upperRows.filter((row) => row.statusKey === 'delivered')
         const explicitDeliveredAdExpense = deliveredBaseRows.reduce((sum, row) => sum + (row.hasExplicitAdExpense ? Number(row.explicitAdExpense || 0) : 0), 0)
@@ -456,7 +428,7 @@ export default function DailyReports() {
           <input className="input" type="date" value={dayKey} onChange={(e) => setDayKey(e.target.value)} style={{ minWidth: 170 }} />
           <select className="input" value={selectedCountry} onChange={(e) => setSelectedCountry(e.target.value)} style={{ minWidth: 170 }}>
             <option value="all">All Countries</option>
-            {COUNTRY_ORDER.filter((country) => country !== 'Other').map((country) => <option key={country} value={country}>{country}</option>)}
+            {countryOrder().filter((country) => country !== 'Other').map((country) => <option key={country} value={country}>{country}</option>)}
           </select>
           <button className="btn secondary" onClick={loadReport} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</button>
           <button className="btn secondary" onClick={downloadPdf} disabled={exportingPdf || !sections.length}>{exportingPdf ? 'Generating PDF…' : 'Download PDF'}</button>

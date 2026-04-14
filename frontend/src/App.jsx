@@ -83,6 +83,7 @@ const References = lazy(() => import('./pages/user/References.jsx'))
 const Notifications = lazy(() => import('./pages/user/Notifications.jsx'))
 const UserOrders = lazy(() => import('./pages/user/Orders.jsx'))
 const UserAPISetup = lazy(() => import('./pages/user/APISetup.jsx'))
+const UserConfiguration = lazy(() => import('./pages/user/Configuration.jsx'))
 const ProfileSettings = lazy(() => import('./pages/user/ProfileSettings.jsx'))
 const LabelSettings = lazy(() => import('./pages/user/LabelSettings.jsx'))
 const UserShopifySettings = lazy(() => import('./pages/user/ShopifySettings.jsx'))
@@ -923,6 +924,7 @@ export default function App() {
               <Route path="profit-loss" element={<ProfitLoss />} />
               <Route path="references" element={<References />} />
               <Route path="insights" element={<AnalyticsDashboard />} />
+              <Route path="configuration" element={<UserConfiguration />} />
               <Route path="track-drivers" element={<LiveTrackingView />} />
               <Route path="expense" element={<Expenses />} />
               <Route path="transactions" element={<Transactions />} />

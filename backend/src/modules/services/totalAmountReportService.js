@@ -6,6 +6,14 @@ import Setting from "../models/Setting.js";
 import AgentRemit from "../models/AgentRemit.js";
 import DriverCommissionRequest from "../models/DriverCommissionRequest.js";
 import Expense from "../models/Expense.js";
+import {
+  buildCountryCanonExpr as buildCountryCanonExprFromRegistry,
+  canonicalCountryName as canonicalCountryNameFromRegistry,
+  countrySortOrder,
+  currencyFromCountry as currencyFromCountryFromRegistry,
+  getCachedCountryRegistry,
+  getCountryRegistry,
+} from "../utils/countries.js";
 
 export const TOTAL_AMOUNT_SNAPSHOT_VERSION = 5;
 
@@ -82,86 +90,15 @@ function fromAED(amount, currency, perAED) {
 }
 
 export function canonicalCountryName(value) {
-  const raw = String(value || "").trim();
-  const upper = raw.toUpperCase();
-  if (!upper) return "Other";
-  if (["KSA", "SAUDI ARABIA", "SA"].includes(upper)) return "KSA";
-  if (["UAE", "UNITED ARAB EMIRATES", "AE"].includes(upper)) return "UAE";
-  if (["OMAN", "OM"].includes(upper)) return "Oman";
-  if (["BAHRAIN", "BH"].includes(upper)) return "Bahrain";
-  if (["INDIA", "IN"].includes(upper)) return "India";
-  if (["KUWAIT", "KW"].includes(upper)) return "Kuwait";
-  if (["QATAR", "QA"].includes(upper)) return "Qatar";
-  if (["PAKISTAN", "PK"].includes(upper)) return "Pakistan";
-  if (["JORDAN", "JO"].includes(upper)) return "Jordan";
-  if (["USA", "US", "UNITED STATES", "UNITED STATES OF AMERICA"].includes(upper)) return "USA";
-  if (["UK", "GB", "UNITED KINGDOM"].includes(upper)) return "UK";
-  if (["CANADA", "CA"].includes(upper)) return "Canada";
-  if (["AUSTRALIA", "AU"].includes(upper)) return "Australia";
-  return raw;
+  return canonicalCountryNameFromRegistry(value, getCachedCountryRegistry());
 }
 
 function currencyFromCountry(country) {
-  switch (canonicalCountryName(country)) {
-    case "KSA":
-      return "SAR";
-    case "UAE":
-      return "AED";
-    case "Oman":
-      return "OMR";
-    case "Bahrain":
-      return "BHD";
-    case "India":
-      return "INR";
-    case "Kuwait":
-      return "KWD";
-    case "Qatar":
-      return "QAR";
-    case "Pakistan":
-      return "PKR";
-    case "Jordan":
-      return "JOD";
-    case "USA":
-      return "USD";
-    case "UK":
-      return "GBP";
-    case "Canada":
-      return "CAD";
-    case "Australia":
-      return "AUD";
-    default:
-      return "AED";
-  }
+  return currencyFromCountryFromRegistry(country, getCachedCountryRegistry());
 }
 
 function buildCountryCanonExpr(fieldPath = "$orderCountry") {
-  return {
-    $let: {
-      vars: { c: { $ifNull: [fieldPath, ""] } },
-      in: {
-        $switch: {
-          branches: [
-            { case: { $in: [{ $toUpper: "$$c" }, ["KSA", "SAUDI ARABIA", "SA"]] }, then: "KSA" },
-            { case: { $in: [{ $toUpper: "$$c" }, ["UAE", "UNITED ARAB EMIRATES", "AE"]] }, then: "UAE" },
-            { case: { $in: [{ $toUpper: "$$c" }, ["OMAN", "OM"]] }, then: "Oman" },
-            { case: { $in: [{ $toUpper: "$$c" }, ["BAHRAIN", "BH"]] }, then: "Bahrain" },
-            { case: { $in: [{ $toUpper: "$$c" }, ["INDIA", "IN"]] }, then: "India" },
-            { case: { $in: [{ $toUpper: "$$c" }, ["KUWAIT", "KW"]] }, then: "Kuwait" },
-            { case: { $in: [{ $toUpper: "$$c" }, ["QATAR", "QA"]] }, then: "Qatar" },
-            { case: { $in: [{ $toUpper: "$$c" }, ["PAKISTAN", "PK"]] }, then: "Pakistan" },
-            { case: { $in: [{ $toUpper: "$$c" }, ["JORDAN", "JO"]] }, then: "Jordan" },
-            { case: { $in: [{ $toUpper: "$$c" }, ["USA", "US", "UNITED STATES", "UNITED STATES OF AMERICA"]] }, then: "USA" },
-            { case: { $in: [{ $toUpper: "$$c" }, ["UK", "GB", "UNITED KINGDOM"]] }, then: "UK" },
-            { case: { $in: [{ $toUpper: "$$c" }, ["CANADA", "CA"]] }, then: "Canada" },
-            { case: { $in: [{ $toUpper: "$$c" }, ["AUSTRALIA", "AU"]] }, then: "Australia" },
-          ],
-          default: {
-            $cond: [{ $eq: ["$$c", ""] }, "Other", "$$c"],
-          },
-        },
-      },
-    },
-  };
+  return buildCountryCanonExprFromRegistry(fieldPath, getCachedCountryRegistry());
 }
 
 function round2(value) {
@@ -394,6 +331,7 @@ function createEmptyPersonTotals({ id = "", name = "", role = "agent", country =
 }
 
 export async function buildTotalAmountSnapshot({ ownerId, periodType = "monthly", periodKey, monthKey }) {
+  await getCountryRegistry();
   const resolvedPeriod = resolveReportPeriod({ periodType, periodKey, monthKey });
   const { start, end } = resolvedPeriod;
   const [agents, managers, dropshippers, drivers, products] = await Promise.all([
@@ -933,7 +871,7 @@ export async function buildTotalAmountSnapshot({ ownerId, periodType = "monthly"
       : [],
   ]);
 
-  const countryOrder = ["KSA", "UAE", "Oman", "Bahrain", "India", "Kuwait", "Qatar", "Pakistan", "Jordan", "USA", "UK", "Canada", "Australia", "Other"];
+  const countryOrder = countrySortOrder(getCachedCountryRegistry());
   const countrySortIndex = (country) => {
     const idx = countryOrder.indexOf(canonicalCountryName(country));
     return idx === -1 ? countryOrder.length + 1 : idx;

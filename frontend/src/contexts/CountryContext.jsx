@@ -1,19 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { apiGet, API_BASE } from '../api'
-
-const COUNTRY_TO_CURRENCY = {
-  'SA': 'SAR', 'AE': 'AED', 'OM': 'OMR', 'BH': 'BHD', 'KW': 'KWD', 'QA': 'QAR',
-  'IN': 'INR', 'PK': 'PKR', 'JO': 'JOD', 'US': 'USD', 'GB': 'GBP', 'UK': 'GBP',
-  'CA': 'CAD', 'AU': 'AUD', 'EU': 'EUR'
-}
-
-const COUNTRY_FLAGS = {
-  'SA': '🇸🇦', 'AE': '🇦🇪', 'OM': '🇴🇲', 'BH': '🇧🇭', 'KW': '🇰🇼', 'QA': '🇶🇦',
-  'IN': '🇮🇳', 'PK': '🇵🇰', 'JO': '🇯🇴', 'US': '🇺🇸', 'GB': '🇬🇧', 'UK': '🇬🇧',
-  'CA': '🇨🇦', 'AU': '🇦🇺'
-}
+import { COUNTRY_LIST, COUNTRY_TO_CURRENCY, COUNTRY_TO_FLAG } from '../utils/constants'
+import { loadCountryRegistry } from '../util/countryRegistry'
 
 const CountryContext = createContext(null)
+
+function supportedCodes() {
+  return (COUNTRY_LIST || []).map((country) => country.code)
+}
 
 export function CountryProvider({ children }) {
   const [country, setCountryState] = useState(() => {
@@ -22,7 +16,7 @@ export function CountryProvider({ children }) {
       // links to force the correct country instantly with zero async delay.
       // This runs synchronously before any child component renders, so all
       // inline localStorage reads downstream also get the correct value.
-      const SUPPORTED = ['SA','AE','OM','BH','KW','QA','IN','PK','JO','US','GB','CA','AU']
+      const SUPPORTED = supportedCodes()
       const urlParams = new URLSearchParams(window.location.search)
       const ccParam = (urlParams.get('cc') || urlParams.get('country') || '').toUpperCase().trim()
       if (ccParam && SUPPORTED.includes(ccParam)) {
@@ -40,18 +34,30 @@ export function CountryProvider({ children }) {
     }
   })
   const [autoDetected, setAutoDetected] = useState(false)
+  const [countriesVersion, setCountriesVersion] = useState(0)
+
+  useEffect(() => {
+    let alive = true
+    loadCountryRegistry().then(() => {
+      if (!alive) return
+      setCountriesVersion((value) => value + 1)
+    }).catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
 
   // If a URL param set the country, emit the event once on mount so all listeners update
   useEffect(() => {
     try {
       const urlParams = new URLSearchParams(window.location.search)
       const ccParam = (urlParams.get('cc') || urlParams.get('country') || '').toUpperCase().trim()
-      const SUPPORTED = ['SA','AE','OM','BH','KW','QA','IN','PK','JO','US','GB','CA','AU']
+      const SUPPORTED = supportedCodes()
       if (ccParam && SUPPORTED.includes(ccParam)) {
         window.dispatchEvent(new CustomEvent('countryChanged', { detail: { code: ccParam } }))
       }
     } catch {}
-  }, [])
+  }, [countriesVersion])
 
   // Auto-detect country on first load
   useEffect(() => {
@@ -64,7 +70,7 @@ export function CountryProvider({ children }) {
     try {
       const urlParams = new URLSearchParams(window.location.search)
       const ccParam = (urlParams.get('cc') || urlParams.get('country') || '').toUpperCase().trim()
-      const SUPPORTED = ['SA','AE','OM','BH','KW','QA','IN','PK','JO','US','GB','CA','AU']
+      const SUPPORTED = supportedCodes()
       if (ccParam && SUPPORTED.includes(ccParam)) return
     } catch {}
 
@@ -95,7 +101,7 @@ export function CountryProvider({ children }) {
         const detectedCode = data.country_code?.toUpperCase()
         
         // Map to supported countries
-        const supportedCountries = ['SA', 'AE', 'OM', 'BH', 'KW', 'QA', 'IN', 'PK', 'JO', 'US', 'GB', 'CA', 'AU']
+        const supportedCountries = supportedCodes()
         if (detectedCode && supportedCountries.includes(detectedCode)) {
           setCountryState(detectedCode)
           localStorage.setItem('selected_country', detectedCode)
@@ -116,7 +122,7 @@ export function CountryProvider({ children }) {
     }
     
     detectCountry()
-  }, [])
+  }, [countriesVersion])
 
   // Set country and emit event
   const setCountry = useCallback((code) => {
@@ -129,7 +135,7 @@ export function CountryProvider({ children }) {
   }, [])
 
   const currency = COUNTRY_TO_CURRENCY[country] || 'SAR'
-  const flag = COUNTRY_FLAGS[country] || '🌍'
+  const flag = COUNTRY_TO_FLAG[country] || '🌍'
 
   return (
     <CountryContext.Provider value={{ 
@@ -138,8 +144,9 @@ export function CountryProvider({ children }) {
       currency, 
       flag,
       autoDetected,
+      countries: COUNTRY_LIST,
       COUNTRY_TO_CURRENCY,
-      COUNTRY_FLAGS
+      COUNTRY_FLAGS: COUNTRY_TO_FLAG
     }}>
       {children}
     </CountryContext.Provider>
@@ -159,8 +166,9 @@ export function useCountry() {
       currency: COUNTRY_TO_CURRENCY[fallbackCountry] || 'SAR',
       flag: '🌍',
       autoDetected: false,
+      countries: COUNTRY_LIST,
       COUNTRY_TO_CURRENCY,
-      COUNTRY_FLAGS
+      COUNTRY_FLAGS: COUNTRY_TO_FLAG
     }
   }
   return context

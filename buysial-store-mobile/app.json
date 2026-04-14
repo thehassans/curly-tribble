@@ -2,7 +2,7 @@
   "expo": {
     "name": "Buysial",
     "slug": "buysial-store-mobile",
-    "version": "1.0.2",
+    "version": "1.0.11",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -14,11 +14,11 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.buysial.store"
+      "bundleIdentifier": "com.buysial.app"
     },
     "android": {
-      "package": "com.buysial.store",
-      "versionCode": 3,
+      "package": "com.buysial.app",
+      "versionCode": 13,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#111827"

@@ -6,49 +6,10 @@ import { useCountry } from '../../contexts/CountryContext'
 import { readWishlistIds, syncWishlistFromServer } from '../../util/wishlist'
 import { apiGet } from '../../api.js'
 
-const countries = [
-  { code: 'AE', name: 'UAE', flag: '', currency: 'AED' },
-  { code: 'OM', name: 'Oman', flag: '', currency: 'OMR' },
-  { code: 'SA', name: 'KSA', flag: '', currency: 'SAR' },
-  { code: 'BH', name: 'Bahrain', flag: '', currency: 'BHD' },
-  { code: 'IN', name: 'India', flag: '', currency: 'INR' },
-  { code: 'KW', name: 'Kuwait', flag: '', currency: 'KWD' },
-  { code: 'QA', name: 'Qatar', flag: '', currency: 'QAR' },
-  { code: 'PK', name: 'Pakistan', flag: '', currency: 'PKR' },
-  { code: 'EG', name: 'Egypt', flag: '', currency: 'EGP' },
-  { code: 'JO', name: 'Jordan', flag: '', currency: 'JOD' },
-  { code: 'LB', name: 'Lebanon', flag: '', currency: 'LBP' },
-  { code: 'IQ', name: 'Iraq', flag: '', currency: 'IQD' },
-  { code: 'YE', name: 'Yemen', flag: '', currency: 'YER' },
-  { code: 'US', name: 'USA', flag: '', currency: 'USD' },
-  { code: 'GB', name: 'UK', flag: '', currency: 'GBP' },
-  { code: 'CA', name: 'Canada', flag: '', currency: 'CAD' },
-  { code: 'AU', name: 'Australia', flag: '', currency: 'AUD' },
-  { code: 'DE', name: 'Germany', flag: '', currency: 'EUR' },
-  { code: 'FR', name: 'France', flag: '', currency: 'EUR' },
-  { code: 'TR', name: 'Turkey', flag: '', currency: 'TRY' },
-  { code: 'MY', name: 'Malaysia', flag: '', currency: 'MYR' },
-  { code: 'SG', name: 'Singapore', flag: '', currency: 'SGD' },
-  { code: 'ID', name: 'Indonesia', flag: '', currency: 'IDR' },
-  { code: 'PH', name: 'Philippines', flag: '', currency: 'PHP' },
-  { code: 'BD', name: 'Bangladesh', flag: '', currency: 'BDT' },
-  { code: 'LK', name: 'Sri Lanka', flag: '', currency: 'LKR' },
-  { code: 'NP', name: 'Nepal', flag: '', currency: 'NPR' },
-  { code: 'ZA', name: 'South Africa', flag: '', currency: 'ZAR' },
-  { code: 'NG', name: 'Nigeria', flag: '', currency: 'NGN' },
-  { code: 'KE', name: 'Kenya', flag: '', currency: 'KES' },
-  { code: 'MA', name: 'Morocco', flag: '', currency: 'MAD' },
-  { code: 'TN', name: 'Tunisia', flag: '', currency: 'TND' },
-  { code: 'CN', name: 'China', flag: '', currency: 'CNY' },
-  { code: 'JP', name: 'Japan', flag: '', currency: 'JPY' },
-  { code: 'KR', name: 'South Korea', flag: '', currency: 'KRW' },
-  { code: 'TH', name: 'Thailand', flag: '', currency: 'THB' },
-  { code: 'VN', name: 'Vietnam', flag: '', currency: 'VND' },
-]
-
 const getCartItemCount = () => {
   try {
     const savedCart = localStorage.getItem('shopping_cart')
+
     if (!savedCart) return 0
     
     const cartItems = JSON.parse(savedCart)

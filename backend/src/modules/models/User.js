@@ -83,50 +83,15 @@ const UserSchema = new mongoose.Schema(
     // SEO manager: which countries this seo_manager can manage pixels/SEO for
     seoCountries: {
       type: [String],
-      enum: [
-        "UAE", "Saudi Arabia", "Oman", "Bahrain", "India", "Kuwait",
-        "Qatar", "Jordan", "Pakistan", "USA", "UK", "Canada", "Australia",
-      ],
       default: [],
     },
     assignedCountry: {
       type: String,
-      enum: [
-        "UAE",
-        "Saudi Arabia",
-        "Oman",
-        "Bahrain",
-        "India",
-        "Kuwait",
-        "Qatar",
-        "Jordan",
-        "Pakistan",
-        "USA",
-        "UK",
-        "Canada",
-        "Australia",
-        "",
-      ],
       default: "",
     },
     // New: allow assigning MULTIPLE countries (up to 2) – this field takes precedence if non-empty
     assignedCountries: {
       type: [String],
-      enum: [
-        "UAE",
-        "Saudi Arabia",
-        "Oman",
-        "Bahrain",
-        "India",
-        "Kuwait",
-        "Qatar",
-        "Jordan",
-        "Pakistan",
-        "USA",
-        "UK",
-        "Canada",
-        "Australia",
-      ],
       default: [],
     },
     // Auto welcome message status (set on agent creation best-effort)
@@ -142,7 +107,6 @@ const UserSchema = new mongoose.Schema(
       totalReturn: { type: Number, default: 0 }, // investmentAmount + earnedProfit
       currency: {
         type: String,
-        enum: ["AED", "SAR", "OMR", "BHD", "INR", "KWD", "QAR", "USD", "CNY"],
         default: "SAR",
       },
       status: {

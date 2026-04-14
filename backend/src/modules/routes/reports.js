@@ -10,6 +10,11 @@ import Remittance from "../models/Remittance.js";
 import Setting from "../models/Setting.js";
 import { auth, allowRoles } from "../middleware/auth.js";
 import mongoose from "mongoose";
+import {
+  currencyFromCountry as currencyFromCountryFromRegistry,
+  getCachedCountryRegistry,
+  getCountryRegistry,
+} from "../utils/countries.js";
 
 // Helper function to calculate performance rating
 const calculatePerformance = (metrics) => {
@@ -814,6 +819,7 @@ router.get("/country-drivers", auth, async (req, res) => {
 // User metrics for owner dashboard
 router.get("/user-metrics", auth, allowRoles("user"), async (req, res) => {
   try {
+    await getCountryRegistry();
     const ownerId = new mongoose.Types.ObjectId(req.user.id);
     const agents = await User.find(
       { role: "agent", createdBy: ownerId },
@@ -1764,21 +1770,7 @@ router.get("/user-metrics", auth, allowRoles("user"), async (req, res) => {
       return value / ratePKR;
     };
     const currencyFromCountry = (country) => {
-      const c = String(country || "").toUpperCase();
-      if (["UAE", "UNITED ARAB EMIRATES", "AE"].includes(c)) return "AED";
-      if (["OMAN", "OM"].includes(c)) return "OMR";
-      if (["KSA", "SAUDI ARABIA", "SA"].includes(c)) return "SAR";
-      if (["BAHRAIN", "BH"].includes(c)) return "BHD";
-      if (["KUWAIT", "KW"].includes(c)) return "KWD";
-      if (["QATAR", "QA"].includes(c)) return "QAR";
-      if (["INDIA", "IN"].includes(c)) return "INR";
-      if (["PAKISTAN", "PK"].includes(c)) return "PKR";
-      if (["JORDAN", "JO"].includes(c)) return "JOD";
-      if (["USA", "UNITED STATES", "US"].includes(c)) return "USD";
-      if (["UK", "UNITED KINGDOM", "GB"].includes(c)) return "GBP";
-      if (["CANADA", "CA"].includes(c)) return "CAD";
-      if (["AUSTRALIA", "AU"].includes(c)) return "AUD";
-      return "SAR";
+      return currencyFromCountryFromRegistry(country, getCachedCountryRegistry()) || "SAR";
     };
 
     const totalProductsInHouse = productStats[0]?.totalProductsInHouse || 0;
@@ -1874,15 +1866,7 @@ router.get("/user-metrics", auth, allowRoles("user"), async (req, res) => {
         Number(r.totalDiscount || 0);
     }
 
-    const KNOWN_COUNTRIES = [
-      "KSA",
-      "UAE",
-      "Oman",
-      "Bahrain",
-      "India",
-      "Kuwait",
-      "Qatar",
-    ];
+    const KNOWN_COUNTRIES = getCachedCountryRegistry().map((country) => country.name);
     const emptyCurrencyMap = () => ({
       AED: 0,
       OMR: 0,
@@ -2560,6 +2544,7 @@ router.get(
 
 router.get("/user-metrics", auth, allowRoles("user"), async (req, res) => {
   try {
+    await getCountryRegistry();
     const ownerId = new mongoose.Types.ObjectId(req.user.id);
     const agents = await User.find(
       { role: "agent", createdBy: ownerId },
@@ -3571,15 +3556,7 @@ router.get("/user-metrics", auth, allowRoles("user"), async (req, res) => {
         Number(r.totalDiscount || 0);
     }
 
-    const KNOWN_COUNTRIES = [
-      "KSA",
-      "UAE",
-      "Oman",
-      "Bahrain",
-      "India",
-      "Kuwait",
-      "Qatar",
-    ];
+    const KNOWN_COUNTRIES = getCachedCountryRegistry().map((country) => country.name);
     const emptyCurrencyMap = () => ({
       AED: 0,
       OMR: 0,

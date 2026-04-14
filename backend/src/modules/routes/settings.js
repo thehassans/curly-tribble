@@ -7,6 +7,11 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { auth, allowRoles } from "../middleware/auth.js";
 import mime from "mime-types";
 import googleMapsService from "../services/googleMapsService.js";
+import {
+  DEFAULT_COUNTRY_REGISTRY,
+  getCountryRegistry,
+  normalizeCountryRegistry,
+} from "../utils/countries.js";
 
 const router = express.Router();
 
@@ -77,6 +82,44 @@ function defaultDeliveryWorkflowConfig() {
     updatedAt: new Date(),
   };
 }
+
+router.get("/countries", async (_req, res) => {
+  try {
+    const countries = await getCountryRegistry();
+    return res.json({ success: true, countries });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e?.message || "failed" });
+  }
+});
+
+router.post(
+  "/countries",
+  auth,
+  allowRoles("admin", "user", "manager"),
+  async (req, res) => {
+    try {
+      const countries = normalizeCountryRegistry(req.body?.countries || DEFAULT_COUNTRY_REGISTRY);
+      let doc = await Setting.findOne({ key: "countries" });
+      if (!doc) {
+        doc = new Setting({
+          key: "countries",
+          category: "general",
+          description: "Shared country registry for storefront, reports, and staff workflows",
+          value: { countries },
+        });
+      }
+      doc.category = "general";
+      doc.description = "Shared country registry for storefront, reports, and staff workflows";
+      doc.updatedBy = req.user?.id || undefined;
+      doc.value = { countries, updatedAt: new Date() };
+      await doc.save();
+      const latest = await getCountryRegistry(true);
+      return res.json({ success: true, countries: latest });
+    } catch (e) {
+      return res.status(500).json({ success: false, error: e?.message || "failed" });
+    }
+  }
+);
 
 // GET /api/settings/currency - PUBLIC (no auth required for reading currency config)
 router.get("/currency", async (_req, res) => {

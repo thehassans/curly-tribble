@@ -13,6 +13,7 @@ import MobileBottomNav from '../../components/ecommerce/MobileBottomNav'
 import DiscoverSearchSurface from '../../components/ecommerce/DiscoverSearchSurface'
 import { getCachedCurrencyConfig, getCurrencyConfig } from '../../util/currency'
 import { readCartItems } from '../../utils/cartStorage'
+import { COUNTRY_LIST } from '../../utils/constants'
 
 function safeParseCatalogHeadlineSlides(raw, fallback) {
   try {
@@ -366,16 +367,8 @@ export default function ProductCatalog() {
   const [visualSearchResult, setVisualSearchResult] = useState(null)
   const [currencyConfig, setCurrencyConfig] = useState(() => getCachedCurrencyConfig())
   const [availableBrands, setAvailableBrands] = useState([])
-  const COUNTRY_LIST_LOCAL = [
-    { code: 'GB', name: 'UK', flag: '🇬🇧' }, { code: 'US', name: 'USA', flag: '🇺🇸' },
-    { code: 'AE', name: 'UAE', flag: '🇦🇪' }, { code: 'SA', name: 'KSA', flag: '🇸🇦' },
-    { code: 'OM', name: 'Oman', flag: '🇴🇲' }, { code: 'BH', name: 'Bahrain', flag: '🇧🇭' },
-    { code: 'IN', name: 'India', flag: '🇮🇳' }, { code: 'PK', name: 'Pakistan', flag: '🇵🇰' },
-    { code: 'KW', name: 'Kuwait', flag: '🇰🇼' }, { code: 'QA', name: 'Qatar', flag: '🇶🇦' },
-    { code: 'CA', name: 'Canada', flag: '🇨🇦' }, { code: 'AU', name: 'Australia', flag: '🇦🇺' },
-  ]
-  const currentFlag = COUNTRY_LIST_LOCAL.find(c => c.code === selectedCountry)?.flag || '🇬🇧'
-  const currentCountryName = COUNTRY_LIST_LOCAL.find(c => c.code === selectedCountry)?.name || 'UK'
+  const currentFlag = COUNTRY_LIST.find(c => c.code === selectedCountry)?.flag || '🇬🇧'
+  const currentCountryName = COUNTRY_LIST.find(c => c.code === selectedCountry)?.name || 'UK'
   const discoverQuickFilters = [
     { id: '', label: 'All Picks' },
     { id: 'sale', label: 'Deals' },
@@ -477,7 +470,7 @@ export default function ProductCatalog() {
   useEffect(() => {
     (async () => {
       try {
-        const countryName = COUNTRY_LIST_LOCAL.find(c => c.code === selectedCountry)?.name || selectedCountry
+        const countryName = COUNTRY_LIST.find(c => c.code === selectedCountry)?.name || selectedCountry
         const res = await apiGet(`/api/categories/public?country=${encodeURIComponent(countryName)}`)
         const cats = Array.isArray(res?.categories) ? res.categories : []
         if (cats.length) setDiscoverCategories(cats.map(c => c.name))
@@ -1161,7 +1154,7 @@ export default function ProductCatalog() {
           </button>
           {mobileCountryOpen && (
             <div className="absolute left-2 right-2 top-full mt-1 max-h-64 overflow-y-auto bg-white rounded-2xl shadow-[0_12px_48px_rgba(0,0,0,0.15)] border border-gray-100 py-1 z-50">
-              {COUNTRY_LIST_LOCAL.map(c => (
+              {COUNTRY_LIST.map(c => (
                 <button key={c.code} onClick={() => { setSelectedCountry(c.code); setMobileCountryOpen(false); try { localStorage.setItem('selected_country', c.code) } catch {}; window.dispatchEvent(new CustomEvent('countryChanged', { detail: { code: c.code } })) }} className={`w-full px-4 py-2.5 flex items-center gap-2.5 text-left text-sm transition-colors ${selectedCountry === c.code ? 'bg-orange-50 text-orange-600 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}>
                   <span key={c.code}>{c.flag}</span><span>{c.name}</span>
                   {selectedCountry === c.code && <svg className="w-3.5 h-3.5 ml-auto text-orange-500" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" /></svg>}

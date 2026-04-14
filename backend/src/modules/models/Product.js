@@ -41,7 +41,6 @@ const ProductSchema = new mongoose.Schema(
     dropshippingPrice: { type: Number, default: 0 },
     baseCurrency: {
       type: String,
-      enum: ["SAR", "AED", "OMR", "BHD", "KWD", "QAR", "USD", "EUR", "GBP", "INR", "CNY", "PKR", "CAD", "AUD", "JOD"],
       default: "SAR",
     },
     availableCountries: [{ type: String }],

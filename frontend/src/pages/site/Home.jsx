@@ -15,6 +15,7 @@ import PromoBlock from '../../components/ecommerce/PromoBlock'
 import ProductCardMini from '../../components/ecommerce/ProductCardMini'
 import { readCartItems } from '../../utils/cartStorage'
 import { trackPageView, trackSectionView, trackSectionClick } from '../../utils/analytics'
+import { COUNTRY_LIST } from '../../utils/constants'
 
 export default function Home(){
   const navigate = useNavigate()
@@ -48,19 +49,11 @@ export default function Home(){
     bg2: '#1f2937',
     textColor: '#ffffff'
   })
-  const COUNTRY_LIST_LOCAL = [
-    { code: 'GB', name: 'UK', flag: '🇬🇧' }, { code: 'US', name: 'USA', flag: '🇺🇸' },
-    { code: 'AE', name: 'UAE', flag: '🇦🇪' }, { code: 'SA', name: 'KSA', flag: '🇸🇦' },
-    { code: 'OM', name: 'Oman', flag: '🇴🇲' }, { code: 'BH', name: 'Bahrain', flag: '🇧🇭' },
-    { code: 'IN', name: 'India', flag: '🇮🇳' }, { code: 'PK', name: 'Pakistan', flag: '🇵🇰' },
-    { code: 'KW', name: 'Kuwait', flag: '🇰🇼' }, { code: 'QA', name: 'Qatar', flag: '🇶🇦' },
-    { code: 'CA', name: 'Canada', flag: '🇨🇦' }, { code: 'AU', name: 'Australia', flag: '🇦🇺' },
-  ]
   const [selectedCountry, setSelectedCountry] = useState(() => {
     try { return localStorage.getItem('selected_country') || 'GB' } catch { return 'GB' }
   })
-  const currentFlag = COUNTRY_LIST_LOCAL.find(c => c.code === selectedCountry)?.flag || '🇬🇧'
-  const currentCountryName = COUNTRY_LIST_LOCAL.find(c => c.code === selectedCountry)?.name || 'UK'
+  const currentFlag = COUNTRY_LIST.find(c => c.code === selectedCountry)?.flag || '🇬🇧'
+  const currentCountryName = COUNTRY_LIST.find(c => c.code === selectedCountry)?.name || 'UK'
   const mobileBrandLogo = '/mobile-app-launcher.png'
   // Persist selected country
   useEffect(()=>{
@@ -175,7 +168,7 @@ export default function Home(){
   useEffect(() => {
     (async () => {
       try {
-        const countryName = COUNTRY_LIST_LOCAL.find(c => c.code === selectedCountry)?.name || selectedCountry
+        const countryName = COUNTRY_LIST.find(c => c.code === selectedCountry)?.name || selectedCountry
         const res = await apiGet(`/api/categories/public?country=${encodeURIComponent(countryName)}`)
         const cats = Array.isArray(res?.categories) ? res.categories : []
         if (cats.length) setCategoryNames(cats.map(c => c.name))
@@ -591,7 +584,7 @@ export default function Home(){
         </div>
         {mobileCountryOpen && (
           <div className="absolute left-2 right-2 top-full -mt-1 max-h-64 overflow-y-auto bg-white rounded-2xl shadow-[0_12px_48px_rgba(0,0,0,0.15)] border border-gray-100 py-1 z-50">
-            {COUNTRY_LIST_LOCAL.map(c => (
+            {COUNTRY_LIST.map(c => (
               <button key={c.code} onClick={() => handleMobileCountryChange(c.code)} className={`w-full px-4 py-2.5 flex items-center gap-2.5 text-left text-sm transition-colors ${selectedCountry === c.code ? 'bg-orange-50 text-orange-600 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}>
                 <span key={c.code}>{c.flag}</span><span>{c.name}</span>
                 {selectedCountry === c.code && <svg className="w-3.5 h-3.5 ml-auto text-orange-500" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5" /></svg>}

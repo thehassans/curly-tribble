@@ -1,15 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { apiGet } from '../../api'
-
-const COUNTRIES = [
-  { code: 'KSA', name: 'Saudi Arabia', currency: 'SAR' },
-  { code: 'UAE', name: 'United Arab Emirates', currency: 'AED' },
-  { code: 'Oman', name: 'Oman', currency: 'OMR' },
-  { code: 'Bahrain', name: 'Bahrain', currency: 'BHD' },
-  { code: 'India', name: 'India', currency: 'INR' },
-  { code: 'Kuwait', name: 'Kuwait', currency: 'KWD' },
-  { code: 'Qatar', name: 'Qatar', currency: 'QAR' },
-]
+import { COUNTRY_LIST } from '../../utils/constants'
 
 const REPORT_TEMPLATES = [
   { id: 1, name: 'Classic Corporate', description: 'Traditional formal business report' },
@@ -26,6 +17,7 @@ export default function Reports(){
   const [selectedCountry, setSelectedCountry] = useState('all')
   const [selectedTemplate, setSelectedTemplate] = useState(1)
   const reportRef = useRef(null)
+  const countries = COUNTRY_LIST.map((country) => ({ code: country.name, name: country.name, currency: country.currency }))
 
   async function loadMetrics(){
     setLoading(true)
@@ -103,8 +95,8 @@ export default function Reports(){
 
   // Filter countries based on selection
   const filteredCountries = selectedCountry === 'all' 
-    ? COUNTRIES 
-    : COUNTRIES.filter(c => c.code === selectedCountry)
+    ? countries 
+    : countries.filter(c => c.code === selectedCountry)
 
   return (
     <div style={{maxWidth: 1400, margin: '0 auto'}}>
@@ -125,7 +117,7 @@ export default function Reports(){
                 style={{minWidth:160, padding:'8px 12px', fontSize:14}}
               >
                 <option value="all">All Countries</option>
-                {COUNTRIES.map(c => (
+                {countries.map(c => (
                   <option key={c.code} value={c.code}>{c.name}</option>
                 ))}
               </select>
@@ -215,7 +207,7 @@ function Template1({ logo, selectedCountry, byCountry, filteredCountries, global
             {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
           </div>
           <div style={{fontSize: 11, color: '#6b7280', marginTop: 8}}>
-            {selectedCountry === 'all' ? 'Global Report' : `${COUNTRIES.find(c => c.code === selectedCountry)?.name} Report`}
+            {selectedCountry === 'all' ? 'Global Report' : `${COUNTRY_LIST.find(c => c.name === selectedCountry)?.name} Report`}
           </div>
         </div>
       </div>
@@ -293,13 +285,13 @@ function Template1({ logo, selectedCountry, byCountry, filteredCountries, global
       <div style={{borderTop: '3px solid #1e40af', paddingTop: 24, marginTop: 40}}>
         <div style={{background: 'linear-gradient(to bottom, #f8fafc, #ffffff)', border: '2px solid #1e40af', borderRadius: 8, padding: 28, marginBottom: 20, boxShadow: '0 2px 8px rgba(30, 64, 175, 0.08)'}}>
           <div style={{borderTop: '1px solid #e5e7eb', paddingTop: 16, textAlign: 'center'}}>
-            <div style={{fontSize: 16, fontWeight: 800, color: '#111', marginBottom: 4}}>Qadeer Hussain, Owner of Buysial</div>
+            <div style={{fontSize: 16, fontWeight: 800, color: '#111'}}>Qadeer Hussain, Owner of Buysial</div>
             <div style={{fontSize: 12, color: '#6b7280', marginTop: 8}}>Date: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
           </div>
         </div>
         <div style={{textAlign:'center', fontSize: 11, color: '#6b7280'}}>
           <div>Financial Business Intelligence</div>
-          <div style={{marginTop: 4}}>© {new Date().getFullYear()} All Rights Reserved</div>
+          <div style={{marginTop: 4}}>  All Rights Reserved</div>
         </div>
       </div>
     </>
@@ -319,7 +311,7 @@ function Template2({ logo, selectedCountry, byCountry, filteredCountries, global
           <div style={{textAlign:'right', color:'#fff'}}>
             <div style={{fontSize: 14, fontWeight: 600, marginBottom: 8}}>BUSINESS REPORT</div>
             <div style={{fontSize: 12, opacity: 0.9}}>{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-            <div style={{fontSize: 11, opacity: 0.8, marginTop: 4}}>{selectedCountry === 'all' ? 'Global' : COUNTRIES.find(c => c.code === selectedCountry)?.name}</div>
+            <div style={{fontSize: 11, opacity: 0.8, marginTop: 4}}>{selectedCountry === 'all' ? 'Global' : COUNTRY_LIST.find(c => c.name === selectedCountry)?.name}</div>
           </div>
         </div>
       </div>
@@ -379,7 +371,7 @@ function Template2({ logo, selectedCountry, byCountry, filteredCountries, global
       <div style={{marginTop: 40, paddingTop: 20, borderTop: '2px solid #e5e7eb', textAlign: 'center'}}>
         <div style={{fontSize: 16, fontWeight: 800, color: '#111'}}>Qadeer Hussain, Owner of Buysial</div>
         <div style={{fontSize: 12, color: '#6b7280', marginTop: 4}}>Date: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-        <div style={{fontSize: 11, color: '#9ca3af', marginTop: 12}}>© {new Date().getFullYear()} Financial Business Intelligence</div>
+        <div style={{fontSize: 11, color: '#9ca3af', marginTop: 12}}>  All Rights Reserved</div>
       </div>
     </>
   )
@@ -471,7 +463,7 @@ function Template4({ logo, selectedCountry, byCountry, filteredCountries, global
         <img src={logo} alt="Logo" style={{height: 120, marginBottom: 16}} onError={(e) => { e.target.style.display = 'none' }} />
         <div style={{fontSize: 28, fontWeight: 900, color: '#78350f', fontFamily: 'Georgia, serif', letterSpacing: '2px'}}>MONTHLY BUSINESS REPORT</div>
         <div style={{fontSize: 13, color: '#92400e', marginTop: 8, fontWeight: 600}}>{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-        <div style={{fontSize: 12, color: '#a16207', marginTop: 4}}>{selectedCountry === 'all' ? 'Global Operations' : COUNTRIES.find(c => c.code === selectedCountry)?.name}</div>
+        <div style={{fontSize: 12, color: '#a16207', marginTop: 4}}>{selectedCountry === 'all' ? 'Global Operations' : COUNTRY_LIST.find(c => c.name === selectedCountry)?.name}</div>
       </div>
 
       {/* Premium Summary */}

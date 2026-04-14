@@ -4,22 +4,18 @@ import { apiGet, apiPost } from '../../api.js'
 import Modal from '../../components/Modal.jsx'
 import { useToast } from '../../ui/Toast.jsx'
 import { useCountry } from '../../contexts/CountryContext.jsx'
+import { COUNTRY_LIST, canonicalCountryName, resolveCountryEntry } from '../../utils/constants'
 
-const COUNTRY_META = [
-  { code: 'SA', label: 'KSA', flag: '🇸🇦', currency: 'SAR', expenseCountry: 'KSA', match: ['KSA', 'Saudi Arabia'] },
-  { code: 'AE', label: 'UAE', flag: '🇦🇪', currency: 'AED', expenseCountry: 'UAE', match: ['UAE', 'United Arab Emirates'] },
-  { code: 'OM', label: 'Oman', flag: '🇴🇲', currency: 'OMR', expenseCountry: 'Oman', match: ['Oman'] },
-  { code: 'BH', label: 'Bahrain', flag: '🇧🇭', currency: 'BHD', expenseCountry: 'Bahrain', match: ['Bahrain'] },
-  { code: 'KW', label: 'Kuwait', flag: '🇰🇼', currency: 'KWD', expenseCountry: 'Kuwait', match: ['Kuwait'] },
-  { code: 'QA', label: 'Qatar', flag: '🇶🇦', currency: 'QAR', expenseCountry: 'Qatar', match: ['Qatar'] },
-  { code: 'IN', label: 'India', flag: '🇮🇳', currency: 'INR', expenseCountry: 'India', match: ['India'] },
-  { code: 'PK', label: 'Pakistan', flag: '🇵🇰', currency: 'PKR', expenseCountry: 'Pakistan', match: ['Pakistan'] },
-  { code: 'JO', label: 'Jordan', flag: '🇯🇴', currency: 'JOD', expenseCountry: 'Jordan', match: ['Jordan'] },
-  { code: 'US', label: 'USA', flag: '🇺🇸', currency: 'USD', expenseCountry: 'USA', match: ['USA', 'United States'] },
-  { code: 'GB', label: 'UK', flag: '🇬🇧', currency: 'GBP', expenseCountry: 'UK', match: ['UK', 'United Kingdom'] },
-  { code: 'CA', label: 'Canada', flag: '🇨🇦', currency: 'CAD', expenseCountry: 'Canada', match: ['Canada'] },
-  { code: 'AU', label: 'Australia', flag: '🇦🇺', currency: 'AUD', expenseCountry: 'Australia', match: ['Australia'] },
-]
+function countryMetaList() {
+  return (COUNTRY_LIST || []).map((item) => ({
+    code: item.code,
+    label: item.name,
+    flag: item.flag,
+    currency: item.currency,
+    expenseCountry: item.name,
+    match: [item.name, item.code, ...(item.aliases || [])],
+  }))
+}
 
 function currentMonth() {
   const now = new Date()
@@ -84,27 +80,23 @@ function buildMonthRange(month, year) {
 }
 
 function getCountryMetaFromName(name) {
-  const lower = String(name || '').trim().toLowerCase()
-  return COUNTRY_META.find((item) => item.match.some((value) => String(value).toLowerCase() === lower)) || null
+  const entry = resolveCountryEntry(name)
+  return entry ? {
+    code: entry.code,
+    label: entry.name,
+    flag: entry.flag,
+    currency: entry.currency,
+    expenseCountry: entry.name,
+    match: [entry.name, entry.code, ...(entry.aliases || [])],
+  } : null
 }
 
 function normalizeCountryCode(codeOrName) {
   const raw = String(codeOrName || '').trim().toUpperCase()
   if (!raw) return 'all'
   if (raw === 'ALL') return 'all'
-  if (['SA', 'KSA', 'SAUDI ARABIA'].includes(raw)) return 'SA'
-  if (['AE', 'UAE', 'UNITED ARAB EMIRATES'].includes(raw)) return 'AE'
-  if (['OM', 'OMAN'].includes(raw)) return 'OM'
-  if (['BH', 'BAHRAIN'].includes(raw)) return 'BH'
-  if (['KW', 'KUWAIT'].includes(raw)) return 'KW'
-  if (['QA', 'QATAR'].includes(raw)) return 'QA'
-  if (['IN', 'INDIA'].includes(raw)) return 'IN'
-  if (['PK', 'PAKISTAN'].includes(raw)) return 'PK'
-  if (['JO', 'JORDAN'].includes(raw)) return 'JO'
-  if (['US', 'USA', 'UNITED STATES', 'UNITED STATES OF AMERICA'].includes(raw)) return 'US'
-  if (['GB', 'UK', 'UNITED KINGDOM'].includes(raw)) return 'GB'
-  if (['CA', 'CANADA'].includes(raw)) return 'CA'
-  if (['AU', 'AUSTRALIA'].includes(raw)) return 'AU'
+  const entry = resolveCountryEntry(codeOrName)
+  if (entry?.code) return entry.code
   return raw
 }
 
@@ -270,14 +262,15 @@ export default function DashboardPremium({ mode = 'user' } = {}) {
   const [form, setForm] = useState({
     title: '',
     amount: '',
-    country: 'UAE',
-    currency: 'AED',
+    country: COUNTRY_LIST[1]?.name || COUNTRY_LIST[0]?.name || '',
+    currency: COUNTRY_LIST[1]?.currency || COUNTRY_LIST[0]?.currency || 'AED',
     notes: '',
     incurredAt: '',
   })
 
   const yearOptions = useMemo(() => Array.from({ length: 5 }, (_, index) => currentYear() - index), [])
   const monthNames = useMemo(() => ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'], [])
+  const countryMetaOptions = useMemo(() => countryMetaList(), [COUNTRY_LIST.length])
 
   async function loadDashboard() {
     setLoading(true)
@@ -328,25 +321,25 @@ export default function DashboardPremium({ mode = 'user' } = {}) {
     return report.countries.find((row) => normalizeCountryCode(getCountryMetaFromName(row?.country)?.code || row?.country) === normalizedSelectedCode) || createEmptySummary()
   }, [report, selectedCountryCode])
 
-  const activeMeta = useMemo(() => COUNTRY_META.find((item) => item.code === selectedCountryCode) || null, [selectedCountryCode])
+  const activeMeta = useMemo(() => countryMetaOptions.find((item) => item.code === selectedCountryCode) || null, [countryMetaOptions, selectedCountryCode])
   const activeCurrency = activeRow?.currency || activeMeta?.currency || report.summary?.currency || 'AED'
   const approvedAdExpenses = useMemo(() => expenses.filter((item) => item.type === 'advertisement' && item.status === 'approved'), [expenses])
   const filteredExpenses = useMemo(() => {
     if (selectedCountryCode === 'all') return approvedAdExpenses
-    const meta = COUNTRY_META.find((item) => item.code === selectedCountryCode)
+    const meta = countryMetaOptions.find((item) => item.code === selectedCountryCode)
     if (!meta) return approvedAdExpenses
     const accepted = new Set(meta.match.concat(meta.expenseCountry).map((value) => String(value).toLowerCase()))
     return approvedAdExpenses.filter((item) => accepted.has(String(item.country || '').toLowerCase()))
-  }, [approvedAdExpenses, selectedCountryCode])
+  }, [approvedAdExpenses, countryMetaOptions, selectedCountryCode])
   const recentExpenses = useMemo(() => filteredExpenses.slice(0, 6), [filteredExpenses])
   const pendingManagerExpenses = useMemo(() => {
     const pending = expenses.filter((item) => item.status === 'pending' && item.createdBy?.role === 'manager')
     if (selectedCountryCode === 'all') return pending.slice(0, 4)
-    const meta = COUNTRY_META.find((item) => item.code === selectedCountryCode)
+    const meta = countryMetaOptions.find((item) => item.code === selectedCountryCode)
     if (!meta) return pending.slice(0, 4)
     const accepted = new Set(meta.match.concat(meta.expenseCountry).map((value) => String(value).toLowerCase()))
     return pending.filter((item) => accepted.has(String(item.country || '').toLowerCase())).slice(0, 4)
-  }, [expenses, selectedCountryCode])
+  }, [countryMetaOptions, expenses, selectedCountryCode])
   const filteredPendingOrders = useMemo(() => {
     const list = Array.isArray(report?.pendingOrders) ? report.pendingOrders : []
     if (selectedCountryCode === 'all') return list
@@ -421,7 +414,7 @@ export default function DashboardPremium({ mode = 'user' } = {}) {
     setForm((current) => {
       const next = { ...current, [name]: value }
       if (name === 'country') {
-        const meta = COUNTRY_META.find((item) => item.expenseCountry === value)
+        const meta = countryMetaOptions.find((item) => item.expenseCountry === canonicalCountryName(value))
         next.currency = meta?.currency || current.currency
       }
       return next
@@ -439,13 +432,13 @@ export default function DashboardPremium({ mode = 'user' } = {}) {
         title: form.title,
         type: 'advertisement',
         amount: Number(form.amount || 0),
-        country: form.country,
+        country: canonicalCountryName(form.country),
         currency: form.currency,
         notes: form.notes,
         incurredAt: form.incurredAt,
       })
       setExpenseOpen(false)
-      setForm({ title: '', amount: '', country: 'UAE', currency: 'AED', notes: '', incurredAt: '' })
+      setForm({ title: '', amount: '', country: countryMetaOptions[0]?.expenseCountry || '', currency: countryMetaOptions[0]?.currency || 'AED', notes: '', incurredAt: '' })
       toast.success('Expense added successfully')
       await loadDashboard()
     } catch (error) {
@@ -492,13 +485,13 @@ export default function DashboardPremium({ mode = 'user' } = {}) {
                 {isPartner ? (
                   (() => {
                     const countryName = report?.countries?.[0]?.country || report?.summary?.country
-                    const meta = getCountryMetaFromName(countryName) || activeMeta || COUNTRY_META[0]
+                    const meta = getCountryMetaFromName(countryName) || activeMeta || countryMetaOptions[0]
                     return <CountryPill active label={meta?.label || countryName || 'Country'} flag={meta?.flag || '🌐'} onClick={() => {}} />
                   })()
                 ) : (
                   <>
                     <CountryPill active={selectedCountryCode === 'all'} label="All Countries" flag="🌐" onClick={() => handleCountrySelect('all')} />
-                    {COUNTRY_META.map((item) => (
+                    {countryMetaOptions.map((item) => (
                       <CountryPill key={item.code} active={selectedCountryCode === item.code} label={item.label} flag={item.flag} onClick={() => handleCountrySelect(item.code)} />
                     ))}
                   </>
@@ -587,7 +580,7 @@ export default function DashboardPremium({ mode = 'user' } = {}) {
             <input className="input" name="title" value={form.title} onChange={handleFormChange} placeholder="Campaign / expense title" />
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
               <select className="input" name="country" value={form.country} onChange={handleFormChange}>
-                {COUNTRY_META.map((item) => (
+                {countryMetaOptions.map((item) => (
                   <option key={item.code} value={item.expenseCountry}>{item.flag} {item.label}</option>
                 ))}
               </select>

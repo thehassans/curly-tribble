@@ -4,6 +4,7 @@ import {
   StyleSheet,
   View,
   Text,
+  Image,
   BackHandler,
   Platform,
   ActivityIndicator,
@@ -16,6 +17,7 @@ import * as SplashScreen from 'expo-splash-screen';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const SITE_URL = 'https://buysial.com';
+const BRAND_LOGO = require('./assets/splash-icon.png');
 
 export default function App() {
   const webViewRef = useRef(null);
@@ -94,6 +96,7 @@ export default function App() {
 
       {isLoading && !hasError && (
         <View style={styles.splash}>
+          <Image source={BRAND_LOGO} style={styles.splashLogo} resizeMode="contain" />
           <Text style={styles.splashTitle}>BuySial</Text>
           <Text style={styles.splashSub}>Premium Shopping</Text>
           <ActivityIndicator size="small" color="#f97316" style={{ marginTop: 24 }} />
@@ -127,6 +130,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#111827',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  splashLogo: {
+    width: 220,
+    height: 220,
+    marginBottom: 16,
   },
   splashTitle: {
     fontSize: 38,
