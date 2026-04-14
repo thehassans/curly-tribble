@@ -8,7 +8,7 @@ import LabelSettings from './LabelSettings'
 import ShopifySettings from './ShopifySettings'
 import DeliveryWorkflow from './DeliveryWorkflow'
 import SocialLinks from './SocialLinks'
-import { COUNTRY_LIST, normalizeCountryEntry } from '../../utils/constants'
+import { COUNTRY_LIST, normalizeCountryEntry, resolveCountryEntry } from '../../utils/constants'
 import { autoDetectCountryMeta, loadCountryRegistry, saveCountryRegistry } from '../../util/countryRegistry'
 
 const SECTIONS = [
@@ -45,6 +45,8 @@ function emptyCountryForm() {
     currencySymbol: '',
   }
 }
+
+const CUSTOM_COUNTRY_OPTION = '__custom__'
 
 function CountryManager() {
   const [countries, setCountries] = useState(() => [...COUNTRY_LIST])
@@ -87,7 +89,7 @@ function CountryManager() {
   }
 
   function applyDetection(partial) {
-    const detected = autoDetectCountryMeta(partial.code || partial.name)
+    const detected = resolveCountryEntry(partial.code || partial.name, countries) || autoDetectCountryMeta(partial.code || partial.name)
     if (!detected) return partial
     return {
       ...partial,
@@ -165,6 +167,16 @@ function CountryManager() {
   }
 
   const sortedCountries = useMemo(() => [...countries].sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''))), [countries])
+  const selectedCountryOption = useMemo(() => resolveCountryEntry(form.code || form.name, countries)?.code || CUSTOM_COUNTRY_OPTION, [countries, form.code, form.name])
+
+  function handleCountrySelection(value) {
+    if (value === CUSTOM_COUNTRY_OPTION) return
+    const detected = resolveCountryEntry(value, countries) || autoDetectCountryMeta(value)
+    if (!detected) return
+    hydrateForm(detected)
+    setMessage('')
+    setError('')
+  }
 
   return (
     <div style={{ display: 'grid', gap: 20 }}>
@@ -181,6 +193,15 @@ function CountryManager() {
       <div className="card" style={{ padding: 24 }}>
         <form onSubmit={handleSave} style={{ display: 'grid', gap: 16 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
+            <label className="field">
+              <div>Select Country</div>
+              <select value={selectedCountryOption} onChange={(e) => handleCountrySelection(e.target.value)}>
+                <option value={CUSTOM_COUNTRY_OPTION}>Custom Country</option>
+                {sortedCountries.map((country) => (
+                  <option key={country.code} value={country.code}>{country.name}</option>
+                ))}
+              </select>
+            </label>
             <label className="field">
               <div>Country Code</div>
               <input value={form.code} onChange={(e) => updateForm('code', e.target.value.toUpperCase())} placeholder="AE" maxLength={3} />
