@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react'
-import { API_BASE, apiGet, apiPost } from '../../api.js'
+import { apiGet, apiPost } from '../../api.js'
+import { resolveBrandAsset } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 import { useToast } from '../../ui/Toast.jsx'
 
 export default function UserLogin() {
@@ -10,7 +12,7 @@ export default function UserLogin() {
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
   const [health, setHealth] = useState({ checked: false, reachable: false, ready: false, dbLabel: 'unknown' })
-  const [branding, setBranding] = useState({ headerLogo: null, loginLogo: null })
+  const [branding] = useBranding()
   const [mounted, setMounted] = useState(false)
   const [emailFocus, setEmailFocus] = useState(false)
   const [pwFocus, setPwFocus] = useState(false)
@@ -72,19 +74,6 @@ export default function UserLogin() {
     return () => { cancelled = true }
   }, [])
 
-  // Load branding (public, no auth needed)
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const j = await apiGet('/api/settings/branding')
-        if (!cancelled)
-          setBranding({ headerLogo: j.headerLogo || null, loginLogo: j.loginLogo || null })
-      } catch {}
-    })()
-    return () => { cancelled = true }
-  }, [])
-
   async function login(e) {
     e.preventDefault()
     if (health.checked && !health.ready) {
@@ -120,8 +109,7 @@ export default function UserLogin() {
     }
   }
 
-  const fallbackLogo = `${import.meta.env.BASE_URL}logo.png`
-  const logoSrc = branding.loginLogo ? `${API_BASE}${branding.loginLogo}` : fallbackLogo
+  const logoSrc = resolveBrandAsset(branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
 
   const healthBad = (() => {
     return Boolean(health.checked && (!health.reachable || !health.ready))
@@ -143,7 +131,7 @@ export default function UserLogin() {
           {/* Logo */}
           <div className="pl-logo-wrap">
             <div className="pl-logo-box">
-              <img src={logoSrc} alt="Buysial" className="pl-logo-img" />
+              <img src={logoSrc} alt={branding.companyName} className="pl-logo-img" />
             </div>
           </div>
 
@@ -158,7 +146,7 @@ export default function UserLogin() {
               </button>
             </div>
             <h1 className="pl-title">Welcome back</h1>
-            <p className="pl-subtitle">{loginMode === 'shop' ? 'Access the premium shop operations console' : 'Sign in to your Buysial workspace'}</p>
+            <p className="pl-subtitle">{loginMode === 'shop' ? branding.shopLoginSubtitle : branding.staffLoginSubtitle}</p>
           </div>
 
           <label className="pl-label">{loginMode === 'shop' ? 'Username or Email' : 'Email or Phone'}</label>
@@ -239,7 +227,7 @@ export default function UserLogin() {
           )}
 
           {/* Footer */}
-          <p className="pl-footer">Powered by <strong>Buysial</strong></p>
+          <p className="pl-footer">{branding.footerText}</p>
         </form>
       </div>
 

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar.jsx'
 import Tabs from '../ui/Tabs.jsx'
-import { API_BASE, apiGet } from '../api.js'
+import { resolveBrandAsset } from '../util/branding.js'
+import { useBranding } from '../util/useBranding.js'
 
 export default function AdminLayout(){
   const navigate = useNavigate()
@@ -69,17 +70,7 @@ export default function AdminLayout(){
     try{ navigate('/login', { replace:true }) }catch{}
     setTimeout(()=>{ try{ window.location.assign('/login') }catch{} }, 30)
   }
-  const [branding, setBranding] = useState({ headerLogo: null })
-  useEffect(()=>{
-    let cancelled=false
-    ;(async()=>{
-      try{
-        const j = await apiGet('/api/settings/branding')
-        if (!cancelled) setBranding({ headerLogo: j.headerLogo || null })
-      }catch{}
-    })()
-    return ()=>{ cancelled=true }
-  },[])
+  const [branding] = useBranding()
   return (
     <div>
       <Sidebar closed={closed} links={links} onToggle={()=>setClosed(c=>!c)} />
@@ -102,9 +93,8 @@ export default function AdminLayout(){
               ☰
             </button>
             {(()=>{
-              const fallback = `${import.meta.env.BASE_URL}BSBackgroundremoved.png`
-              const src = branding.headerLogo ? `${API_BASE}${branding.headerLogo}` : fallback
-              return <img src={src} alt="BuySial" className="h-7 w-auto object-contain" />
+              const src = resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
+              return <img src={src} alt={branding.companyName} className="h-7 w-auto object-contain" />
             })()}
             {!isMobile && (
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold tracking-tight bg-[var(--panel)] border border-[var(--border)]">

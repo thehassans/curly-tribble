@@ -2,8 +2,13 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import Header from '../../components/layout/Header'
 import MobileBottomNav from '../../components/ecommerce/MobileBottomNav'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 
 export default function About() {
+  const [branding] = useBranding()
+  const brandName = branding.companyName || branding.appName || DEFAULT_BRANDING.companyName
+
   return (
     <div className="min-h-screen bg-white">
       <Header onCartClick={() => {}} />
@@ -21,7 +26,7 @@ export default function About() {
               <span className="text-orange-700 text-sm font-semibold">Your Trusted Partner</span>
             </div>
             <h1 className="text-5xl md:text-7xl font-black text-gray-900 tracking-tight mb-6">
-              About <span className="bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">BuySial</span>
+              About <span className="bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">{brandName}</span>
             </h1>
             <p className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
               Revolutionizing e-commerce across the Gulf region with quality products, 
@@ -57,7 +62,7 @@ export default function About() {
                 Building the Future of <span className="text-orange-500">E-Commerce</span>
               </h2>
               <p className="text-lg text-gray-600 leading-relaxed mb-6">
-                BuySial started with a simple vision: make quality products accessible to everyone across the Gulf region. 
+                {brandName} started with a simple vision: make quality products accessible to everyone across the Gulf region. 
                 Today, we've grown into a comprehensive platform serving thousands of customers and businesses.
               </p>
               <p className="text-lg text-gray-600 leading-relaxed">
@@ -153,9 +158,9 @@ export default function About() {
       <section className="py-24 px-4 bg-white">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
-            <span className="text-orange-500 font-bold text-sm uppercase tracking-widest">Why BuySial</span>
+            <span className="text-orange-500 font-bold text-sm uppercase tracking-widest">Why {brandName}</span>
             <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mt-4">
-              The BuySial Advantage
+              The {brandName} Advantage
             </h2>
           </div>
 

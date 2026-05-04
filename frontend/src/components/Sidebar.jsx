@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { API_BASE, apiGet } from '../api.js'
+import { resolveBrandAsset } from '../util/branding.js'
+import { useBranding } from '../util/useBranding.js'
 
 // Sidebar supports flat links: { to, label, icon? }
 // and grouped links: { label, icon?, children: [{ to, label, icon? }, ...] }
@@ -260,21 +261,7 @@ export default function Sidebar({
   }, [])
 
   // Branding (header logo)
-  const [branding, setBranding] = useState({ headerLogo: null })
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const j = await apiGet('/api/settings/branding')
-        if (!cancelled) setBranding({ headerLogo: j.headerLogo || null })
-      } catch {
-        /* ignore */
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const [branding] = useBranding()
 
   const navPresets = [
     {
@@ -617,9 +604,8 @@ export default function Sidebar({
       >
         <span className="brand inline-flex items-center">
           {(() => {
-            const fallback = `${import.meta.env.BASE_URL}BSBackgroundremoved.png`
-            const src = branding.headerLogo ? `${API_BASE}${branding.headerLogo}` : fallback
-            return <img src={src} alt="BuySial" style={{ height: '56px', width: 'auto', objectFit: 'contain' }} />
+            const src = resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
+            return <img src={src} alt={branding.companyName} style={{ height: '56px', width: 'auto', objectFit: 'contain' }} />
           })()}
         </span>
       </div>

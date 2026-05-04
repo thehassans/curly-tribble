@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { apiGet } from '../../api'
 import { COUNTRY_LIST } from '../../utils/constants'
+import { resolveBrandAsset } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 
 const REPORT_TEMPLATES = [
   { id: 1, name: 'Classic Corporate', description: 'Traditional formal business report' },
@@ -17,7 +19,9 @@ export default function Reports(){
   const [selectedCountry, setSelectedCountry] = useState('all')
   const [selectedTemplate, setSelectedTemplate] = useState(1)
   const reportRef = useRef(null)
+  const [branding] = useBranding()
   const countries = COUNTRY_LIST.map((country) => ({ code: country.name, name: country.name, currency: country.currency }))
+  const reportLogo = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
 
   async function loadMetrics(){
     setLoading(true)
@@ -72,9 +76,10 @@ export default function Reports(){
       pdf.addImage(imgData, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio)
       
       const templateName = REPORT_TEMPLATES.find(t => t.id === selectedTemplate)?.name.replace(/\s+/g, '-') || 'Report'
+      const brandSlug = String(branding.companyName || branding.appName || 'Magnetic E-commerce').trim().replace(/\s+/g, '-')
       const filename = selectedCountry === 'all' 
-        ? `Buysial-${templateName}-${new Date().toISOString().split('T')[0]}.pdf`
-        : `Buysial-${selectedCountry}-${templateName}-${new Date().toISOString().split('T')[0]}.pdf`
+        ? `${brandSlug}-${templateName}-${new Date().toISOString().split('T')[0]}.pdf`
+        : `${brandSlug}-${selectedCountry}-${templateName}-${new Date().toISOString().split('T')[0]}.pdf`
       
       pdf.save(filename)
     } catch (err) {
@@ -174,18 +179,18 @@ export default function Reports(){
 
       {/* Report Content */}
       <div ref={reportRef} style={{background: '#fff', padding: 40, borderRadius: 12, boxShadow:'0 1px 3px rgba(0,0,0,0.1)'}}>
-        {selectedTemplate === 1 && <Template1 logo="/BSBackgroundremoved.png" selectedCountry={selectedCountry} profitLoss={profitLoss} byCountry={byCountry} filteredCountries={filteredCountries} globalProfit={globalProfit} globalRevenue={globalRevenue} globalPurchaseCost={globalPurchaseCost} globalDriverComm={globalDriverComm} globalAgentComm={globalAgentComm} globalInvestorComm={globalInvestorComm} globalAdExpense={globalAdExpense} />}
-        {selectedTemplate === 2 && <Template2 logo="/BSBackgroundremoved.png" selectedCountry={selectedCountry} profitLoss={profitLoss} byCountry={byCountry} filteredCountries={filteredCountries} globalProfit={globalProfit} globalRevenue={globalRevenue} globalPurchaseCost={globalPurchaseCost} globalDriverComm={globalDriverComm} globalAgentComm={globalAgentComm} globalInvestorComm={globalInvestorComm} globalAdExpense={globalAdExpense} />}
-        {selectedTemplate === 3 && <Template3 logo="/BSBackgroundremoved.png" selectedCountry={selectedCountry} profitLoss={profitLoss} byCountry={byCountry} filteredCountries={filteredCountries} globalProfit={globalProfit} globalRevenue={globalRevenue} globalPurchaseCost={globalPurchaseCost} globalDriverComm={globalDriverComm} globalAgentComm={globalAgentComm} globalInvestorComm={globalInvestorComm} globalAdExpense={globalAdExpense} />}
-        {selectedTemplate === 4 && <Template4 logo="/BSBackgroundremoved.png" selectedCountry={selectedCountry} profitLoss={profitLoss} byCountry={byCountry} filteredCountries={filteredCountries} globalProfit={globalProfit} globalRevenue={globalRevenue} globalPurchaseCost={globalPurchaseCost} globalDriverComm={globalDriverComm} globalAgentComm={globalAgentComm} globalInvestorComm={globalInvestorComm} globalAdExpense={globalAdExpense} />}
-        {selectedTemplate === 5 && <Template5 logo="/BSBackgroundremoved.png" selectedCountry={selectedCountry} profitLoss={profitLoss} byCountry={byCountry} filteredCountries={filteredCountries} globalProfit={globalProfit} globalRevenue={globalRevenue} globalPurchaseCost={globalPurchaseCost} globalDriverComm={globalDriverComm} globalAgentComm={globalAgentComm} globalInvestorComm={globalInvestorComm} globalAdExpense={globalAdExpense} />}
+        {selectedTemplate === 1 && <Template1 logo={reportLogo} branding={branding} selectedCountry={selectedCountry} profitLoss={profitLoss} byCountry={byCountry} filteredCountries={filteredCountries} globalProfit={globalProfit} globalRevenue={globalRevenue} globalPurchaseCost={globalPurchaseCost} globalDriverComm={globalDriverComm} globalAgentComm={globalAgentComm} globalInvestorComm={globalInvestorComm} globalAdExpense={globalAdExpense} />}
+        {selectedTemplate === 2 && <Template2 logo={reportLogo} branding={branding} selectedCountry={selectedCountry} profitLoss={profitLoss} byCountry={byCountry} filteredCountries={filteredCountries} globalProfit={globalProfit} globalRevenue={globalRevenue} globalPurchaseCost={globalPurchaseCost} globalDriverComm={globalDriverComm} globalAgentComm={globalAgentComm} globalInvestorComm={globalInvestorComm} globalAdExpense={globalAdExpense} />}
+        {selectedTemplate === 3 && <Template3 logo={reportLogo} branding={branding} selectedCountry={selectedCountry} profitLoss={profitLoss} byCountry={byCountry} filteredCountries={filteredCountries} globalProfit={globalProfit} globalRevenue={globalRevenue} globalPurchaseCost={globalPurchaseCost} globalDriverComm={globalDriverComm} globalAgentComm={globalAgentComm} globalInvestorComm={globalInvestorComm} globalAdExpense={globalAdExpense} />}
+        {selectedTemplate === 4 && <Template4 logo={reportLogo} branding={branding} selectedCountry={selectedCountry} profitLoss={profitLoss} byCountry={byCountry} filteredCountries={filteredCountries} globalProfit={globalProfit} globalRevenue={globalRevenue} globalPurchaseCost={globalPurchaseCost} globalDriverComm={globalDriverComm} globalAgentComm={globalAgentComm} globalInvestorComm={globalInvestorComm} globalAdExpense={globalAdExpense} />}
+        {selectedTemplate === 5 && <Template5 logo={reportLogo} branding={branding} selectedCountry={selectedCountry} profitLoss={profitLoss} byCountry={byCountry} filteredCountries={filteredCountries} globalProfit={globalProfit} globalRevenue={globalRevenue} globalPurchaseCost={globalPurchaseCost} globalDriverComm={globalDriverComm} globalAgentComm={globalAgentComm} globalInvestorComm={globalInvestorComm} globalAdExpense={globalAdExpense} />}
       </div>
     </div>
   )
 }
 
 // Template 1: Classic Corporate
-function Template1({ logo, selectedCountry, byCountry, filteredCountries, globalProfit, globalRevenue, globalPurchaseCost, globalDriverComm, globalAgentComm, globalInvestorComm, globalAdExpense }) {
+function Template1({ logo, branding, selectedCountry, byCountry, filteredCountries, globalProfit, globalRevenue, globalPurchaseCost, globalDriverComm, globalAgentComm, globalInvestorComm, globalAdExpense }) {
   return (
     <>
       {/* Report Header with Logo */}
@@ -285,13 +290,13 @@ function Template1({ logo, selectedCountry, byCountry, filteredCountries, global
       <div style={{borderTop: '3px solid #1e40af', paddingTop: 24, marginTop: 40}}>
         <div style={{background: 'linear-gradient(to bottom, #f8fafc, #ffffff)', border: '2px solid #1e40af', borderRadius: 8, padding: 28, marginBottom: 20, boxShadow: '0 2px 8px rgba(30, 64, 175, 0.08)'}}>
           <div style={{borderTop: '1px solid #e5e7eb', paddingTop: 16, textAlign: 'center'}}>
-            <div style={{fontSize: 16, fontWeight: 800, color: '#111'}}>Qadeer Hussain, Owner of Buysial</div>
+            <div style={{fontSize: 16, fontWeight: 800, color: '#111'}}>{branding.companyName}</div>
             <div style={{fontSize: 12, color: '#6b7280', marginTop: 8}}>Date: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
           </div>
         </div>
         <div style={{textAlign:'center', fontSize: 11, color: '#6b7280'}}>
           <div>Financial Business Intelligence</div>
-          <div style={{marginTop: 4}}>  All Rights Reserved</div>
+          <div style={{marginTop: 4}}>&copy; {new Date().getFullYear()} {branding.companyName} · All Rights Reserved</div>
         </div>
       </div>
     </>
@@ -299,7 +304,7 @@ function Template1({ logo, selectedCountry, byCountry, filteredCountries, global
 }
 
 // Template 2: Modern Executive - Clean contemporary design
-function Template2({ logo, selectedCountry, byCountry, filteredCountries, globalProfit, globalRevenue, globalPurchaseCost, globalDriverComm, globalAgentComm, globalInvestorComm, globalAdExpense }) {
+function Template2({ logo, branding, selectedCountry, byCountry, filteredCountries, globalProfit, globalRevenue, globalPurchaseCost, globalDriverComm, globalAgentComm, globalInvestorComm, globalAdExpense }) {
   return (
     <>
       {/* Modern Header */}
@@ -369,16 +374,16 @@ function Template2({ logo, selectedCountry, byCountry, filteredCountries, global
 
       {/* Footer */}
       <div style={{marginTop: 40, paddingTop: 20, borderTop: '2px solid #e5e7eb', textAlign: 'center'}}>
-        <div style={{fontSize: 16, fontWeight: 800, color: '#111'}}>Qadeer Hussain, Owner of Buysial</div>
+        <div style={{fontSize: 16, fontWeight: 800, color: '#111'}}>{branding.companyName}</div>
         <div style={{fontSize: 12, color: '#6b7280', marginTop: 4}}>Date: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-        <div style={{fontSize: 11, color: '#9ca3af', marginTop: 12}}>  All Rights Reserved</div>
+        <div style={{fontSize: 11, color: '#9ca3af', marginTop: 12}}>&copy; {new Date().getFullYear()} Financial Business Intelligence · All Rights Reserved</div>
       </div>
     </>
   )
 }
 
 // Template 3: Financial Statement - Spreadsheet style
-function Template3({ logo, selectedCountry, byCountry, filteredCountries, globalProfit, globalRevenue, globalPurchaseCost, globalDriverComm, globalAgentComm, globalInvestorComm, globalAdExpense }) {
+function Template3({ logo, branding, selectedCountry, byCountry, filteredCountries, globalProfit, globalRevenue, globalPurchaseCost, globalDriverComm, globalAgentComm, globalInvestorComm, globalAdExpense }) {
   return (
     <>
       {/* Header */}
@@ -447,7 +452,7 @@ function Template3({ logo, selectedCountry, byCountry, filteredCountries, global
 
       {/* Footer */}
       <div style={{marginTop: 32, paddingTop: 16, borderTop: '4px double #000', textAlign: 'center'}}>
-        <div style={{fontSize: 16, fontWeight: 800, color: '#000'}}>Qadeer Hussain, Owner of Buysial</div>
+        <div style={{fontSize: 16, fontWeight: 800, color: '#000'}}>{branding.companyName}</div>
         <div style={{fontSize: 12, marginTop: 4, color: '#000'}}>Date: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
       </div>
     </>
@@ -455,7 +460,7 @@ function Template3({ logo, selectedCountry, byCountry, filteredCountries, global
 }
 
 // Template 4: Monthly Report - Premium prestige layout
-function Template4({ logo, selectedCountry, byCountry, filteredCountries, globalProfit, globalRevenue, globalPurchaseCost, globalDriverComm, globalAgentComm, globalInvestorComm, globalAdExpense }) {
+function Template4({ logo, branding, selectedCountry, byCountry, filteredCountries, globalProfit, globalRevenue, globalPurchaseCost, globalDriverComm, globalAgentComm, globalInvestorComm, globalAdExpense }) {
   return (
     <>
       {/* Luxury Header */}
@@ -500,7 +505,7 @@ function Template4({ logo, selectedCountry, byCountry, filteredCountries, global
             <div style={{border: '2px solid #d97706', borderTop: 'none', borderRadius: '0 0 12px 12px', padding: 24, background: '#fffbeb'}}>
               <div style={{textAlign: 'center', marginBottom: 20}}>
                 <div style={{fontSize: 11, color: '#92400e', marginBottom: 4}}>Net {isProfit ? 'Profit' : 'Loss'}</div>
-                <div style={{fontSize: 32, fontWeight: 900, color: isProfit ? '#166534' : '#991b1b'}}>{isProfit ? '+' : ''} {currency} {fmtNum(profit)}</div>
+                <div style={{fontSize: 32, fontWeight: 900, color: isProfit ? '#166534' : '#991b1b'}}>{isProfit ? '+' : ''}{currency} {fmtNum(profit)}</div>
               </div>
               <table style={{width: '100%', fontSize: 13}}>
                 <tbody>
@@ -519,16 +524,16 @@ function Template4({ logo, selectedCountry, byCountry, filteredCountries, global
 
       {/* Signature */}
       <div style={{marginTop: 40, paddingTop: 24, borderTop: '3px solid #d97706', textAlign: 'center'}}>
-        <div style={{fontSize: 18, fontWeight: 800, color: '#78350f', fontFamily: 'Georgia, serif'}}>Qadeer Hussain, Owner of Buysial</div>
+        <div style={{fontSize: 18, fontWeight: 800, color: '#78350f', fontFamily: 'Georgia, serif'}}>{branding.companyName}</div>
         <div style={{fontSize: 12, color: '#92400e', marginTop: 8}}>Date: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-        <div style={{fontSize: 11, color: '#a16207', marginTop: 16}}>© {new Date().getFullYear()} Financial Business Intelligence · All Rights Reserved</div>
+        <div style={{fontSize: 11, color: '#a16207', marginTop: 16}}>&copy; {new Date().getFullYear()} Financial Business Intelligence · All Rights Reserved</div>
       </div>
     </>
   )
 }
 
 // Template 5: Minimal Professional - Sleek minimalist design
-function Template5({ logo, selectedCountry, byCountry, filteredCountries, globalProfit, globalRevenue, globalPurchaseCost, globalDriverComm, globalAgentComm, globalInvestorComm, globalAdExpense }) {
+function Template5({ logo, branding, selectedCountry, byCountry, filteredCountries, globalProfit, globalRevenue, globalPurchaseCost, globalDriverComm, globalAgentComm, globalInvestorComm, globalAdExpense }) {
   return (
     <>
       {/* Minimal Header */}
@@ -584,7 +589,7 @@ function Template5({ logo, selectedCountry, byCountry, filteredCountries, global
 
       {/* Minimal Footer */}
       <div style={{marginTop: 48, paddingTop: 24, borderTop: '1px solid #000'}}>
-        <div style={{fontSize: 14, fontWeight: 600, color: '#000'}}>Qadeer Hussain, Owner of Buysial</div>
+        <div style={{fontSize: 14, fontWeight: 600, color: '#000'}}>{branding.reportSignature || branding.companyName}</div>
         <div style={{fontSize: 12, color: '#6b7280', marginTop: 8}}>Date: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
       </div>
     </>

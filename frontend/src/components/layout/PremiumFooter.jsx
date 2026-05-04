@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { apiGet } from '../../api'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 
 const SECTIONS = [
   {
@@ -21,7 +23,7 @@ const SECTIONS = [
     ],
   },
   {
-    title: 'About BuySial',
+    title: 'About Us',
     links: [
       { to: '/about', label: 'About Us' },
       { to: '/terms', label: 'Terms & Conditions' },
@@ -110,6 +112,11 @@ export default function PremiumFooter() {
   const currentYear = new Date().getFullYear()
   const [openSections, setOpenSections] = useState({})
   const [socialLinks, setSocialLinks] = useState({})
+  const [branding] = useBranding()
+  const brandName = branding.companyName || branding.appName || DEFAULT_BRANDING.companyName
+  const storeName = branding.storeName || branding.appName || DEFAULT_BRANDING.storeName
+  const footerText = branding.footerText || `© ${currentYear} ${brandName}. All rights reserved.`
+  const sections = SECTIONS.map((section) => section.title === 'About Us' ? { ...section, title: `About ${brandName}` } : section)
 
   const toggle = (idx) => {
     setOpenSections(prev => ({ ...prev, [idx]: !prev[idx] }))
@@ -145,13 +152,13 @@ export default function PremiumFooter() {
 
       {/* Why shop with BuySial */}
       <div className="pf2-why">
-        <h3 className="pf2-why-title">Why shop with <span style={{ color: '#f97316', fontStyle: 'italic' }}>BuySial</span>?</h3>
+        <h3 className="pf2-why-title">Why shop with <span style={{ color: '#f97316', fontStyle: 'italic' }}>{brandName}</span>?</h3>
         <div className="pf2-why-divider" />
         <p className="pf2-why-text">
-          We&apos;re a smart way to shop online and a trusted marketplace. When you shop with BuySial,
+          We&apos;re a smart way to shop online and a trusted marketplace. When you shop with {brandName},
           you&apos;re supporting thousands of small to medium businesses as well as your favourite brands.
           With a wide range of products, our marketplace offers buyer protection for a secure shopping experience.
-          Shop smart, shop at BuySial!
+          Shop smart, shop at {storeName}!
         </p>
       </div>
 
@@ -220,7 +227,7 @@ export default function PremiumFooter() {
 
       {/* Collapsible sections */}
       <div className="pf2-sections">
-        {SECTIONS.map((sec, idx) => {
+        {sections.map((sec, idx) => {
           const isOpen = !!openSections[idx]
           return (
             <div key={idx} className="pf2-accordion">
@@ -248,7 +255,7 @@ export default function PremiumFooter() {
 
       {/* Copyright */}
       <div className="pf2-copy">
-        &copy; {currentYear} BuySial. All rights reserved.
+        {footerText}
       </div>
 
       <style>{`

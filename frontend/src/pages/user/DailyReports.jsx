@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { apiGet } from '../../api.js'
+import { DEFAULT_BRANDING, resolveBrandAsset } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 import { getCurrencyConfig, convert, formatMoney } from '../../util/currency.js'
 import { useToast } from '../../ui/Toast.jsx'
 import { COUNTRY_LIST, canonicalCountryName, resolveCountryEntry } from '../../utils/constants'
@@ -135,7 +137,7 @@ function buildWebPurchaseCost(order, cfg) {
   }, 0)
 }
 
-function buildInternalRow(order, cfg) {
+function buildInternalRow(order, cfg, brandingLabel = DEFAULT_BRANDING.companyName) {
   const role = String(order?.createdByRole || order?.createdBy?.role || '').toLowerCase()
   const country = canonicalCountry(order?.orderCountry)
   const currency = currencyFromCountry(country)
@@ -145,7 +147,7 @@ function buildInternalRow(order, cfg) {
   const submitterType = role === 'agent' ? 'agent' : role === 'dropshipper' ? 'dropshipper' : role === 'driver' ? 'driver' : 'owner'
   const submitterName = role === 'agent' || role === 'dropshipper' || role === 'driver'
     ? personName(order?.createdBy)
-    : personName(order?.createdBy) !== '-' ? personName(order?.createdBy) : 'BuySial'
+    : personName(order?.createdBy) !== '-' ? personName(order?.createdBy) : brandingLabel
   const submitterCommission = role === 'agent'
     ? safeConvert(order?.agentCommissionPKR || 0, 'PKR', currency, cfg)
     : role === 'dropshipper'
@@ -179,7 +181,7 @@ function buildInternalRow(order, cfg) {
   }
 }
 
-function buildWebRow(order, cfg) {
+function buildWebRow(order, cfg, websiteLabel = `${DEFAULT_BRANDING.storeName} Website`) {
   const country = canonicalCountry(order?.orderCountry)
   const currency = currencyFromCountry(country)
   const productName = (Array.isArray(order?.items) ? order.items : []).map((item) => item?.name || item?.productId?.name || '').filter(Boolean).join(', ') || '-'
@@ -195,8 +197,8 @@ function buildWebRow(order, cfg) {
     country,
     currency,
     submitterType: 'online',
-    submitterName: 'BuySial Website',
-    submitterLabel: buildSubmitterLabel('online', 'BuySial Website'),
+    submitterName: websiteLabel,
+    submitterLabel: buildSubmitterLabel('online', websiteLabel),
     customerPhone: phoneLabel(order?.phoneCountryCode, order?.customerPhone),
     driverName: order?.deliveryBoy ? personName(order.deliveryBoy) : '-',
     driverPhone: order?.deliveryBoy?.phone || '-',
@@ -218,7 +220,8 @@ function buildWebRow(order, cfg) {
 export default function DailyReports() {
   const toast = useToast()
   const reportRef = useRef(null)
-  const logoSrc = '/mobile-app-launch-logo.png'
+  const [branding] = useBranding()
+  const logoSrc = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
   const [dayKey, setDayKey] = useState(todayKey())
   const [selectedCountry, setSelectedCountry] = useState('all')
   const [loading, setLoading] = useState(true)
@@ -284,9 +287,11 @@ export default function DailyReports() {
   const sections = useMemo(() => {
     const cfg = currencyCfg
     if (!cfg) return []
+    const ownerLabel = branding.companyName || DEFAULT_BRANDING.companyName
+    const websiteLabel = `${branding.storeName || branding.companyName || DEFAULT_BRANDING.storeName} Website`
     const scopedRows = [
-      ...internalOrders.map((order) => buildInternalRow(order, cfg)),
-      ...onlineOrders.map((order) => buildWebRow(order, cfg)),
+      ...internalOrders.map((order) => buildInternalRow(order, cfg, ownerLabel)),
+      ...onlineOrders.map((order) => buildWebRow(order, cfg, websiteLabel)),
     ].filter((row) => selectedCountry === 'all' ? true : row.country === selectedCountry)
     const expenseByCountry = (Array.isArray(expenses) ? expenses : []).reduce((map, expense) => {
       if (String(expense?.status || '').toLowerCase() !== 'approved') return map
@@ -345,7 +350,7 @@ export default function DailyReports() {
           pendingOrders: upperRows.filter((row) => row.statusKey === 'pending').length,
         }
       })
-  }, [currencyCfg, dayKey, expenses, internalOrders, onlineOrders, selectedCountry])
+  }, [branding.companyName, branding.storeName, currencyCfg, dayKey, expenses, internalOrders, onlineOrders, selectedCountry])
 
   const summary = useMemo(() => sections.reduce((acc, section) => {
     acc.orders += section.upperTotals.orders
@@ -390,7 +395,7 @@ export default function DailyReports() {
   async function downloadExcel() {
     setExportingExcel(true)
     try {
-      const logoUrl = `${window.location.origin}${logoSrc}`
+      const logoUrl = /^(https?:|data:|blob:)/i.test(logoSrc) ? logoSrc : `${window.location.origin}${logoSrc}`
       const tables = sections.map((section) => `
         <h2>${escapeHtml(section.country)} - ${escapeHtml(dayKey)}</h2>
         <table border="1"><tr><th>Order</th><th>Submitter</th><th>Customer Phone</th><th>Product</th><th>Qty</th><th>Driver</th><th>Payment</th><th>Price</th><th>Status</th></tr>
@@ -401,7 +406,7 @@ export default function DailyReports() {
         ${section.lowerRows.map((row) => `<tr><td>${escapeHtml(row.orderNumber)}</td><td>${escapeHtml(row.productName)}</td><td>${escapeHtml(row.productQuantity)}</td><td>${escapeHtml(row.submitterLabel)}</td><td>${escapeHtml(row.submitterCommission.toFixed(2))}</td><td>${escapeHtml(row.driverName)}</td><td>${escapeHtml(row.driverCommission.toFixed(2))}</td><td>${escapeHtml(row.purchaseCost.toFixed(2))}</td><td>${escapeHtml(row.adExpense.toFixed(2))}</td><td>${escapeHtml(row.orderPrice.toFixed(2))}</td><td>${escapeHtml(row.profit.toFixed(2))}</td></tr>`).join('')}
         <tr><td colspan="2"><strong>Sum</strong></td><td><strong>${escapeHtml(String(section.lowerTotals.qty))}</strong></td><td></td><td><strong>${escapeHtml(section.lowerTotals.submitterCommission.toFixed(2))}</strong></td><td></td><td><strong>${escapeHtml(section.lowerTotals.driverCommission.toFixed(2))}</strong></td><td><strong>${escapeHtml(section.lowerTotals.purchaseCost.toFixed(2))}</strong></td><td><strong>${escapeHtml(section.lowerTotals.adExpense.toFixed(2))}</strong></td><td><strong>${escapeHtml(section.lowerTotals.orderPrice.toFixed(2))}</strong></td><td><strong>${escapeHtml(section.lowerTotals.profit.toFixed(2))}</strong></td></tr></table>
       `).join('<br/><br/>')
-      const blob = new Blob([`<html><body><div style="text-align:center;margin-bottom:24px;"><img src="${escapeHtml(logoUrl)}" alt="BuySial" style="height:82px;display:block;margin:0 auto 12px;"/><div style="font-size:28px;font-weight:800;">Daily Report</div><div style="font-size:14px;color:#475569;">${escapeHtml(dayKey)}${selectedCountry === 'all' ? ' · All Countries' : ` · ${escapeHtml(selectedCountry)}`}</div></div>${tables}</body></html>`], { type: 'application/vnd.ms-excel;charset=utf-8;' })
+      const blob = new Blob([`<html><body><div style="text-align:center;margin-bottom:24px;"><img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(branding.companyName)}" style="height:82px;display:block;margin:0 auto 12px;"/><div style="font-size:28px;font-weight:800;">Daily Report</div><div style="font-size:14px;color:#475569;">${escapeHtml(dayKey)}${selectedCountry === 'all' ? ' · All Countries' : ` · ${escapeHtml(selectedCountry)}`}</div></div>${tables}</body></html>`], { type: 'application/vnd.ms-excel;charset=utf-8;' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
@@ -447,7 +452,7 @@ export default function DailyReports() {
 
       <div ref={reportRef} style={{ display: 'grid', gap: 18 }}>
         <div className="card" style={{ padding: 20, textAlign: 'center', display: 'grid', gap: 10, justifyItems: 'center' }}>
-          <img src={logoSrc} alt="BuySial" style={{ width: 220, maxWidth: '100%', objectFit: 'contain' }} />
+          <img src={logoSrc} alt={branding.companyName} style={{ width: 220, maxWidth: '100%', objectFit: 'contain' }} />
           <div style={{ fontSize: 30, fontWeight: 900, color: '#0f172a' }}>Daily Report</div>
           <div className="helper">{dayKey}{selectedCountry === 'all' ? ' · All Countries' : ` · ${selectedCountry}`}</div>
         </div>

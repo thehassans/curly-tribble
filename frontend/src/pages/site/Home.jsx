@@ -16,9 +16,12 @@ import ProductCardMini from '../../components/ecommerce/ProductCardMini'
 import { readCartItems } from '../../utils/cartStorage'
 import { trackPageView, trackSectionView, trackSectionClick } from '../../utils/analytics'
 import { COUNTRY_LIST } from '../../utils/constants'
+import { DEFAULT_BRANDING, resolveBrandAsset } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 
 export default function Home(){
   const navigate = useNavigate()
+  const [branding] = useBranding()
   const [isCartOpen, setIsCartOpen] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [mobileCountryOpen, setMobileCountryOpen] = useState(false)
@@ -54,7 +57,9 @@ export default function Home(){
   })
   const currentFlag = COUNTRY_LIST.find(c => c.code === selectedCountry)?.flag || '🇬🇧'
   const currentCountryName = COUNTRY_LIST.find(c => c.code === selectedCountry)?.name || 'UK'
-  const mobileBrandLogo = '/mobile-app-launcher.png'
+  const brandName = branding.companyName || branding.appName || DEFAULT_BRANDING.companyName
+  const storeName = branding.storeName || brandName
+  const mobileBrandLogo = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
   // Persist selected country
   useEffect(()=>{
     try { localStorage.setItem('selected_country', selectedCountry) } catch {}
@@ -302,10 +307,10 @@ export default function Home(){
 
       <div className="lg:hidden sticky top-0 z-40 bg-white/96 backdrop-blur-xl border-b border-slate-200/80 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
         <div className="px-3 pt-3 pb-2 flex items-center gap-3">
-          <Link to="/" className="flex items-center gap-2.5 min-w-0" aria-label="BuySial home">
-            <img src={mobileBrandLogo} alt="BuySial" style={{ width: 42, height: 42, borderRadius: 14, objectFit: 'cover', flexShrink: 0, boxShadow: '0 8px 20px rgba(15,23,42,0.10)' }} />
+          <Link to="/" className="flex items-center gap-2.5 min-w-0" aria-label={`${brandName} home`}>
+            <img src={mobileBrandLogo} alt={brandName} style={{ width: 42, height: 42, borderRadius: 14, objectFit: 'cover', flexShrink: 0, boxShadow: '0 8px 20px rgba(15,23,42,0.10)' }} />
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.03em', color: '#0f172a', lineHeight: 1.05 }}>Buysial</div>
+              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.03em', color: '#0f172a', lineHeight: 1.05 }}>{storeName}</div>
               <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', lineHeight: 1.1, whiteSpace: 'nowrap' }}>Premium mobile shopping</div>
             </div>
           </Link>
@@ -374,7 +379,7 @@ export default function Home(){
         )}
       </div>
 
-      <h1 className="sr-only">BuySial Commerce</h1>
+      <h1 className="sr-only">{brandName} Commerce</h1>
 
       {/* Hero Banner */}
       <div className="relative lg:hidden">
@@ -419,7 +424,7 @@ export default function Home(){
             <div className="bg-gray-900 text-white px-5 pt-7 pb-4">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <img src={mobileBrandLogo} alt="BuySial" style={{ width: 38, height: 38, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
+                  <img src={mobileBrandLogo} alt={brandName} style={{ width: 38, height: 38, borderRadius: 12, objectFit: 'cover', flexShrink: 0 }} />
                   <span className="text-[17px] font-bold tracking-wide">Shop</span>
                 </div>
                 <button onClick={() => setMobileMenuOpen(false)} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><svg className="w-4 h-4 text-white/80" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg></button>

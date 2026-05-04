@@ -944,6 +944,7 @@ export default function App() {
               <Route path="api-setup" element={<UserAPISetup />} />
               <Route path="profile-settings" element={<ProfileSettings />} />
               <Route path="label-settings" element={<LabelSettings />} />
+              <Route path="branding" element={<Branding />} />
               <Route path="shopify-settings" element={<UserShopifySettings />} />
               <Route path="shopify" element={<ShopifyIntegration />} />
               <Route path="home-headline" element={<HomeHeadline />} />

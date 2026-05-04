@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { Capacitor } from '@capacitor/core'
 import { COUNTRY_LIST } from '../../utils/constants'
 import { useCountry } from '../../contexts/CountryContext'
 import { readWishlistIds, syncWishlistFromServer } from '../../util/wishlist'
 import { apiGet } from '../../api.js'
+import { DEFAULT_BRANDING, resolveBrandAsset } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 
 const getCartItemCount = () => {
   try {
@@ -48,14 +49,6 @@ const getCustomer = () => {
   }
 }
 
-const isNativeMobileApp = () => {
-  try {
-    return Capacitor.isNativePlatform()
-  } catch {
-    return false
-  }
-}
-
 export default function Header({ onCartClick, editMode = false, editState = {}, onExitEdit = null }) {
   const [annBar, setAnnBar] = useState(null) // { text, bg, color }
   const [cartCount, setCartCount] = useState(0)
@@ -73,7 +66,9 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
   const [isCountryOpen, setIsCountryOpen] = useState(false)
   const { country: selectedCountry, setCountry: setSelectedCountry } = useCountry()
   const countryRef = useRef(null)
-  const brandLogoSrc = isNativeMobileApp() ? '/mobile-app-launcher.png' : '/BSBackgroundremoved.png'
+  const [branding] = useBranding()
+  const brandName = branding.companyName || branding.appName || DEFAULT_BRANDING.companyName
+  const brandLogoSrc = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
 
   useEffect(() => {
     // Load announcement bar from API
@@ -204,7 +199,7 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
             </svg>
           </button>
           <Link to="/" className="logo">
-            <img src={brandLogoSrc} alt="BuySial" className="logo-img" />
+            <img src={brandLogoSrc} alt={brandName} className="logo-img" />
           </Link>
         </div>
 
@@ -397,7 +392,7 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
           <div className="mobile-menu-overlay" onClick={toggleMobileMenu}></div>
           <div className="mobile-menu-content">
             <div className="mobile-menu-header">
-              <img src={brandLogoSrc} alt="BuySial" className="mobile-logo" />
+              <img src={brandLogoSrc} alt={brandName} className="mobile-logo" />
               <button className="mobile-menu-close" onClick={toggleMobileMenu}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18"></line>

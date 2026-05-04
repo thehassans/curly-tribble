@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="120" viewBox="0 0 420 120" fill="none">
+  <rect width="420" height="120" rx="24" fill="#0F172A"/>
+  <rect x="24" y="24" width="72" height="72" rx="18" fill="#F97316"/>
+  <path d="M46 78V42h10l10 14 10-14h10v36H84V58L66 82 48 58v20H46Z" fill="white"/>
+  <text x="118" y="56" fill="white" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700">Magnetic</text>
+  <text x="118" y="84" fill="#CBD5E1" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="500">E-commerce</text>
+</svg>

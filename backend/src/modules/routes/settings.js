@@ -12,6 +12,11 @@ import {
   getCountryRegistry,
   normalizeCountryRegistry,
 } from "../utils/countries.js";
+import {
+  BRANDING_TEXT_KEYS,
+  DEFAULT_BRANDING,
+  normalizeBrandingConfig,
+} from "../utils/branding.js";
 
 const router = express.Router();
 
@@ -32,6 +37,8 @@ const storage = multer.diskStorage({
     cb(null, `${ts}_${safe}`);
   },
 });
+
+const upload = multer({ storage });
 
 // Currency conversion settings
 function defaultCurrencyConfig() {
@@ -317,36 +324,29 @@ router.post("/ai/test", auth, allowRoles("admin", "user"), async (req, res) => {
       .json({ success: false, error: e?.message || "failed", tests });
   }
 });
-const upload = multer({ storage });
 
 function toPublicPath(absFilename) {
-  // Map absolute path in uploads/branding to public /uploads/branding path
   const base = path.basename(absFilename);
   return `/uploads/branding/${encodeURIComponent(base)}`;
 }
 
-// GET current branding (public)
+function getStoredBrandingValue(doc) {
+  return doc?.value && typeof doc.value === "object" ? doc.value : {};
+}
+
 router.get("/branding", async (_req, res) => {
   try {
     const doc = await Setting.findOne({ key: "branding" }).lean();
-    const val = (doc && doc.value) || {};
-    const headerLogo =
-      typeof val.headerLogo === "string" ? val.headerLogo : null;
-    const loginLogo = typeof val.loginLogo === "string" ? val.loginLogo : null;
-    const favicon = typeof val.favicon === "string" ? val.favicon : null;
-    const title = typeof val.title === "string" ? val.title : null;
-    const appName = typeof val.appName === "string" ? val.appName : null;
-    res.json({ headerLogo, loginLogo, favicon, title, appName });
+    res.json(normalizeBrandingConfig(getStoredBrandingValue(doc)));
   } catch (e) {
     res.status(500).json({ error: e?.message || "failed" });
   }
 });
 
-// POST upload branding assets (admin)
 router.post(
   "/branding",
   auth,
-  allowRoles("admin"),
+  allowRoles("admin", "user"),
   upload.fields([
     { name: "header", maxCount: 1 },
     { name: "login", maxCount: 1 },
@@ -361,52 +361,37 @@ router.post(
       let doc = await Setting.findOne({ key: "branding" });
       if (!doc) doc = new Setting({ key: "branding", value: {} });
 
-      const value = doc.value && typeof doc.value === "object" ? doc.value : {};
+      const value = getStoredBrandingValue(doc);
       if (headerFile) value.headerLogo = toPublicPath(headerFile.path);
       if (loginFile) value.loginLogo = toPublicPath(loginFile.path);
       if (faviconFile) value.favicon = toPublicPath(faviconFile.path);
-      if (typeof req.body?.title === "string") value.title = req.body.title;
-      if (typeof req.body?.appName === "string")
-        value.appName = req.body.appName;
+      for (const key of BRANDING_TEXT_KEYS) {
+        if (typeof req.body?.[key] === "string") value[key] = req.body[key].trim();
+      }
+      doc.category = "branding";
+      doc.description = "Public storefront and panel branding";
+      doc.isPublic = true;
+      doc.updatedBy = req.user?.id || undefined;
       doc.value = value;
-      doc.markModified('value');
+      doc.markModified("value");
       await doc.save();
 
-      res.json({
-        headerLogo: value.headerLogo || null,
-        loginLogo: value.loginLogo || null,
-        favicon: value.favicon || null,
-        title: value.title || null,
-        appName: value.appName || null,
-      });
+      res.json(normalizeBrandingConfig(value));
     } catch (e) {
       res.status(500).json({ error: e?.message || "failed" });
     }
   }
 );
 
-// Dynamic PWA manifest using saved branding
-router.get("/manifest", async (req, res) => {
+router.get("/manifest", async (_req, res) => {
   try {
     const doc = await Setting.findOne({ key: "branding" }).lean();
-    const val = (doc && doc.value) || {};
-    const name =
-      typeof val.title === "string" && val.title.trim()
-        ? val.title.trim()
-        : "BuySial Commerce";
-    const shortName =
-      typeof val.appName === "string" && val.appName.trim()
-        ? val.appName.trim()
-        : name;
+    const val = normalizeBrandingConfig(getStoredBrandingValue(doc));
+    const name = val.title || DEFAULT_BRANDING.title;
+    const shortName = val.appName || name;
     const themeColor = "#0f172a";
-
-    // Use same favicon path for icons; browsers will scale. Recommended to upload a 512x512 PNG as favicon.
-    const iconSrc =
-      typeof val.favicon === "string" && val.favicon ? val.favicon : null;
-    const iconType = iconSrc
-      ? mime.lookup(iconSrc) || "image/png"
-      : "image/png";
-
+    const iconSrc = val.favicon || null;
+    const iconType = iconSrc ? mime.lookup(iconSrc) || "image/png" : "image/png";
     const icons = iconSrc
       ? [
           {
@@ -424,20 +409,21 @@ router.get("/manifest", async (req, res) => {
         ]
       : [
           {
-            src: "/BuySial2.png",
+            src: "/logo.png",
             sizes: "192x192",
             type: "image/png",
             purpose: "any maskable",
           },
           {
-            src: "/BuySial2.png",
+            src: "/logo.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "any maskable",
           },
         ];
 
-    const manifest = {
+    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
+    res.json({
       name,
       short_name: shortName,
       start_url: "/",
@@ -445,9 +431,7 @@ router.get("/manifest", async (req, res) => {
       background_color: themeColor,
       theme_color: themeColor,
       icons,
-    };
-    res.setHeader("Content-Type", "application/manifest+json; charset=utf-8");
-    res.json(manifest);
+    });
   } catch (e) {
     res.status(500).json({ error: e?.message || "failed" });
   }
@@ -485,7 +469,7 @@ router.post(
         value.accessToken = accessToken.trim();
       if (typeof appId === "string") value.appId = appId.trim();
       doc.value = value;
-      doc.markModified('value');
+      doc.markModified("value");
       await doc.save();
       res.json({ success: true });
     } catch (e) {
@@ -501,10 +485,10 @@ router.get("/maps-key", async (_req, res) => {
     const val = (doc && doc.value) || {};
     const apiKey = val.googleMapsApiKey || null;
     if (!apiKey) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: "Google Maps API key not configured",
         mapsKey: null,
-        apiKey: null 
+        apiKey: null,
       });
     }
     res.json({ mapsKey: apiKey, apiKey });

@@ -1,9 +1,23 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { API_BASE, apiUpload, apiGet } from '../../api.js'
-import { applyBrandingToHead } from '../../util/branding.js'
+import { applyBrandingToHead, DEFAULT_BRANDING, normalizeBranding, resolveBrandAsset } from '../../util/branding.js'
+
+const TEXT_FIELDS = [
+  { key: 'title', label: 'Website Title', placeholder: 'e.g. Magnetic E-commerce' },
+  { key: 'appName', label: 'App Name (short)', placeholder: 'e.g. Magnetic' },
+  { key: 'companyName', label: 'Company Name', placeholder: 'e.g. Magnetic E-commerce' },
+  { key: 'portalName', label: 'Portal Name', placeholder: 'e.g. Magnetic E-commerce Management' },
+  { key: 'storeName', label: 'Storefront Name', placeholder: 'e.g. Magnetic Store' },
+  { key: 'staffLoginSubtitle', label: 'Staff Login Subtitle', placeholder: 'Shown on the main login screen' },
+  { key: 'shopLoginSubtitle', label: 'Shop Login Subtitle', placeholder: 'Shown on the shop login screen' },
+  { key: 'footerText', label: 'Footer Text', placeholder: 'e.g. Powered by Magnetic E-commerce' },
+  { key: 'reportSignature', label: 'Report Signature', placeholder: 'e.g. Magnetic E-commerce' },
+  { key: 'reportFooterText', label: 'Report Footer Text', placeholder: 'e.g. All Rights Reserved' },
+  { key: 'websiteUrl', label: 'Website URL', placeholder: 'e.g. https://magnetic-ecommerce.example' },
+]
 
 export default function Branding(){
-  const [branding, setBranding] = useState({ headerLogo: null, loginLogo: null, favicon: null, title: '', appName: '' })
+  const [branding, setBranding] = useState(() => normalizeBranding(DEFAULT_BRANDING))
   const [headerFile, setHeaderFile] = useState(null)
   const [loginFile, setLoginFile] = useState(null)
   const [faviconFile, setFaviconFile] = useState(null)
@@ -44,13 +58,7 @@ export default function Branding(){
     ;(async()=>{
       try{
         const j = await apiGet('/api/settings/branding')
-        if (!cancelled) setBranding({
-          headerLogo: j.headerLogo||null,
-          loginLogo: j.loginLogo||null,
-          favicon: j.favicon||null,
-          title: j.title||'',
-          appName: j.appName||''
-        })
+        if (!cancelled) setBranding(normalizeBranding(j))
       }catch{}
     })()
     return ()=>{ cancelled = true }
@@ -65,16 +73,9 @@ export default function Branding(){
       if (headerFile) fd.append('header', headerFile)
       if (loginFile) fd.append('login', loginFile)
       if (faviconFile) fd.append('favicon', faviconFile)
-      if (branding.title) fd.append('title', branding.title)
-      if (branding.appName) fd.append('appName', branding.appName)
+      for (const field of TEXT_FIELDS) fd.append(field.key, branding[field.key] || '')
       const res = await apiUpload('/api/settings/branding', fd)
-      const nextBranding = {
-        headerLogo: res.headerLogo||null,
-        loginLogo: res.loginLogo||null,
-        favicon: res.favicon||null,
-        title: res.title||'',
-        appName: res.appName||''
-      }
+      const nextBranding = normalizeBranding(res)
       setBranding(nextBranding)
       // Instantly reflect in browser tab / PWA metadata
       try{ applyBrandingToHead({ title: nextBranding.title, appName: nextBranding.appName, favicon: nextBranding.favicon ? `${API_BASE}${nextBranding.favicon}` : null }) }catch{}
@@ -90,9 +91,9 @@ export default function Branding(){
     finally{ setSaving(false) }
   }
 
-  const headerSrc = headerPreview || (branding.headerLogo ? `${API_BASE}${branding.headerLogo}` : `${import.meta.env.BASE_URL}BSBackgroundremoved.png`)
-  const loginSrc = loginPreview || (branding.loginLogo ? `${API_BASE}${branding.loginLogo}` : `${import.meta.env.BASE_URL}BSBackgroundremoved.png`)
-  const faviconSrc = faviconPreview || (branding.favicon ? `${API_BASE}${branding.favicon}` : `${import.meta.env.BASE_URL}icons/icon-192.png`)
+  const headerSrc = headerPreview || resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}logo.png`)
+  const loginSrc = loginPreview || resolveBrandAsset(branding.loginLogo, `${import.meta.env.BASE_URL}logo.png`)
+  const faviconSrc = faviconPreview || resolveBrandAsset(branding.favicon, `${import.meta.env.BASE_URL}icons/icon-192.png`)
 
   function pickFirstImageFile(items){
     if (!items) return null
@@ -111,7 +112,7 @@ export default function Branding(){
     <div className="section" style={{display:'grid', gap:12}}>
       <div className="card" style={{display:'grid', gap:12}}>
         <div className="card-title">Branding</div>
-        <div className="card-subtitle">Upload your company logos and set your web app title and favicon (used for PWA install and home screen).</div>
+        <div className="card-subtitle">Upload your logos and control the Magnetic E-commerce branding text used across login screens, headers, reports, and app metadata.</div>
         <form onSubmit={onSave} className="section" style={{display:'grid', gap:12}}>
           <div className="form-grid">
             <div>
@@ -230,14 +231,23 @@ export default function Branding(){
               <div className="helper">Recommended: PNG 512x512 for best install icon quality. iOS will use this for home screen.</div>
             </div>
             <div>
-              <div className="label">Website Title</div>
-              <input className="input" value={branding.title||''} onChange={e=> setBranding(b=>({...b, title: e.target.value}))} placeholder="e.g. My Company CRM" />
-            </div>
-            <div>
               <div className="label">App Name (short)</div>
-              <input className="input" value={branding.appName||''} onChange={e=> setBranding(b=>({...b, appName: e.target.value}))} placeholder="e.g. MyCRM" />
+              <input className="input" value={branding.appName||''} onChange={e=> setBranding(b=>({...b, appName: e.target.value}))} placeholder="e.g. Magnetic" />
               <div className="helper">Shown under the home screen icon and in PWA install banners.</div>
             </div>
+          </div>
+          <div className="form-grid">
+            {TEXT_FIELDS.filter(field => field.key !== 'appName').map(field => (
+              <div key={field.key}>
+                <div className="label">{field.label}</div>
+                <input
+                  className="input"
+                  value={branding[field.key] || ''}
+                  onChange={e => setBranding(b => ({ ...b, [field.key]: e.target.value }))}
+                  placeholder={field.placeholder}
+                />
+              </div>
+            ))}
           </div>
           <div style={{display:'flex', gap:8}}>
             <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save Branding'}</button>

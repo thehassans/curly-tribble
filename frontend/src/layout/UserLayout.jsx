@@ -6,6 +6,7 @@ import Modal from '../components/Modal.jsx'
 import NotificationsDropdown from '../components/NotificationsDropdown.jsx'
 import NotificationListener from '../components/NotificationListener.jsx'
 import { io } from 'socket.io-client'
+import { useBranding } from '../util/useBranding.js'
 
 export default function UserLayout() {
   const navigate = useNavigate()
@@ -22,12 +23,13 @@ export default function UserLayout() {
   const location = useLocation()
   const me = JSON.parse(localStorage.getItem('me') || '{}')
   const [pendingManagerRemits, setPendingManagerRemits] = useState(0)
+  const [branding] = useBranding()
 
   // Set document title for user panel
   useEffect(() => {
-    document.title = 'BuySial Management'
-    return () => { document.title = 'BuySial Commerce' }
-  }, [])
+    document.title = branding.portalName || branding.title
+    return () => { document.title = branding.title || 'Magnetic E-commerce' }
+  }, [branding.portalName, branding.title])
 
   // Load pending manager remittances count
   useEffect(() => {
@@ -347,7 +349,7 @@ export default function UserLayout() {
               strokeLinejoin="round"
             >
               <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+              <path d="M16 10h3l2 2.5V17h-5" />
             </svg>
           ),
         },
@@ -489,61 +491,61 @@ export default function UserLayout() {
             </svg>
           ),
         },
-    {
-      to: '/user/label-settings',
-      label: 'Label Settings',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-          <polyline points="14 2 14 8 20 8" />
-          <line x1="16" y1="13" x2="8" y2="13" />
-          <line x1="16" y1="17" x2="8" y2="17" />
-          <polyline points="10 9 9 9 8 9" />
-        </svg>
-      ),
-    },
-    {
-      to: '/user/shopify-settings',
-      label: 'Shopify Settings',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <path d="M16 10a4 4 0 0 1-8 0" />
-        </svg>
-      ),
-    },
-    {
-      to: '/user/website-modification',
-      label: 'Website Settings',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-          <line x1="3" y1="9" x2="21" y2="9" />
-          <line x1="9" y1="21" x2="9" y2="9" />
-        </svg>
-      ),
-    },
-    {
-      to: '/user/coupons',
-      label: 'Coupons',
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 5H3a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2 2 2 0 0 1-2 2v4a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-4a2 2 0 0 1-2-2 2 2 0 0 1 2-2V7a2 2 0 0 0-2-2z" />
-          <line x1="9" y1="5" x2="9" y2="19" strokeDasharray="2 2" />
-        </svg>
-      ),
-    },
-    {
-      to: '/user/cashback-offers',
-      label: 'Cashback Offers',
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 1v22" />
-          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7H14.5a3.5 3.5 0 0 1 0 7H6" />
-        </svg>
-      ),
-    },
+        {
+          to: '/user/label-settings',
+          label: 'Label Settings',
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
+              <line x1="16" y1="13" x2="8" y2="13" />
+              <line x1="16" y1="17" x2="8" y2="17" />
+              <polyline points="10 9 9 9 8 9" />
+            </svg>
+          ),
+        },
+        {
+          to: '/user/shopify-settings',
+          label: 'Shopify Settings',
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <path d="M16 10a4 4 0 0 1-8 0" />
+            </svg>
+          ),
+        },
+        {
+          to: '/user/website-modification',
+          label: 'Website Settings',
+          icon: (
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+              <line x1="3" y1="9" x2="21" y2="9" />
+              <line x1="9" y1="21" x2="9" y2="9" />
+            </svg>
+          ),
+        },
+        {
+          to: '/user/coupons',
+          label: 'Coupons',
+          icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 5H3a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2 2 2 0 0 1-2 2v4a2 2 0 0 0 2 2h18a2 2 0 0 0 2-2v-4a2 2 0 0 1-2-2 2 2 0 0 1 2-2V7a2 2 0 0 0-2-2z" />
+              <line x1="9" y1="5" x2="9" y2="19" strokeDasharray="2 2" />
+            </svg>
+          ),
+        },
+        {
+          to: '/user/cashback-offers',
+          label: 'Cashback Offers',
+          icon: (
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 1v22" />
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+          ),
+        },
         {
           to: '/user/warehouses',
           label: 'Warehouses',
@@ -949,7 +951,6 @@ export default function UserLayout() {
             </svg>
           ),
         },
-
         {
           to: '/user/driver-amounts',
           label: 'Driver Amounts',
@@ -1267,6 +1268,18 @@ export default function UserLayout() {
         </svg>
       ),
     },
+    {
+      to: '/user/branding',
+      label: 'Branding',
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 3a9 9 0 1 0 9 9c0-.7-.08-1.39-.24-2.04a2 2 0 0 0-1.94-1.46H16a2 2 0 0 1-2-2V5.18A2.18 2.18 0 0 0 11.82 3H12z" />
+          <circle cx="7.5" cy="10.5" r="1" />
+          <circle cx="12" cy="7.5" r="1" />
+          <circle cx="16.5" cy="10.5" r="1" />
+        </svg>
+      ),
+    },
   ]
 
   // Recursive filter for visible links
@@ -1358,21 +1371,6 @@ export default function UserLayout() {
       </div>
     </div>
   )
-
-  // Branding (header logo)
-  const [branding, setBranding] = useState({ headerLogo: null })
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const j = await apiGet('/api/settings/branding')
-        if (!cancelled) setBranding({ headerLogo: j.headerLogo || null })
-      } catch {}
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
 
   useEffect(() => {
     function onResize() {

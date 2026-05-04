@@ -2,6 +2,8 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import Header from '../../components/layout/Header'
 import MobileBottomNav from '../../components/ecommerce/MobileBottomNav'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 
 const Section = ({ number, title, children }) => (
   <div
@@ -75,8 +77,9 @@ const BulletList = ({ items }) => (
 
 export default function Returns() {
   const updated = 'February 8, 2026'
-  const company = 'BuySial'
-  const supportEmail = 'support@buysial.com'
+  const [branding] = useBranding()
+  const company = branding.companyName || branding.appName || DEFAULT_BRANDING.companyName
+  const supportEmail = branding.websiteUrl ? `support@${String(branding.websiteUrl).replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*/, '')}` : 'support@magneticecommerce.com'
   const supportPhone = '+971 58 549 1340'
 
   return (

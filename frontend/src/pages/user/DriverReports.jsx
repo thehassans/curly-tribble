@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { apiGet } from '../../api'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
+import { resolveBrandAsset } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 
 const COUNTRIES = [
   { code: 'KSA', name: 'Saudi Arabia' },
@@ -29,6 +31,8 @@ export default function DriverReports(){
   const [selectedDriver, setSelectedDriver] = useState('all')
   const [selectedTemplate, setSelectedTemplate] = useState(1)
   const reportRef = useRef(null)
+  const [branding] = useBranding()
+  const reportLogo = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
 
   async function loadDrivers(){
     setLoading(true)
@@ -63,7 +67,8 @@ export default function DriverReports(){
       
       const templateName = REPORT_TEMPLATES.find(t => t.id === selectedTemplate)?.name.replace(/\s+/g, '-') || 'Report'
       const driverPart = selectedDriver === 'all' ? 'All-Drivers' : selectedDriver.replace(/\s+/g, '-')
-      const filename = `Driver-${templateName}-${driverPart}-${new Date().toISOString().split('T')[0]}.pdf`
+      const brandSlug = String(branding.companyName || branding.appName || 'Magnetic E-commerce').trim().replace(/\s+/g, '-')
+      const filename = `${brandSlug}-Driver-${templateName}-${driverPart}-${new Date().toISOString().split('T')[0]}.pdf`
       
       pdf.save(filename)
     } catch (err) {
@@ -190,18 +195,18 @@ export default function DriverReports(){
 
       {/* Report Content */}
       <div ref={reportRef} style={{background: '#fff', padding: 40, borderRadius: 12, boxShadow:'0 1px 3px rgba(0,0,0,0.1)'}}>
-        {selectedTemplate === 1 && <Template1 logo="/BSBackgroundremoved.png" selectedCountry={selectedCountry} selectedDriver={selectedDriver} drivers={filteredDrivers} />}
-        {selectedTemplate === 2 && <Template2 logo="/BSBackgroundremoved.png" selectedCountry={selectedCountry} selectedDriver={selectedDriver} drivers={filteredDrivers} />}
-        {selectedTemplate === 3 && <Template3 logo="/BSBackgroundremoved.png" selectedCountry={selectedCountry} selectedDriver={selectedDriver} drivers={filteredDrivers} />}
-        {selectedTemplate === 4 && <Template4 logo="/BSBackgroundremoved.png" selectedCountry={selectedCountry} selectedDriver={selectedDriver} drivers={filteredDrivers} />}
-        {selectedTemplate === 5 && <Template5 logo="/BSBackgroundremoved.png" selectedCountry={selectedCountry} selectedDriver={selectedDriver} drivers={filteredDrivers} />}
+        {selectedTemplate === 1 && <Template1 logo={reportLogo} branding={branding} selectedCountry={selectedCountry} selectedDriver={selectedDriver} drivers={filteredDrivers} />}
+        {selectedTemplate === 2 && <Template2 logo={reportLogo} branding={branding} selectedCountry={selectedCountry} selectedDriver={selectedDriver} drivers={filteredDrivers} />}
+        {selectedTemplate === 3 && <Template3 logo={reportLogo} branding={branding} selectedCountry={selectedCountry} selectedDriver={selectedDriver} drivers={filteredDrivers} />}
+        {selectedTemplate === 4 && <Template4 logo={reportLogo} branding={branding} selectedCountry={selectedCountry} selectedDriver={selectedDriver} drivers={filteredDrivers} />}
+        {selectedTemplate === 5 && <Template5 logo={reportLogo} branding={branding} selectedCountry={selectedCountry} selectedDriver={selectedDriver} drivers={filteredDrivers} />}
       </div>
     </div>
   )
 }
 
 // Template 1: Classic Corporate
-function Template1({ logo, selectedCountry, selectedDriver, drivers }) {
+function Template1({ logo, branding, selectedCountry, selectedDriver, drivers }) {
   return (
     <>
       {/* Report Header */}
@@ -264,13 +269,13 @@ function Template1({ logo, selectedCountry, selectedDriver, drivers }) {
       <div style={{borderTop: '3px solid #1e40af', paddingTop: 24, marginTop: 40}}>
         <div style={{background: 'linear-gradient(to bottom, #f8fafc, #ffffff)', border: '2px solid #1e40af', borderRadius: 8, padding: 28, marginBottom: 20, boxShadow: '0 2px 8px rgba(30, 64, 175, 0.08)'}}>
           <div style={{borderTop: '1px solid #e5e7eb', paddingTop: 16, textAlign: 'center'}}>
-            <div style={{fontSize: 16, fontWeight: 800, color: '#111', marginBottom: 4}}>Qadeer Hussain, Owner of Buysial</div>
+            <div style={{fontSize: 16, fontWeight: 800, color: '#111', marginBottom: 4}}>{branding.reportSignature || branding.companyName}</div>
             <div style={{fontSize: 12, color: '#6b7280', marginTop: 8}}>Date: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
           </div>
         </div>
         <div style={{textAlign:'center', fontSize: 11, color: '#6b7280'}}>
           <div>Driver Management & Analytics</div>
-          <div style={{marginTop: 4}}>© {new Date().getFullYear()} All Rights Reserved</div>
+          <div style={{marginTop: 4}}>© {new Date().getFullYear()} {branding.reportFooterText || 'All Rights Reserved'}</div>
         </div>
       </div>
     </>
@@ -367,7 +372,7 @@ function DriverCard({ driver }) {
 }
 
 // Template 2: Modern Executive
-function Template2({ logo, selectedCountry, selectedDriver, drivers }) {
+function Template2({ logo, branding, selectedCountry, selectedDriver, drivers }) {
   return (
     <>
       <div style={{background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', padding: 30, borderRadius: 12, marginBottom: 32}}>
@@ -427,7 +432,7 @@ function Template2({ logo, selectedCountry, selectedDriver, drivers }) {
       ))}
 
       <div style={{marginTop: 40, paddingTop: 20, borderTop: '2px solid #e5e7eb', textAlign: 'center'}}>
-        <div style={{fontSize: 16, fontWeight: 800, color: '#111'}}>Qadeer Hussain, Owner of Buysial</div>
+        <div style={{fontSize: 16, fontWeight: 800, color: '#111'}}>{branding.reportSignature || branding.companyName}</div>
         <div style={{fontSize: 12, color: '#6b7280', marginTop: 4}}>Date: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
       </div>
     </>
@@ -435,7 +440,7 @@ function Template2({ logo, selectedCountry, selectedDriver, drivers }) {
 }
 
 // Template 3: Financial Statement
-function Template3({ logo, selectedCountry, selectedDriver, drivers }) {
+function Template3({ logo, branding, selectedCountry, selectedDriver, drivers }) {
   return (
     <>
       <div style={{borderBottom: '4px double #000', paddingBottom: 16, marginBottom: 24}}>
@@ -471,7 +476,7 @@ function Template3({ logo, selectedCountry, selectedDriver, drivers }) {
       ))}
 
       <div style={{marginTop: 32, paddingTop: 16, borderTop: '4px double #000', textAlign: 'center'}}>
-        <div style={{fontSize: 16, fontWeight: 800, color: '#000'}}>Qadeer Hussain, Owner of Buysial</div>
+        <div style={{fontSize: 16, fontWeight: 800, color: '#000'}}>{branding.reportSignature || branding.companyName}</div>
         <div style={{fontSize: 12, marginTop: 4, color: '#000'}}>Date: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
       </div>
     </>
@@ -479,7 +484,7 @@ function Template3({ logo, selectedCountry, selectedDriver, drivers }) {
 }
 
 // Template 4: Monthly Report
-function Template4({ logo, selectedCountry, selectedDriver, drivers }) {
+function Template4({ logo, branding, selectedCountry, selectedDriver, drivers }) {
   return (
     <>
       <div style={{textAlign: 'center', borderBottom: '3px solid #d97706', paddingBottom: 24, marginBottom: 32}}>
@@ -520,7 +525,7 @@ function Template4({ logo, selectedCountry, selectedDriver, drivers }) {
       ))}
 
       <div style={{borderTop: '3px solid #d97706', paddingTop: 24, marginTop: 32, textAlign: 'center'}}>
-        <div style={{fontSize: 16, fontWeight: 800, color: '#78350f'}}>Qadeer Hussain, Owner of Buysial</div>
+        <div style={{fontSize: 16, fontWeight: 800, color: '#78350f'}}>{branding.reportSignature || branding.companyName}</div>
         <div style={{fontSize: 12, color: '#92400e', marginTop: 4}}>Date: {new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
       </div>
     </>
@@ -528,7 +533,7 @@ function Template4({ logo, selectedCountry, selectedDriver, drivers }) {
 }
 
 // Template 5: Minimal Professional
-function Template5({ logo, selectedCountry, selectedDriver, drivers }) {
+function Template5({ logo, branding, selectedCountry, selectedDriver, drivers }) {
   return (
     <>
       <div style={{display:'flex', justifyContent:'space-between', alignItems:'start', borderBottom: '1px solid #e5e7eb', paddingBottom: 16, marginBottom: 32}}>
@@ -569,7 +574,7 @@ function Template5({ logo, selectedCountry, selectedDriver, drivers }) {
       ))}
 
       <div style={{marginTop: 40, paddingTop: 16, borderTop: '1px solid #e5e7eb', textAlign: 'center'}}>
-        <div style={{fontSize: 14, fontWeight: 300, color: '#111'}}>Qadeer Hussain, Owner of Buysial</div>
+        <div style={{fontSize: 14, fontWeight: 300, color: '#111'}}>{branding.reportSignature || branding.companyName}</div>
         <div style={{fontSize: 11, color: '#9ca3af', marginTop: 4}}>{new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
       </div>
     </>

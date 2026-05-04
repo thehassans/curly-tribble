@@ -2,6 +2,66 @@
 // Works both when the app is served by the backend and during Vite dev.
 import { API_BASE, apiGet } from '../api.js'
 
+export const DEFAULT_BRANDING = Object.freeze({
+  headerLogo: null,
+  loginLogo: null,
+  favicon: null,
+  title: 'Magnetic E-commerce',
+  appName: 'Magnetic',
+  companyName: 'Magnetic E-commerce',
+  portalName: 'Magnetic E-commerce Management',
+  storeName: 'Magnetic Store',
+  staffLoginSubtitle: 'Sign in to your Magnetic E-commerce workspace',
+  shopLoginSubtitle: 'Access the Magnetic E-commerce shop operations console',
+  footerText: 'Powered by Magnetic E-commerce',
+  reportSignature: 'Magnetic E-commerce',
+  reportFooterText: 'All Rights Reserved',
+  websiteUrl: 'https://magnetic-ecommerce.example'
+})
+
+function normalizeText(value, fallback){
+  if (typeof value !== 'string') return fallback
+  const next = value.trim()
+  return next || fallback
+}
+
+function normalizeAsset(value){
+  if (typeof value !== 'string') return null
+  const next = value.trim()
+  return next || null
+}
+
+export function normalizeBranding(value = {}){
+  const source = value && typeof value === 'object' ? value : {}
+  return {
+    headerLogo: normalizeAsset(source.headerLogo),
+    loginLogo: normalizeAsset(source.loginLogo),
+    favicon: normalizeAsset(source.favicon),
+    title: normalizeText(source.title, DEFAULT_BRANDING.title),
+    appName: normalizeText(source.appName, DEFAULT_BRANDING.appName),
+    companyName: normalizeText(source.companyName, DEFAULT_BRANDING.companyName),
+    portalName: normalizeText(source.portalName, DEFAULT_BRANDING.portalName),
+    storeName: normalizeText(source.storeName, DEFAULT_BRANDING.storeName),
+    staffLoginSubtitle: normalizeText(source.staffLoginSubtitle, DEFAULT_BRANDING.staffLoginSubtitle),
+    shopLoginSubtitle: normalizeText(source.shopLoginSubtitle, DEFAULT_BRANDING.shopLoginSubtitle),
+    footerText: normalizeText(source.footerText, DEFAULT_BRANDING.footerText),
+    reportSignature: normalizeText(source.reportSignature, DEFAULT_BRANDING.reportSignature),
+    reportFooterText: normalizeText(source.reportFooterText, DEFAULT_BRANDING.reportFooterText),
+    websiteUrl: normalizeText(source.websiteUrl, DEFAULT_BRANDING.websiteUrl),
+  }
+}
+
+export function resolveBrandAsset(src, fallback = `${import.meta.env.BASE_URL}magnetic-logo.svg`){
+  if (!src || typeof src !== 'string') return fallback
+  if (/^(https?:|data:|blob:)/i.test(src)) return src
+  return `${API_BASE || ''}${src}`
+}
+
+export async function fetchBranding(){
+  const j = await apiGet('/api/settings/branding')
+  return normalizeBranding(j)
+}
+
 function setOrCreateLink(rel, attrs = {}){
   let el = document.querySelector(`head link[rel="${rel}"]`)
   if (!el){ el = document.createElement('link'); el.setAttribute('rel', rel); document.head.appendChild(el) }
@@ -58,7 +118,7 @@ export function applyBrandingToHead({ title, appName, favicon } = {}){
 
 export async function bootstrapBranding(){
   try{
-    const j = await apiGet('/api/settings/branding')
+    const j = await fetchBranding()
     applyBrandingToHead({ title: j.title || null, appName: j.appName || null, favicon: j.favicon || null })
   }catch{}
 }

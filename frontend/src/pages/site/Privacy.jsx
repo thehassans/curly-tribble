@@ -2,6 +2,8 @@ import React from 'react'
 import { Link } from 'react-router-dom'
 import Header from '../../components/layout/Header'
 import MobileBottomNav from '../../components/ecommerce/MobileBottomNav'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 
 const Section = ({ number, title, children }) => (
   <div style={{
@@ -47,8 +49,9 @@ const BulletList = ({ items }) => (
 
 export default function Privacy() {
   const updated = 'November 16, 2025'
-  const company = 'BuySial'
-  const legalEmail = 'privacy@buysial.com'
+  const [branding] = useBranding()
+  const company = branding.companyName || branding.appName || DEFAULT_BRANDING.companyName
+  const legalEmail = branding.websiteUrl ? `privacy@${String(branding.websiteUrl).replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*/, '')}` : 'privacy@magneticecommerce.com'
 
   return (
     <div style={{ minHeight: '100vh', background: '#fafafa' }}>

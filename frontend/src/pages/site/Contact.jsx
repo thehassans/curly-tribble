@@ -2,11 +2,16 @@ import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Header from '../../components/layout/Header'
 import MobileBottomNav from '../../components/ecommerce/MobileBottomNav'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 
 export default function Contact() {
+  const [branding] = useBranding()
   const [formData, setFormData] = useState({ name: '', email: '', subject: '', message: '' })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const supportEmail = branding.websiteUrl ? `support@${String(branding.websiteUrl).replace(/^https?:\/\//, '').replace(/^www\./, '').replace(/\/.*/, '')}` : 'support@magneticecommerce.com'
+  const brandName = branding.companyName || branding.appName || DEFAULT_BRANDING.companyName
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
@@ -55,9 +60,9 @@ export default function Contact() {
             {
               icon: '📧',
               title: 'Email Us',
-              value: 'support@buysial.com',
+              value: supportEmail,
               desc: 'For general inquiries',
-              href: 'mailto:support@buysial.com',
+              href: `mailto:${supportEmail}`,
               color: 'orange'
             },
             {
@@ -288,7 +293,7 @@ export default function Contact() {
             Ready to Start Shopping?
           </h2>
           <p className="text-xl text-gray-400 mb-10">
-            Explore our collection of quality products at competitive prices.
+            Explore {brandName} and discover quality products at competitive prices.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
