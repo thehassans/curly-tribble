@@ -51,6 +51,7 @@ export default function AdminSettings() {
   const [branding, setBranding] = useState(() => normalizeBranding(DEFAULT_BRANDING))
   const [headerFile, setHeaderFile] = useState(null)
   const [loginFile, setLoginFile] = useState(null)
+  const [darkFile, setDarkFile] = useState(null)
   const [faviconFile, setFaviconFile] = useState(null)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -79,11 +80,13 @@ export default function AdminSettings() {
     setBranding(normalizeBranding({ ...DEFAULT_BRANDING, ...(selectedUser.workspaceBranding || {}) }))
     setHeaderFile(null)
     setLoginFile(null)
+    setDarkFile(null)
     setFaviconFile(null)
   }, [selectedUser])
 
   const headerPreview = headerFile ? URL.createObjectURL(headerFile) : resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
   const loginPreview = loginFile ? URL.createObjectURL(loginFile) : resolveBrandAsset(branding.loginLogo || branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
+  const darkPreview = darkFile ? URL.createObjectURL(darkFile) : resolveBrandAsset(branding.darkLogo || branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
   const faviconPreview = faviconFile ? URL.createObjectURL(faviconFile) : resolveBrandAsset(branding.favicon, `${import.meta.env.BASE_URL}magneticcommerce-favicon.png`)
 
   useEffect(() => {
@@ -96,9 +99,10 @@ export default function AdminSettings() {
     return () => {
       try { if (headerFile) URL.revokeObjectURL(headerPreview) } catch {}
       try { if (loginFile) URL.revokeObjectURL(loginPreview) } catch {}
+      try { if (darkFile) URL.revokeObjectURL(darkPreview) } catch {}
       try { if (faviconFile) URL.revokeObjectURL(faviconPreview) } catch {}
     }
-  }, [headerFile, loginFile, faviconFile, headerPreview, loginPreview, faviconPreview])
+  }, [headerFile, loginFile, darkFile, faviconFile, headerPreview, loginPreview, darkPreview, faviconPreview])
 
   async function saveWorkspace(e) {
     e.preventDefault()
@@ -111,6 +115,7 @@ export default function AdminSettings() {
       fd.append('customDomain', customDomain)
       if (headerFile) fd.append('header', headerFile)
       if (loginFile) fd.append('login', loginFile)
+      if (darkFile) fd.append('dark', darkFile)
       if (faviconFile) fd.append('favicon', faviconFile)
       for (const field of TEXT_FIELDS) fd.append(field.key, branding[field.key] || '')
       const res = await apiUploadPatch(`/api/users/${selectedUser._id}/workspace`, fd)
@@ -119,6 +124,7 @@ export default function AdminSettings() {
       setMessage('Workspace settings updated')
       setHeaderFile(null)
       setLoginFile(null)
+      setDarkFile(null)
       setFaviconFile(null)
     } catch (err) {
       setMessage(err?.message || 'Failed to update workspace')
@@ -132,7 +138,7 @@ export default function AdminSettings() {
       <div className="page-header" style={{ marginBottom: 0 }}>
         <div>
           <div className="page-title gradient heading-blue">Admin Settings</div>
-          <div className="page-subtitle">Manage each user workspace, branding, title, logo, favicon, and custom domain from one place.</div>
+          <div className="page-subtitle">Manage each user workspace, branding, light and dark logos, favicon, and custom domain from one place.</div>
         </div>
       </div>
 
@@ -202,9 +208,10 @@ export default function AdminSettings() {
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
                 <UploadField label="Header Logo" preview={headerPreview} accept="image/*" file={headerFile} onChange={setHeaderFile} />
                 <UploadField label="Login Logo" preview={loginPreview} accept="image/*" file={loginFile} onChange={setLoginFile} />
+                <UploadField label="Dark Mode Logo" preview={darkPreview} accept="image/*" file={darkFile} onChange={setDarkFile} />
                 <UploadField label="Favicon" preview={faviconPreview} accept="image/png,image/svg+xml,image/x-icon,.ico" file={faviconFile} onChange={setFaviconFile} />
               </div>
 

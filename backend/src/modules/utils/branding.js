@@ -1,4 +1,4 @@
-export const BRANDING_ASSET_KEYS = ["headerLogo", "loginLogo", "favicon"];
+export const BRANDING_ASSET_KEYS = ["headerLogo", "loginLogo", "darkLogo", "favicon"];
 export const BRANDING_TEXT_KEYS = [
   "title",
   "appName",
@@ -16,6 +16,7 @@ export const BRANDING_TEXT_KEYS = [
 export const DEFAULT_BRANDING = Object.freeze({
   headerLogo: null,
   loginLogo: null,
+  darkLogo: null,
   favicon: null,
   title: "Magnetic E-Commerce",
   appName: "Magnetic",
@@ -47,6 +48,7 @@ export function normalizeBrandingConfig(value = {}) {
   return {
     headerLogo: sanitizeAsset(source.headerLogo),
     loginLogo: sanitizeAsset(source.loginLogo),
+    darkLogo: sanitizeAsset(source.darkLogo),
     favicon: sanitizeAsset(source.favicon),
     title: sanitizeText(source.title, DEFAULT_BRANDING.title),
     appName: sanitizeText(source.appName, DEFAULT_BRANDING.appName),

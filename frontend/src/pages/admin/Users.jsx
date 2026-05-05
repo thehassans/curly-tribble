@@ -64,6 +64,7 @@ export default function AdminUsers(){
     const [branding,setBranding]=useState(() => normalizeBranding(DEFAULT_BRANDING))
     const [headerFile,setHeaderFile]=useState(null)
     const [loginFile,setLoginFile]=useState(null)
+    const [darkFile,setDarkFile]=useState(null)
     const [faviconFile,setFaviconFile]=useState(null)
     const [loading,setLoading]=useState(false)
     const [error,setError]=useState('')
@@ -81,15 +82,17 @@ export default function AdminUsers(){
 
     const headerPreview = headerFile ? URL.createObjectURL(headerFile) : resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
     const loginPreview = loginFile ? URL.createObjectURL(loginFile) : resolveBrandAsset(branding.loginLogo || branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
+    const darkPreview = darkFile ? URL.createObjectURL(darkFile) : resolveBrandAsset(branding.darkLogo || branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
     const faviconPreview = faviconFile ? URL.createObjectURL(faviconFile) : resolveBrandAsset(branding.favicon, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
 
     useEffect(() => {
       return () => {
         try { if (headerFile) URL.revokeObjectURL(headerPreview) } catch {}
         try { if (loginFile) URL.revokeObjectURL(loginPreview) } catch {}
+        try { if (darkFile) URL.revokeObjectURL(darkPreview) } catch {}
         try { if (faviconFile) URL.revokeObjectURL(faviconPreview) } catch {}
       }
-    }, [headerFile, loginFile, faviconFile, headerPreview, loginPreview, faviconPreview])
+    }, [headerFile, loginFile, darkFile, faviconFile, headerPreview, loginPreview, darkPreview, faviconPreview])
 
     async function submit(){
       setLoading(true)
@@ -107,6 +110,7 @@ export default function AdminUsers(){
         fd.append('customDomain', customDomain)
         if (headerFile) fd.append('header', headerFile)
         if (loginFile) fd.append('login', loginFile)
+        if (darkFile) fd.append('dark', darkFile)
         if (faviconFile) fd.append('favicon', faviconFile)
         QUICK_FIELDS.forEach((field) => fd.append(field.key, branding[field.key] || ''))
         await apiUpload('/api/users', fd)
@@ -171,9 +175,10 @@ export default function AdminUsers(){
           <PasswordInput value={password} onChange={setPassword} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
           <UploadField label="Header Logo" preview={headerPreview} file={headerFile} onChange={setHeaderFile} />
           <UploadField label="Login Logo" preview={loginPreview} file={loginFile} onChange={setLoginFile} />
+          <UploadField label="Dark Mode Logo" preview={darkPreview} file={darkFile} onChange={setDarkFile} />
           <UploadField label="Favicon" preview={faviconPreview} file={faviconFile} onChange={setFaviconFile} accept="image/png,image/svg+xml,image/x-icon,.ico" />
         </div>
 

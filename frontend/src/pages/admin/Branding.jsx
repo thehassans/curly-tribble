@@ -20,17 +20,21 @@ export default function Branding(){
   const [branding, setBranding] = useState(() => normalizeBranding(DEFAULT_BRANDING))
   const [headerFile, setHeaderFile] = useState(null)
   const [loginFile, setLoginFile] = useState(null)
+  const [darkFile, setDarkFile] = useState(null)
   const [faviconFile, setFaviconFile] = useState(null)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
   const headerInputRef = useRef(null)
   const loginInputRef = useRef(null)
+  const darkInputRef = useRef(null)
   const faviconInputRef = useRef(null)
   const [headerPreview, setHeaderPreview] = useState(null)
   const [loginPreview, setLoginPreview] = useState(null)
+  const [darkPreview, setDarkPreview] = useState(null)
   const [faviconPreview, setFaviconPreview] = useState(null)
   const [dragHeader, setDragHeader] = useState(false)
   const [dragLogin, setDragLogin] = useState(false)
+  const [dragDark, setDragDark] = useState(false)
   const [dragFavicon, setDragFavicon] = useState(false)
 
   // Revoke object URLs when replaced/unmounted to avoid leaks
@@ -40,6 +44,9 @@ export default function Branding(){
   useEffect(()=>{
     return ()=>{ try{ if (loginPreview) URL.revokeObjectURL(loginPreview) }catch{} }
   }, [loginPreview])
+  useEffect(()=>{
+    return ()=>{ try{ if (darkPreview) URL.revokeObjectURL(darkPreview) }catch{} }
+  }, [darkPreview])
   useEffect(()=>{
     return ()=>{ try{ if (faviconPreview) URL.revokeObjectURL(faviconPreview) }catch{} }
   }, [faviconPreview])
@@ -72,6 +79,7 @@ export default function Branding(){
       const fd = new FormData()
       if (headerFile) fd.append('header', headerFile)
       if (loginFile) fd.append('login', loginFile)
+      if (darkFile) fd.append('dark', darkFile)
       if (faviconFile) fd.append('favicon', faviconFile)
       for (const field of TEXT_FIELDS) fd.append(field.key, branding[field.key] || '')
       const res = await apiUpload('/api/settings/branding', fd)
@@ -79,11 +87,12 @@ export default function Branding(){
       setBranding(nextBranding)
       // Instantly reflect in browser tab / PWA metadata
       try{ applyBrandingToHead({ title: nextBranding.title, appName: nextBranding.appName, favicon: nextBranding.favicon ? `${API_BASE}${nextBranding.favicon}` : null }) }catch{}
-      setHeaderFile(null); setLoginFile(null)
+      setHeaderFile(null); setLoginFile(null); setDarkFile(null)
       setFaviconFile(null)
-      setHeaderPreview(null); setLoginPreview(null); setFaviconPreview(null)
+      setHeaderPreview(null); setLoginPreview(null); setDarkPreview(null); setFaviconPreview(null)
       try{ if (headerInputRef.current) headerInputRef.current.value = '' }catch{}
       try{ if (loginInputRef.current) loginInputRef.current.value = '' }catch{}
+      try{ if (darkInputRef.current) darkInputRef.current.value = '' }catch{}
       try{ if (faviconInputRef.current) faviconInputRef.current.value = '' }catch{}
       setMsg('Branding updated')
       setTimeout(()=> setMsg(''), 1500)
@@ -93,6 +102,7 @@ export default function Branding(){
 
   const headerSrc = headerPreview || resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
   const loginSrc = loginPreview || resolveBrandAsset(branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
+  const darkSrc = darkPreview || resolveBrandAsset(branding.darkLogo || branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
   const faviconSrc = faviconPreview || resolveBrandAsset(branding.favicon, `${import.meta.env.BASE_URL}magneticcommerce-favicon.png`)
 
   function pickFirstImageFile(items){
@@ -229,6 +239,44 @@ export default function Branding(){
                 {faviconFile && <span className="helper" style={{fontWeight:600}}>{faviconFile.name}</span>}
               </div>
               <div className="helper">Recommended: PNG 512x512 for best install icon quality. iOS will use this for home screen.</div>
+            </div>
+            <div>
+              <div className="label">Dark Mode Logo</div>
+              <div
+                onDragOver={(e)=>{ e.preventDefault(); setDragDark(true) }}
+                onDragLeave={()=> setDragDark(false)}
+                onDrop={(e)=>{
+                  e.preventDefault(); e.stopPropagation(); setDragDark(false)
+                  const f = pickFirstImageFile(e.dataTransfer?.items || e.dataTransfer?.files)
+                  if (f){ setDarkFile(f); try{ setDarkPreview(URL.createObjectURL(f)) }catch{} }
+                }}
+                style={{
+                  display:'flex', alignItems:'center', gap:10,
+                  padding: dragDark ? 8 : 0,
+                  borderRadius: dragDark ? 10 : 0,
+                  border: dragDark ? '1px dashed var(--border)' : 'none',
+                  background: dragDark ? 'rgba(37,99,235,.06)' : 'transparent'
+                }}
+                title="Click or drop an image here"
+              >
+                <img src={darkSrc} alt="Dark Logo" style={{height:48, width:'auto', border:'1px solid var(--border)', borderRadius:8, background:'#111827'}}/>
+                <label className="btn secondary" style={{position:'relative', display:'inline-block'}}>
+                  Choose file
+                  <input
+                    ref={darkInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ position:'absolute', inset:0, opacity:0, cursor:'pointer' }}
+                    onChange={e=>{
+                      const f = e.target.files?.[0] || null
+                      setDarkFile(f)
+                      if (f){ try{ setDarkPreview(URL.createObjectURL(f)) }catch{} }
+                    }}
+                  />
+                </label>
+                {darkFile && <span className="helper" style={{fontWeight:600}}>{darkFile.name}</span>}
+              </div>
+              <div className="helper">Used in dark-mode sidebars and panel headers when a separate dark logo is needed.</div>
             </div>
             <div>
               <div className="label">App Name (short)</div>

@@ -74,6 +74,7 @@ export default function BusinessSettings() {
 
   const [headerFile, setHeaderFile] = useState(null)
   const [loginFile, setLoginFile] = useState(null)
+  const [darkFile, setDarkFile] = useState(null)
   const [faviconFile, setFaviconFile] = useState(null)
   const [themeMode, setThemeModeState] = useState(() => getThemeMode())
 
@@ -107,15 +108,17 @@ export default function BusinessSettings() {
 
   const headerPreview = headerFile ? URL.createObjectURL(headerFile) : resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
   const loginPreview = loginFile ? URL.createObjectURL(loginFile) : resolveBrandAsset(branding.loginLogo || branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
+  const darkPreview = darkFile ? URL.createObjectURL(darkFile) : resolveBrandAsset(branding.darkLogo || branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
   const faviconPreview = faviconFile ? URL.createObjectURL(faviconFile) : resolveBrandAsset(branding.favicon, `${import.meta.env.BASE_URL}magneticcommerce-favicon.png`)
 
   useEffect(() => {
     return () => {
       try { if (headerFile) URL.revokeObjectURL(headerPreview) } catch {}
       try { if (loginFile) URL.revokeObjectURL(loginPreview) } catch {}
+      try { if (darkFile) URL.revokeObjectURL(darkPreview) } catch {}
       try { if (faviconFile) URL.revokeObjectURL(faviconPreview) } catch {}
     }
-  }, [headerFile, loginFile, faviconFile, headerPreview, loginPreview, faviconPreview])
+  }, [headerFile, loginFile, darkFile, faviconFile, headerPreview, loginPreview, darkPreview, faviconPreview])
 
   const brandSummary = useMemo(() => {
     return branding.companyName || businessName || `${firstName} ${lastName}`.trim() || DEFAULT_BRANDING.companyName
@@ -158,6 +161,7 @@ export default function BusinessSettings() {
       formData.append('customDomain', customDomain)
       if (headerFile) formData.append('header', headerFile)
       if (loginFile) formData.append('login', loginFile)
+      if (darkFile) formData.append('dark', darkFile)
       if (faviconFile) formData.append('favicon', faviconFile)
       for (const field of BRANDING_FIELDS) formData.append(field.key, branding[field.key] || '')
       const res = await apiUploadPatch(`/api/users/${currentUser._id}/workspace`, formData)
@@ -169,6 +173,7 @@ export default function BusinessSettings() {
       setBranding(nextBranding)
       setHeaderFile(null)
       setLoginFile(null)
+      setDarkFile(null)
       setFaviconFile(null)
       syncStoredUser(nextUser)
       clearApiCache('/api/users')
@@ -239,7 +244,7 @@ export default function BusinessSettings() {
         </form>
       </SectionCard>
 
-      <SectionCard title="Business Settings" subtitle="Change the business name, workspace title, logos, favicon, and custom domain that represent your brand." tone="rgba(245, 158, 11, 0.06)">
+      <SectionCard title="Business Settings" subtitle="Change the business name, workspace title, logos, dark-mode logo, favicon, and custom domain that represent your brand." tone="rgba(245, 158, 11, 0.06)">
         <form onSubmit={handleSaveBusiness} style={{ display: 'grid', gap: 20 }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 16 }}>
             <div>
@@ -252,9 +257,10 @@ export default function BusinessSettings() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
             <UploadField label="Header Logo" preview={headerPreview} accept="image/*" file={headerFile} onChange={setHeaderFile} />
             <UploadField label="Login Logo" preview={loginPreview} accept="image/*" file={loginFile} onChange={setLoginFile} />
+            <UploadField label="Dark Mode Logo" preview={darkPreview} accept="image/*" file={darkFile} onChange={setDarkFile} />
             <UploadField label="Favicon" preview={faviconPreview} accept="image/png,image/svg+xml,image/x-icon,.ico" file={faviconFile} onChange={setFaviconFile} />
           </div>
 
@@ -278,7 +284,7 @@ export default function BusinessSettings() {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            <div style={{ color: 'var(--muted)', fontSize: 13 }}>These settings update your storefront title, branding assets, login branding, and favicon.</div>
+            <div style={{ color: 'var(--muted)', fontSize: 13 }}>These settings update your storefront title, light and dark branding assets, login branding, and favicon.</div>
             <button type="submit" className="btn" disabled={savingBusiness}>{savingBusiness ? 'Saving...' : 'Save Business Settings'}</button>
           </div>
         </form>

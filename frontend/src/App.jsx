@@ -76,21 +76,18 @@ const Dropshippers = lazy(() => import('./pages/user/Dropshippers.jsx'))
 const DropshipperEarnings = lazy(() => import('./pages/user/DropshipperEarnings.jsx'))
 const InvestorEarnings = lazy(() => import('./pages/user/InvestorEarnings.jsx'))
 const Investors = lazy(() => import('./pages/user/Investors.jsx'))
-const References = lazy(() => import('./pages/user/References.jsx'))
 const Notifications = lazy(() => import('./pages/user/Notifications.jsx'))
 const UserOrders = lazy(() => import('./pages/user/Orders.jsx'))
 const UserAPISetup = lazy(() => import('./pages/user/APISetup.jsx'))
 const UserConfiguration = lazy(() => import('./pages/user/Configuration.jsx'))
 const BusinessSettings = lazy(() => import('./pages/user/BusinessSettings.jsx'))
 const LabelSettings = lazy(() => import('./pages/user/LabelSettings.jsx'))
-const UserShopifySettings = lazy(() => import('./pages/user/ShopifySettings.jsx'))
 const ShopifyIntegration = lazy(() => import('./pages/user/ShopifyIntegration.jsx'))
 const HomeHeadline = lazyWithRetry(() => import('./pages/user/HomeHeadline.jsx'))
 const HomeHeader = lazyWithRetry(() => import('./pages/user/HomeHeader.jsx'))
 const ProductHeadline = lazyWithRetry(() => import('./pages/user/ProductHeadline.jsx'))
 const HomeBanners = lazy(() => import('./pages/user/HomeBanners.jsx'))
 const HomeMiniBanners = lazy(() => import('./pages/user/HomeMiniBanners.jsx'))
-const SocialLinks = lazy(() => import('./pages/user/SocialLinks.jsx'))
 const WebsiteModification = lazy(() => import('./pages/user/WebsiteModification.jsx'))
 const ErrorLogs = lazy(() => import('./pages/user/ErrorLogs.jsx'))
 const Reports = lazy(() => import('./pages/user/Reports.jsx'))
@@ -123,7 +120,6 @@ const GoogleOAuthSettings = lazy(() => import('./pages/user/GoogleOAuthSettings.
 const UserCategories = lazy(() => import('./pages/user/Categories.jsx'))
 const UserBrands = lazy(() => import('./pages/user/Brands.jsx'))
 const UserExploreMore = lazy(() => import('./pages/user/ExploreMore.jsx'))
-const UserShops = lazy(() => import('./pages/user/Shops.jsx'))
 const ShopLogistics = lazy(() => import('./pages/user/ShopLogistics.jsx'))
 const DeliveryWorkflow = lazy(() => import('./pages/user/DeliveryWorkflow.jsx'))
 const ShopCatalogAssignments = lazy(() => import('./pages/user/ShopCatalogAssignments.jsx'))
@@ -898,7 +894,6 @@ export default function App() {
               <Route path="investor-earnings" element={<InvestorEarnings />} />
               <Route path="investors" element={<Investors />} />
               <Route path="customers" element={<Customers />} />
-              <Route path="references" element={<References />} />
               <Route path="notifications" element={<Notifications />} />
               <Route path="campaigns" element={<Campaign />} />
               <Route path="orders" element={<UserOrders />} />
@@ -913,7 +908,6 @@ export default function App() {
               <Route path="inhouse-products" element={<InhouseProducts />} />
               <Route path="products" element={<UserProducts />} />
               <Route path="products/:id" element={<UserProductDetail />} />
-              <Route path="shops" element={<UserShops />} />
               <Route path="shop-logistics" element={<ShopLogistics />} />
               <Route path="delivery-workflow" element={<DeliveryWorkflow />} />
               <Route path="shop-assignments" element={<ShopCatalogAssignments />} />
@@ -923,7 +917,6 @@ export default function App() {
               <Route path="daily-reports" element={<DailyReports />} />
               <Route path="driver-reports" element={<DriverReports />} />
               <Route path="profit-loss" element={<ProfitLoss />} />
-              <Route path="references" element={<References />} />
               <Route path="insights" element={<AnalyticsDashboard />} />
               <Route path="configuration" element={<UserConfiguration />} />
               <Route path="track-drivers" element={<LiveTrackingView />} />
@@ -946,14 +939,14 @@ export default function App() {
               <Route path="profile-settings" element={<BusinessSettings />} />
               <Route path="label-settings" element={<LabelSettings />} />
               <Route path="branding" element={<Branding />} />
-              <Route path="shopify-settings" element={<UserShopifySettings />} />
+              <Route path="shopify-settings" element={<Navigate to="/user/configuration?section=shopify" replace />} />
               <Route path="shopify" element={<ShopifyIntegration />} />
               <Route path="home-headline" element={<HomeHeadline />} />
               <Route path="home-header" element={<HomeHeader />} />
               <Route path="product-headline" element={<ProductHeadline />} />
               <Route path="home-banners" element={<HomeBanners />} />
               <Route path="home-mini-banners" element={<HomeMiniBanners />} />
-              <Route path="social-links" element={<SocialLinks />} />
+              <Route path="social-links" element={<Navigate to="/user/configuration?section=social" replace />} />
               <Route path="website-modification" element={<WebsiteModification />} />
               <Route path="error-logs" element={<ErrorLogs />} />
               <Route path="support" element={<Support />} />

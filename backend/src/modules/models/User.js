@@ -245,6 +245,7 @@ const UserSchema = new mongoose.Schema(
     workspaceBranding: {
       headerLogo: { type: String, default: "" },
       loginLogo: { type: String, default: "" },
+      darkLogo: { type: String, default: "" },
       favicon: { type: String, default: "" },
       title: { type: String, default: "" },
       appName: { type: String, default: "" },

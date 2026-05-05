@@ -73,7 +73,7 @@ export function normalizeCurrencyConfig(cfg){
     perAED = { ...DEFAULT.perAED }
   }
   const enabled = Array.isArray(cfg.enabled) ? cfg.enabled.map(c=>String(c).toUpperCase()) : DEFAULT.enabled
-  return { anchor: 'AED', perAED, enabled, updatedAt: cfg.updatedAt || null }
+  return { anchor: anchor || 'AED', perAED, enabled, updatedAt: cfg.updatedAt || null }
 }
 
 export async function getCurrencyConfig(force=false){

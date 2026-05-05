@@ -117,6 +117,9 @@ function buildWorkspaceBrandingSeed({
   return {
     headerLogo: String(workspaceBranding.headerLogo || "").trim(),
     loginLogo: String(workspaceBranding.loginLogo || "").trim(),
+    darkLogo:
+      String(workspaceBranding.darkLogo || "").trim() ||
+      String(workspaceBranding.headerLogo || "").trim(),
     favicon: String(workspaceBranding.favicon || "").trim(),
     title: String(workspaceBranding.title || "").trim() || fallbackName,
     appName: shortName,
@@ -145,9 +148,11 @@ function buildWorkspaceBrandingPayload(req, existing = {}) {
   const value = existing && typeof existing === "object" ? { ...existing } : {};
   const headerFile = req.files?.header?.[0];
   const loginFile = req.files?.login?.[0];
+  const darkFile = req.files?.dark?.[0];
   const faviconFile = req.files?.favicon?.[0];
   if (headerFile) value.headerLogo = toWorkspacePublicPath(headerFile.path);
   if (loginFile) value.loginLogo = toWorkspacePublicPath(loginFile.path);
+  if (darkFile) value.darkLogo = toWorkspacePublicPath(darkFile.path);
   if (faviconFile) value.favicon = toWorkspacePublicPath(faviconFile.path);
   for (const key of BRANDING_TEXT_KEYS) {
     if (typeof req.body?.[key] === "string") value[key] = req.body[key].trim();
@@ -1278,6 +1283,7 @@ router.get("/", auth, allowRoles("admin", "user"), async (req, res) => {
 router.post("/", auth, allowRoles("admin", "user"), workspaceBrandingUpload.fields([
   { name: "header", maxCount: 1 },
   { name: "login", maxCount: 1 },
+  { name: "dark", maxCount: 1 },
   { name: "favicon", maxCount: 1 },
 ]), async (req, res) => {
   const {
@@ -2278,6 +2284,7 @@ router.patch(
   workspaceBrandingUpload.fields([
     { name: "header", maxCount: 1 },
     { name: "login", maxCount: 1 },
+    { name: "dark", maxCount: 1 },
     { name: "favicon", maxCount: 1 },
   ]),
   async (req, res) => {

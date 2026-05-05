@@ -43,41 +43,92 @@ const upload = multer({ storage });
 
 // Currency conversion settings
 function defaultCurrencyConfig() {
-  // Store SAR-per-unit for UI conversions, and PKR-per-unit for finance
+  // Canonical config is AED-anchored via perAED. Legacy SAR/PKR maps are still emitted for older consumers.
   return {
-    anchor: "SAR",
-    sarPerUnit: {
+    anchor: "AED",
+    perAED: {
+      AED: 1,
       SAR: 1,
-      AED: 1.02,
-      OMR: 9.78,
-      BHD: 9.94,
-      INR: 0.046,
-      KWD: 12.2,
-      QAR: 1.03,
-      USD: 3.75,
-      CNY: 0.52,
-      GBP: 4.75,
-      EUR: 4.05,
-      PKR: 0.013,
-      JOD: 5.29,
+      QAR: 1,
+      BHD: 0.10,
+      OMR: 0.10,
+      KWD: 0.083,
+      USD: 0.27,
+      CNY: 1.94,
+      INR: 24.16,
+      PKR: 76.56,
+      JOD: 0.19,
+      GBP: 0.22,
+      CAD: 0.37,
+      AUD: 0.42,
+      EUR: 0.25,
     },
-    pkrPerUnit: {
-      AED: 76,
-      OMR: 726,
-      SAR: 72,
-      BHD: 830,
-      KWD: 880,
-      QAR: 79,
-      INR: 3.3,
-      USD: 278,
-      CNY: 39,
-      GBP: 355,
-      EUR: 302,
-      PKR: 1,
-      JOD: 392,
-    },
-    enabled: ["AED", "OMR", "SAR", "BHD", "INR", "KWD", "QAR", "USD", "CNY", "GBP", "EUR", "PKR", "JOD"],
+    enabled: ["AED", "SAR", "QAR", "BHD", "OMR", "KWD", "USD", "CNY", "INR", "PKR", "JOD", "GBP", "CAD", "AUD", "EUR"],
     updatedAt: new Date(),
+  };
+}
+
+function buildLegacyCurrencyMaps(perAED = {}) {
+  const safe = { ...defaultCurrencyConfig().perAED, ...(perAED || {}) };
+  safe.AED = 1;
+  const sarPerUnit = {};
+  const pkrPerUnit = {};
+  const sarPerAED = Number(safe.SAR) || 1;
+  const pkrPerAED = Number(safe.PKR) || 0;
+  for (const [code, raw] of Object.entries(safe)) {
+    const key = String(code || "").toUpperCase();
+    const value = Number(raw) || 0;
+    if (!key) continue;
+    if (key === "SAR") sarPerUnit[key] = 1;
+    else sarPerUnit[key] = value > 0 ? sarPerAED / value : 0;
+    if (key === "PKR") pkrPerUnit[key] = 1;
+    else pkrPerUnit[key] = value > 0 ? pkrPerAED / value : 0;
+  }
+  return { sarPerUnit, pkrPerUnit };
+}
+
+function normalizeCurrencyValue(value = {}, countryCurrencies = []) {
+  const defaults = defaultCurrencyConfig();
+  const source = value && typeof value === "object" ? value : {};
+  let perAED = { ...defaults.perAED };
+
+  if (source.perAED && typeof source.perAED === "object") {
+    for (const [k, v] of Object.entries(source.perAED || {})) {
+      const key = String(k || "").toUpperCase();
+      const num = Number(v);
+      if (key && Number.isFinite(num) && num > 0) perAED[key] = num;
+    }
+  } else if (source.sarPerUnit && typeof source.sarPerUnit === "object") {
+    const sarMap = Object.fromEntries(
+      Object.entries(source.sarPerUnit || {}).map(([k, v]) => [String(k || "").toUpperCase(), Number(v) || 0])
+    );
+    const sarPerAED = Number(sarMap.AED) || 1;
+    for (const [key, sarPerUnit] of Object.entries(sarMap)) {
+      if (key === "AED") continue;
+      const valueNum = Number(sarPerUnit) || 0;
+      if (sarPerAED > 0 && valueNum > 0) perAED[key] = sarPerAED / valueNum;
+    }
+    const pkrAED = Number(source?.pkrPerUnit?.AED) || 0;
+    if (pkrAED > 0) perAED.PKR = pkrAED;
+  }
+
+  perAED.AED = 1;
+  const dynamicCodes = (countryCurrencies || []).map((code) => String(code || "").toUpperCase()).filter(Boolean);
+  for (const code of dynamicCodes) {
+    if (!(code in perAED)) perAED[code] = code === "AED" ? 1 : 0;
+  }
+  const enabled = Array.from(new Set([
+    ...(Array.isArray(defaults.enabled) ? defaults.enabled : []),
+    ...(Array.isArray(source.enabled) ? source.enabled.map((code) => String(code || "").toUpperCase()) : []),
+    ...dynamicCodes,
+  ])).filter(Boolean);
+  const anchor = String(source.anchor || defaults.anchor || "AED").toUpperCase() || "AED";
+  return {
+    anchor,
+    perAED,
+    enabled,
+    updatedAt: source.updatedAt || defaults.updatedAt,
+    ...buildLegacyCurrencyMaps(perAED),
   };
 }
 
@@ -134,15 +185,9 @@ router.get("/currency", async (_req, res) => {
   try {
     const doc = await Setting.findOne({ key: "currency" }).lean();
     const val = (doc && doc.value) || {};
-    const defaults = defaultCurrencyConfig();
-    // Deep merge sarPerUnit and pkrPerUnit to include new currencies
-    const cfg = {
-      ...defaults,
-      ...val,
-      sarPerUnit: { ...defaults.sarPerUnit, ...(val.sarPerUnit || {}) },
-      pkrPerUnit: { ...defaults.pkrPerUnit, ...(val.pkrPerUnit || {}) },
-      enabled: [...new Set([...(defaults.enabled || []), ...(val.enabled || [])])],
-    };
+    const countries = await getCountryRegistry();
+    const currencyCodes = (countries || []).map((item) => String(item?.currency || "").toUpperCase()).filter(Boolean);
+    const cfg = normalizeCurrencyValue(val, currencyCodes);
     res.json({ success: true, ...cfg });
   } catch (e) {
     res.status(500).json({ success: false, error: e?.message || "failed" });
@@ -160,29 +205,37 @@ router.post(
       let doc = await Setting.findOne({ key: "currency" });
       if (!doc)
         doc = new Setting({ key: "currency", value: defaultCurrencyConfig() });
-      const cur =
-        doc.value && typeof doc.value === "object"
-          ? doc.value
-          : defaultCurrencyConfig();
-      const out = { ...defaultCurrencyConfig(), ...cur };
+      const countries = await getCountryRegistry();
+      const currencyCodes = (countries || []).map((item) => String(item?.currency || "").toUpperCase()).filter(Boolean);
+      const cur = doc.value && typeof doc.value === "object" ? doc.value : defaultCurrencyConfig();
+      const out = normalizeCurrencyValue(cur, currencyCodes);
 
       // Accept partial updates
       if (typeof body.anchor === "string" && body.anchor.trim())
         out.anchor = body.anchor.trim().toUpperCase();
+      if (body.perAED && typeof body.perAED === "object") {
+        for (const [k, v] of Object.entries(body.perAED || {})) {
+          const key = String(k).toUpperCase();
+          const num = Number(v);
+          if (!key) continue;
+          if (key === "AED") out.perAED.AED = 1;
+          else if (Number.isFinite(num) && num > 0) out.perAED[key] = num;
+          else if (!(key in out.perAED)) out.perAED[key] = 0;
+        }
+      }
       if (body.sarPerUnit && typeof body.sarPerUnit === "object") {
-        out.sarPerUnit = { ...out.sarPerUnit };
         for (const [k, v] of Object.entries(body.sarPerUnit)) {
           const key = String(k).toUpperCase();
           const num = Number(v);
-          if (Number.isFinite(num) && num > 0) out.sarPerUnit[key] = num;
+          const sarPerAED = Number(out.perAED.SAR) || 1;
+          if (key && key !== "SAR" && Number.isFinite(num) && num > 0) out.perAED[key] = sarPerAED / num;
         }
       }
       if (body.pkrPerUnit && typeof body.pkrPerUnit === "object") {
-        out.pkrPerUnit = { ...out.pkrPerUnit };
         for (const [k, v] of Object.entries(body.pkrPerUnit)) {
           const key = String(k).toUpperCase();
           const num = Number(v);
-          if (Number.isFinite(num) && num > 0) out.pkrPerUnit[key] = num;
+          if (key === "AED" && Number.isFinite(num) && num > 0) out.perAED.PKR = num;
         }
       }
       if (Array.isArray(body.enabled)) {
@@ -192,8 +245,10 @@ router.post(
           )
         );
       }
+      const fresh = normalizeCurrencyValue(out, currencyCodes);
+      fresh.updatedAt = new Date();
       out.updatedAt = new Date();
-      doc.value = out;
+      doc.value = fresh;
       await doc.save();
       res.json({ success: true });
     } catch (e) {
@@ -434,12 +489,14 @@ router.post(
   upload.fields([
     { name: "header", maxCount: 1 },
     { name: "login", maxCount: 1 },
+    { name: "dark", maxCount: 1 },
     { name: "favicon", maxCount: 1 },
   ]),
   async (req, res) => {
     try {
       const headerFile = req.files?.header?.[0];
       const loginFile = req.files?.login?.[0];
+      const darkFile = req.files?.dark?.[0];
       const faviconFile = req.files?.favicon?.[0];
 
       const owner = await resolveBrandingOwner(req);
@@ -449,6 +506,7 @@ router.post(
           : {};
         if (headerFile) update.headerLogo = toPublicPath(headerFile.path);
         if (loginFile) update.loginLogo = toPublicPath(loginFile.path);
+        if (darkFile) update.darkLogo = toPublicPath(darkFile.path);
         if (faviconFile) update.favicon = toPublicPath(faviconFile.path);
         for (const key of BRANDING_TEXT_KEYS) {
           if (typeof req.body?.[key] === "string") update[key] = req.body[key].trim();
@@ -471,6 +529,7 @@ router.post(
       const value = getStoredBrandingValue(doc);
       if (headerFile) value.headerLogo = toPublicPath(headerFile.path);
       if (loginFile) value.loginLogo = toPublicPath(loginFile.path);
+      if (darkFile) value.darkLogo = toPublicPath(darkFile.path);
       if (faviconFile) value.favicon = toPublicPath(faviconFile.path);
       for (const key of BRANDING_TEXT_KEYS) {
         if (typeof req.body?.[key] === "string") value[key] = req.body[key].trim();

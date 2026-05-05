@@ -1284,6 +1284,32 @@ export default function UserLayout() {
     },
   ]
 
+  const NAV_LABELS_TO_REMOVE = new Set(['Shops', 'References', 'Social Links', 'Shopify Settings'])
+  const NAV_PRIORITY = ['Dashboard', 'Orders', 'Product', 'Amount Office']
+
+  function pruneNavigation(items = []) {
+    return items.flatMap((item) => {
+      if (NAV_LABELS_TO_REMOVE.has(item.label)) return []
+      if (item.children?.length) {
+        const children = pruneNavigation(item.children)
+        if (!children.length) return []
+        return [{ ...item, children }]
+      }
+      return [item]
+    })
+  }
+
+  const navigationLinks = pruneNavigation(links)
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const aPriority = NAV_PRIORITY.indexOf(a.item.label)
+      const bPriority = NAV_PRIORITY.indexOf(b.item.label)
+      const aWeight = aPriority >= 0 ? aPriority : NAV_PRIORITY.length + a.index
+      const bWeight = bPriority >= 0 ? bPriority : NAV_PRIORITY.length + b.index
+      return aWeight - bWeight
+    })
+    .map(({ item }) => item)
+
   // Recursive filter for visible links
   const getVisibleLinks = (items) => {
     return items
@@ -1296,7 +1322,7 @@ export default function UserLayout() {
       })
   }
 
-  const visibleLinks = getVisibleLinks(links)
+  const visibleLinks = getVisibleLinks(navigationLinks)
 
   // Flatten all links for navigation visibility (show ALL items including parents and children)
   const getAllNavItems = (items, depth = 0) => {
@@ -1310,7 +1336,7 @@ export default function UserLayout() {
     return result
   }
 
-  const allNavItems = getAllNavItems(links)
+  const allNavItems = getAllNavItems(navigationLinks)
 
   // Renderer for navigation visibility settings (uses flattened list)
   const renderToggleItem = (link, depth = 0) => (

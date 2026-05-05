@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar.jsx'
 import Tabs from '../ui/Tabs.jsx'
-import { DEFAULT_BRANDING, resolveBrandAsset } from '../util/branding.js'
+import { DEFAULT_BRANDING, resolvePanelBrandLogo } from '../util/branding.js'
 import { useBranding } from '../util/useBranding.js'
 import { getThemeMode, setThemeMode, subscribeThemeMode } from '../util/themeMode.js'
 
@@ -77,8 +77,8 @@ export default function AdminLayout(){
   }
   const [branding] = useBranding()
   const brandName = branding.companyName || branding.title || DEFAULT_BRANDING.companyName
-  const logoSrc = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
   const isLight = theme === 'light'
+  const logoSrc = resolvePanelBrandLogo(branding, { theme, fallback: `${import.meta.env.BASE_URL}magnetic-commerce.png` })
   return (
     <div>
       <Sidebar closed={closed} links={links} onToggle={()=>setClosed(c=>!c)} />

@@ -5,6 +5,7 @@ import EmailSettings from './EmailSettings'
 import CurrencySettings from './CurrencySettings'
 import DeliveryWorkflow from './DeliveryWorkflow'
 import SocialLinks from './SocialLinks'
+import ShopifySettings from './ShopifySettings'
 import { COUNTRY_LIST, normalizeCountryEntry, resolveCountryEntry } from '../../utils/constants'
 import { autoDetectCountryMeta, loadCountryRegistry, saveCountryRegistry } from '../../util/countryRegistry'
 
@@ -14,6 +15,7 @@ const SECTIONS = [
   { key: 'currency', label: 'Currency' },
   { key: 'delivery', label: 'Delivery' },
   { key: 'social', label: 'Social Links' },
+  { key: 'shopify', label: 'Shopify Settings' },
   { key: 'countries', label: 'Countries' },
 ]
 
@@ -23,6 +25,7 @@ const SECTION_COMPONENTS = {
   currency: CurrencySettings,
   delivery: DeliveryWorkflow,
   social: SocialLinks,
+  shopify: ShopifySettings,
 }
 
 function emptyCountryForm() {

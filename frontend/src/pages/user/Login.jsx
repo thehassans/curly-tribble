@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { apiGet, apiPost } from '../../api.js'
 import { resolveBrandAsset } from '../../util/branding.js'
+import { getThemeMode, subscribeThemeMode } from '../../util/themeMode.js'
 import { useBranding } from '../../util/useBranding.js'
 import { useToast } from '../../ui/Toast.jsx'
 
@@ -13,6 +14,7 @@ export default function UserLogin() {
   const [loading, setLoading] = useState(false)
   const [health, setHealth] = useState({ checked: false, reachable: false, ready: false, dbLabel: 'unknown' })
   const [branding] = useBranding()
+  const [themeMode, setThemeMode] = useState(() => getThemeMode())
   const [mounted, setMounted] = useState(false)
   const [emailFocus, setEmailFocus] = useState(false)
   const [pwFocus, setPwFocus] = useState(false)
@@ -33,6 +35,8 @@ export default function UserLogin() {
   }
 
   useEffect(() => { requestAnimationFrame(() => setMounted(true)) }, [])
+
+  useEffect(() => subscribeThemeMode((next) => setThemeMode(next)), [])
 
   // Check if user is already logged in and redirect
   useEffect(() => {
@@ -109,7 +113,12 @@ export default function UserLogin() {
     }
   }
 
-  const logoSrc = resolveBrandAsset(branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
+  const logoSrc = resolveBrandAsset(
+    themeMode === 'dark'
+      ? branding.darkLogo || branding.loginLogo || branding.headerLogo
+      : branding.loginLogo || branding.headerLogo || branding.darkLogo,
+    `${import.meta.env.BASE_URL}magnetic-commerce.png`
+  )
 
   const healthBad = (() => {
     return Boolean(health.checked && (!health.reachable || !health.ready))

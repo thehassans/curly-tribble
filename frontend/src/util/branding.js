@@ -5,6 +5,7 @@ import { API_BASE, apiGet } from '../api.js'
 export const DEFAULT_BRANDING = Object.freeze({
   headerLogo: null,
   loginLogo: null,
+  darkLogo: null,
   favicon: null,
   title: 'Magnetic E-Commerce',
   appName: 'Magnetic',
@@ -59,6 +60,7 @@ export function normalizeBranding(value = {}){
   return {
     headerLogo: normalizeAsset(source.headerLogo),
     loginLogo: normalizeAsset(source.loginLogo),
+    darkLogo: normalizeAsset(source.darkLogo),
     favicon: normalizeAsset(source.favicon),
     title: normalizeText(source.title, DEFAULT_BRANDING.title),
     appName: normalizeText(source.appName, DEFAULT_BRANDING.appName),
@@ -78,6 +80,17 @@ export function resolveBrandAsset(src, fallback = `${import.meta.env.BASE_URL}ma
   if (!src || typeof src !== 'string') return fallback
   if (/^(https?:|data:|blob:)/i.test(src)) return src
   return `${API_BASE || ''}${src}`
+}
+
+export function resolvePanelBrandLogo(branding = {}, options = {}) {
+  const source = branding && typeof branding === 'object' ? branding : {}
+  const theme = String(options?.theme || 'light').toLowerCase()
+  const includeLogin = options?.includeLogin !== false
+  const fallback = options?.fallback || `${import.meta.env.BASE_URL}magnetic-commerce.png`
+  const primary = theme === 'dark'
+    ? source.darkLogo || source.headerLogo || (includeLogin ? source.loginLogo : null)
+    : source.headerLogo || (includeLogin ? source.loginLogo : null) || source.darkLogo
+  return resolveBrandAsset(primary, fallback)
 }
 
 export async function fetchBranding(options = {}){

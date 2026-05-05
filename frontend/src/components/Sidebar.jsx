@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
-import { resolveBrandAsset } from '../util/branding.js'
+import { resolvePanelBrandLogo } from '../util/branding.js'
 import { useBranding } from '../util/useBranding.js'
 
 // Sidebar supports flat links: { to, label, icon? }
@@ -596,65 +596,67 @@ export default function Sidebar({
     )
   }
 
-  return (
-    <aside className={`sidebar ${closed ? 'closed' : ''} ${premium ? 'premium' : ''} text-sm`}>
-      <div
-        className="header flex items-center justify-center px-2"
-        style={{ background: 'var(--sidebar-bg)', borderBottom: '1px solid var(--sidebar-border)' }}
-      >
+return (
+  <aside className={`sidebar ${closed ? 'closed' : ''} ${premium ? 'premium' : ''} text-sm`}>
+    <div
+      className="header flex items-center justify-center px-2"
+      style={{ background: 'var(--sidebar-bg)', borderBottom: '1px solid var(--sidebar-border)' }}
+    >
+      <div className="sidebar-brand">
         <span className="brand inline-flex items-center">
           {(() => {
-            const src = resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
+            const src = resolvePanelBrandLogo(branding, { theme, fallback: `${import.meta.env.BASE_URL}magnetic-commerce.png` })
             return <img src={src} alt={branding.companyName} style={{ height: '56px', width: 'auto', objectFit: 'contain' }} />
           })()}
         </span>
       </div>
-      {/* Swatches removed from sidebar; available in panel headers */}
-      <nav className="menu grid gap-1 p-2">
-        {links.map((item) => renderItem(item))}
-        {onLogout && (
-          <button
-            type="button"
-            onClick={onLogout}
-            title="Logout"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 10,
-              width: '100%',
-              padding: closed ? '10px 0' : '10px 14px',
-              justifyContent: closed ? 'center' : 'flex-start',
-              background: 'transparent',
-              border: 'none',
-              borderRadius: 8,
-              color: '#ef4444',
-              cursor: 'pointer',
-              fontSize: 14,
-              fontWeight: 500,
-              marginTop: 8,
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
-            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            {!closed && <span>Logout</span>}
-          </button>
-        )}
-      </nav>
-      <button
-        type="button"
-        className="sidebar-toggle"
-        onClick={() => onToggle && onToggle()}
-        title={closed ? 'Expand menu' : 'Collapse menu'}
-        aria-label={closed ? 'Expand menu' : 'Collapse menu'}
-      >
-        {closed ? '›' : '‹'}
-      </button>
-    </aside>
-  )
+    </div>
+    {/* Swatches removed from sidebar; available in panel headers */}
+    <nav className="menu grid gap-1 p-2">
+      {links.map((item) => renderItem(item))}
+      {onLogout && (
+        <button
+          type="button"
+          onClick={onLogout}
+          title="Logout"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            width: '100%',
+            padding: closed ? '10px 0' : '10px 14px',
+            justifyContent: closed ? 'center' : 'flex-start',
+            background: 'transparent',
+            border: 'none',
+            borderRadius: 8,
+            color: '#ef4444',
+            cursor: 'pointer',
+            fontSize: 14,
+            fontWeight: 500,
+            marginTop: 8,
+            transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(239,68,68,0.1)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+          {!closed && <span>Logout</span>}
+        </button>
+      )}
+    </nav>
+    <button
+      type="button"
+      className="sidebar-toggle"
+      onClick={() => onToggle && onToggle()}
+      title={closed ? 'Expand menu' : 'Collapse menu'}
+      aria-label={closed ? 'Expand menu' : 'Collapse menu'}
+    >
+      {closed ? '›' : '‹'}
+    </button>
+  </aside>
+)
 }
