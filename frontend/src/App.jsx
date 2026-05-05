@@ -57,6 +57,7 @@ const ShopVendorLayout = lazy(() => import('./layout/ShopVendorLayout.jsx'))
 const AdminDashboard = lazyWithRetry(() => import('./pages/admin/Dashboard.jsx'))
 const AdminUsers = lazyWithRetry(() => import('./pages/admin/Users.jsx'))
 const AdminSettings = lazyWithRetry(() => import('./pages/admin/Settings.jsx'))
+const BannerManager = lazy(() => import('./pages/admin/BannerManager.jsx'))
 const Branding = lazy(() => import('./pages/admin/Branding.jsx'))
 
 // Auth pages - keep UserLogin eager for fast login
