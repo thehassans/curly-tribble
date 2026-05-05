@@ -54,14 +54,10 @@ const CustomerLayout = lazy(() => import('./layout/CustomerLayout.jsx'))
 const ShopVendorLayout = lazy(() => import('./layout/ShopVendorLayout.jsx'))
 
 // Admin pages
-const AdminDashboard = lazy(() => import('./pages/admin/Dashboard.jsx'))
-const AdminUsers = lazy(() => import('./pages/admin/Users.jsx'))
+const AdminDashboard = lazyWithRetry(() => import('./pages/admin/Dashboard.jsx'))
+const AdminUsers = lazyWithRetry(() => import('./pages/admin/Users.jsx'))
+const AdminSettings = lazyWithRetry(() => import('./pages/admin/Settings.jsx'))
 const Branding = lazy(() => import('./pages/admin/Branding.jsx'))
-const BannerManager = lazy(() => import('./pages/admin/BannerManager.jsx'))
-const ThemeSettings = lazy(() => import('./pages/admin/ThemeSettings.jsx'))
-const SEOManager = lazy(() => import('./pages/admin/SEOManager.jsx'))
-const PageManager = lazy(() => import('./pages/admin/PageManager.jsx'))
-const NavigationMenu = lazy(() => import('./pages/admin/NavigationMenu.jsx'))
 
 // Auth pages - keep UserLogin eager for fast login
 import UserLogin from './pages/user/Login.jsx'
@@ -450,7 +446,15 @@ function CustomDomainRouter({ children }) {
   const initialDomainState = (() => {
     try {
       const hostname = window.location.hostname.toLowerCase()
-      if (hostname === 'buysial.com' || hostname === 'localhost' || hostname === '127.0.0.1') {
+      if (
+        hostname === 'buysial.com' ||
+        hostname === 'www.buysial.com' ||
+        hostname === 'magnetic-ict.com' ||
+        hostname === 'www.magnetic-ict.com' ||
+        hostname === 'commerce.magnetic-ict.com' ||
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1'
+      ) {
         return { isCustomDomain: false, checking: false }
       }
       const cached = readCustomDomainCache(hostname)
@@ -467,9 +471,13 @@ function CustomDomainRouter({ children }) {
       try {
         const hostname = window.location.hostname.toLowerCase()
 
-        // Skip check for buysial.com and localhost - these are admin/staff domains
+        // Skip check for first-party platform domains and localhost
         if (
           hostname === 'buysial.com' ||
+          hostname === 'www.buysial.com' ||
+          hostname === 'magnetic-ict.com' ||
+          hostname === 'www.magnetic-ict.com' ||
+          hostname === 'commerce.magnetic-ict.com' ||
           hostname === 'localhost' ||
           hostname === '127.0.0.1'
         ) {
@@ -778,15 +786,7 @@ export default function App() {
             >
               <Route index element={<AdminDashboard />} />
               <Route path="users" element={<AdminUsers />} />
-              <Route path="inbox/connect" element={<WhatsAppConnect />} />
-              <Route path="inbox/whatsapp" element={<WhatsAppInbox />} />
-              <Route path="branding" element={<Branding />} />
-              <Route path="banners" element={<BannerManager />} />
-              <Route path="theme" element={<ThemeSettings />} />
-              <Route path="seo" element={<SEOManager />} />
-              <Route path="pages" element={<PageManager />} />
-              <Route path="navigation" element={<NavigationMenu />} />
-              {/** AI Settings moved to User panel */}
+              <Route path="settings" element={<AdminSettings />} />
             </Route>
 
             <Route

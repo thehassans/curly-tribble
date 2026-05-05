@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { apiPost, apiPatch, apiGet } from '../../api'
 
-const SITE_URL = 'https://buysial.com'
+const SITE_URL = 'https://commerce.magnetic-ict.com'
 const TABS = ['General SEO', 'Country SEO', 'Backlinks', 'Google Search Console', '✨ AI SEO']
 
 const LINK_TYPES = ['dofollow', 'nofollow', 'sponsored', 'ugc']
@@ -38,7 +38,7 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
   const backlinks = Array.isArray(form.backlinks) ? form.backlinks : []
   const gscData = form.gscData || {}
 
-  // Always pre-fill buysial.com as site URL
+  // Always pre-fill the commerce domain as site URL
   useEffect(() => {
     if (!form.gscData?.siteUrl) {
       setGscData({ siteUrl: SITE_URL })

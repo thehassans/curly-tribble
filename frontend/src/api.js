@@ -21,7 +21,7 @@ export const API_BASE = (() => {
       const isCapacitor = typeof window.Capacitor !== 'undefined'
 
       if (isCapacitor || (isLocalhost && !isDevPort)) {
-          base = 'https://buysial.com/api'
+          base = 'https://commerce.magnetic-ict.com/api'
       } else {
           base = isLocalhost ? 'http://localhost:4000' : '/api'
       }

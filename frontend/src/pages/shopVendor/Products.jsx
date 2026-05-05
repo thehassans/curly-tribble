@@ -4,7 +4,7 @@ import { PageShell, Panel, EmptyState, LoadingState, TextInput, SelectInput, Sta
 
 function resolveImage(product) {
   const candidate = product?.imagePath || product?.images?.[0] || product?.thumbnail || ''
-  if (!candidate) return `${import.meta.env.BASE_URL}logo.png`
+  if (!candidate) return `${import.meta.env.BASE_URL}magnetic-commerce.png`
   try {
     return mediaUrl(candidate)
   } catch {

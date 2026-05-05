@@ -21,7 +21,7 @@ export default function Reports(){
   const reportRef = useRef(null)
   const [branding] = useBranding()
   const countries = COUNTRY_LIST.map((country) => ({ code: country.name, name: country.name, currency: country.currency }))
-  const reportLogo = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
+  const reportLogo = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
 
   async function loadMetrics(){
     setLoading(true)

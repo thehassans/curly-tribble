@@ -6,18 +6,41 @@ export const DEFAULT_BRANDING = Object.freeze({
   headerLogo: null,
   loginLogo: null,
   favicon: null,
-  title: 'Magnetic E-commerce',
+  title: 'Magnetic E-Commerce',
   appName: 'Magnetic',
-  companyName: 'Magnetic E-commerce',
-  portalName: 'Magnetic E-commerce Management',
-  storeName: 'Magnetic Store',
-  staffLoginSubtitle: 'Sign in to your Magnetic E-commerce workspace',
-  shopLoginSubtitle: 'Access the Magnetic E-commerce shop operations console',
-  footerText: 'Powered by Magnetic E-commerce',
-  reportSignature: 'Magnetic E-commerce',
+  companyName: 'Magnetic E-Commerce',
+  portalName: 'Magnetic E-Commerce Admin',
+  storeName: 'Magnetic E-Commerce',
+  staffLoginSubtitle: 'Sign in to your Magnetic E-Commerce workspace',
+  shopLoginSubtitle: 'Access the Magnetic E-Commerce commerce console',
+  footerText: 'Powered by Magnetic E-Commerce',
+  reportSignature: 'Magnetic E-Commerce',
   reportFooterText: 'All Rights Reserved',
-  websiteUrl: 'https://magnetic-ecommerce.example'
+  websiteUrl: 'https://commerce.magnetic-ict.com'
 })
+
+export function resolveBrandingOwnerId(explicitOwnerId = null){
+  const direct = String(explicitOwnerId || '').trim()
+  if (direct) return direct
+  try {
+    const raw = sessionStorage.getItem('customDomainStore')
+    if (!raw) return ''
+    const parsed = JSON.parse(raw)
+    const currentHost = typeof window !== 'undefined' ? String(window.location.hostname || '').trim().toLowerCase() : ''
+    const storedHost = String(parsed?.hostname || parsed?.customDomain || '').trim().toLowerCase()
+    if (currentHost && storedHost && currentHost !== storedHost) return ''
+    return String(parsed?.userId || '').trim()
+  } catch {
+    return ''
+  }
+}
+
+export function withBrandingOwnerQuery(path, ownerId = null){
+  const resolvedOwnerId = resolveBrandingOwnerId(ownerId)
+  if (!resolvedOwnerId) return path
+  const joiner = path.includes('?') ? '&' : '?'
+  return `${path}${joiner}ownerId=${encodeURIComponent(resolvedOwnerId)}`
+}
 
 function normalizeText(value, fallback){
   if (typeof value !== 'string') return fallback
@@ -51,14 +74,14 @@ export function normalizeBranding(value = {}){
   }
 }
 
-export function resolveBrandAsset(src, fallback = `${import.meta.env.BASE_URL}magnetic-logo.svg`){
+export function resolveBrandAsset(src, fallback = `${import.meta.env.BASE_URL}magnetic-commerce.png`){
   if (!src || typeof src !== 'string') return fallback
   if (/^(https?:|data:|blob:)/i.test(src)) return src
   return `${API_BASE || ''}${src}`
 }
 
-export async function fetchBranding(){
-  const j = await apiGet('/api/settings/branding')
+export async function fetchBranding(options = {}){
+  const j = await apiGet(withBrandingOwnerQuery('/api/settings/branding', options?.ownerId || null))
   return normalizeBranding(j)
 }
 
@@ -82,7 +105,7 @@ function guessMimeFromHref(href){
   }catch{ return null }
 }
 
-export function applyBrandingToHead({ title, appName, favicon } = {}){
+export function applyBrandingToHead({ title, appName, favicon, ownerId = null } = {}){
   try{
     if (title && typeof title === 'string'){
       const next = title.trim()
@@ -111,14 +134,15 @@ export function applyBrandingToHead({ title, appName, favicon } = {}){
     }
     // Manifest: prefer dynamic manifest when same-origin
     if (sameOrigin){
-      setOrCreateLink('manifest', { href: '/api/settings/manifest' })
+      setOrCreateLink('manifest', { href: withBrandingOwnerQuery('/api/settings/manifest', ownerId) })
     }
   }catch{}
 }
 
-export async function bootstrapBranding(){
+export async function bootstrapBranding(options = {}){
   try{
-    const j = await fetchBranding()
-    applyBrandingToHead({ title: j.title || null, appName: j.appName || null, favicon: j.favicon || null })
+    const ownerId = options?.ownerId || resolveBrandingOwnerId()
+    const j = await fetchBranding({ ownerId })
+    applyBrandingToHead({ title: j.title || null, appName: j.appName || null, favicon: j.favicon || null, ownerId })
   }catch{}
 }

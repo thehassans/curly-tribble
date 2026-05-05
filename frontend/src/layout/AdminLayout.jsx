@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar.jsx'
 import Tabs from '../ui/Tabs.jsx'
-import { resolveBrandAsset } from '../util/branding.js'
+import { DEFAULT_BRANDING, resolveBrandAsset } from '../util/branding.js'
 import { useBranding } from '../util/useBranding.js'
 
 export default function AdminLayout(){
@@ -55,11 +55,7 @@ export default function AdminLayout(){
   const links = [
     { to: '/admin', label: 'Dashboard' },
     { to: '/admin/users', label: 'Users' },
-    { to: '/admin/inbox/whatsapp', label: 'Whatsapp Inbox' },
-    { to: '/admin/inbox/connect', label: 'Whatsapp Connect' },
-    { to: '/admin/insights', label: 'Insights' },
-    { to: '/admin/branding', label: 'Branding' },
-    { to: '/admin/ai-settings', label: 'AI Settings' },
+    { to: '/admin/settings', label: 'Settings' },
   ]
   function doLogout(){
     try{
@@ -71,6 +67,8 @@ export default function AdminLayout(){
     setTimeout(()=>{ try{ window.location.assign('/login') }catch{} }, 30)
   }
   const [branding] = useBranding()
+  const brandName = branding.companyName || branding.title || DEFAULT_BRANDING.companyName
+  const logoSrc = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
   return (
     <div>
       <Sidebar closed={closed} links={links} onToggle={()=>setClosed(c=>!c)} />
@@ -78,33 +76,45 @@ export default function AdminLayout(){
         <div
           className="topbar"
           style={{
-            background: 'var(--sidebar-bg)',
-            borderBottom: '1px solid var(--sidebar-border)'
+            background: 'linear-gradient(135deg, rgba(10,10,10,0.96), rgba(30,41,59,0.96))',
+            borderBottom: '1px solid rgba(255,255,255,0.08)',
+            boxShadow: '0 20px 50px rgba(15,23,42,0.28)',
+            backdropFilter: 'blur(16px)',
+            paddingTop: 18,
+            paddingBottom: 18,
           }}
         >
-          <div className="flex items-center gap-3 min-h-12">
-            {/* Always-visible hamburger + logo */}
+          <div className="flex items-center gap-4 min-h-12">
             <button
               className="btn secondary w-9 h-9 p-0 grid place-items-center"
               onClick={()=> setClosed(c=>!c)}
               title={closed ? 'Open menu' : 'Close menu'}
               aria-label={closed ? 'Open menu' : 'Close menu'}
+              style={{ borderRadius: 999, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)' }}
             >
               ☰
             </button>
-            {(()=>{
-              const src = resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
-              return <img src={src} alt={branding.companyName} className="h-7 w-auto object-contain" />
-            })()}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: isMobile ? '10px 12px' : '12px 18px', borderRadius: 24, background: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04))', border: '1px solid rgba(255,255,255,0.12)', minWidth: isMobile ? undefined : 320 }}>
+              <div style={{ width: isMobile ? 44 : 56, height: isMobile ? 44 : 56, borderRadius: 18, background: 'rgba(255,255,255,0.96)', display: 'grid', placeItems: 'center', overflow: 'hidden', boxShadow: '0 12px 30px rgba(0,0,0,0.25)' }}>
+                <img src={logoSrc} alt={brandName} className="h-full w-full object-contain" />
+              </div>
+              {!isMobile && (
+                <div style={{ display: 'grid', gap: 3 }}>
+                  <div style={{ fontSize: 12, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.62)', fontWeight: 700 }}>Admin Control</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{brandName}</div>
+                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.72)' }}>Manage users, workspace branding, and separate business panels.</div>
+                </div>
+              )}
+            </div>
             {!isMobile && (
-              <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full font-bold tracking-tight bg-[var(--panel)] border border-[var(--border)]">
+              <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full font-bold tracking-tight"
+                style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)' }}>
                 <span role="img" aria-label="gear">⚙️</span>
-                <span>Admin Panel</span>
+                <span>Workspace Admin</span>
               </div>
             )}
           </div>
           <div className="flex items-center gap-2">
-            {/* Swatches left of the buttons */}
             {!isMobile && (
               <div role="group" aria-label="Theme colors" className="flex items-center gap-2">
                 {navPresets.map(p => (
@@ -120,8 +130,8 @@ export default function AdminLayout(){
                 ))}
               </div>
             )}
-            {!isMobile && <NavLink to="/user" className="btn secondary mr-2">User Panel</NavLink>}
-            <button type="button" className="btn danger" onClick={doLogout}>
+            {!isMobile && <NavLink to="/user" className="btn secondary mr-2" style={{ borderRadius: 999, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)' }}>User Panel</NavLink>}
+            <button type="button" className="btn danger" onClick={doLogout} style={{ borderRadius: 999 }}>
               Logout
             </button>
           </div>
@@ -136,14 +146,12 @@ export default function AdminLayout(){
             const items = [
               { key:'dashboard', label:'Dashboard', icon:'📊', to:'/admin' },
               { key:'users', label:'Users', icon:'👥', to:'/admin/users' },
-              { key:'inbox', label:'Inbox', icon:'💬', to:'/admin/inbox/whatsapp' },
-              { key:'connect', label:'Connect', icon:'🔗', to:'/admin/inbox/connect' },
+              { key:'settings', label:'Settings', icon:'⚙️', to:'/admin/settings' },
             ]
             const activeKey = (
               path === '/admin' || path.startsWith('/admin$') ? 'dashboard' :
               path.includes('/admin/users') ? 'users' :
-              path.includes('/admin/inbox/whatsapp') ? 'inbox' :
-              path.includes('/admin/inbox/connect') ? 'connect' :
+              path.includes('/admin/settings') ? 'settings' :
               'dashboard'
             )
             return (

@@ -91,9 +91,9 @@ export default function Branding(){
     finally{ setSaving(false) }
   }
 
-  const headerSrc = headerPreview || resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}logo.png`)
-  const loginSrc = loginPreview || resolveBrandAsset(branding.loginLogo, `${import.meta.env.BASE_URL}logo.png`)
-  const faviconSrc = faviconPreview || resolveBrandAsset(branding.favicon, `${import.meta.env.BASE_URL}icons/icon-192.png`)
+  const headerSrc = headerPreview || resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
+  const loginSrc = loginPreview || resolveBrandAsset(branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
+  const faviconSrc = faviconPreview || resolveBrandAsset(branding.favicon, `${import.meta.env.BASE_URL}magneticcommerce-favicon.png`)
 
   function pickFirstImageFile(items){
     if (!items) return null

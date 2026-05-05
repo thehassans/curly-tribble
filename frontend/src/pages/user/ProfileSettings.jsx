@@ -1074,7 +1074,7 @@ export default function ProfileSettings() {
                 <label className="label">
                   Domain Name
                   <span style={{ color: 'var(--muted)', fontWeight: 400, marginLeft: '8px' }}>
-                    (e.g., buysial.com)
+                    (e.g., store.yourbrand.com)
                   </span>
                 </label>
                 <input
@@ -1101,7 +1101,7 @@ export default function ProfileSettings() {
                 </div>
                 <ol style={{ color: 'var(--muted)', paddingLeft: '20px', margin: 0 }}>
                   <li>Enter your domain name in the field above (e.g., myshop.com)</li>
-                  <li>Point your domain's DNS to buysial.com using a CNAME record</li>
+                  <li>Point your domain's DNS to commerce.magnetic-ict.com using a CNAME record</li>
                   <li>Wait for DNS propagation (usually 5-10 minutes)</li>
                   <li>Your e-commerce store will be accessible on your custom domain</li>
                 </ol>

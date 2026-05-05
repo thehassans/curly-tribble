@@ -305,14 +305,14 @@ export default function ShopifySettings() {
           <div style={{ background: 'var(--ds-glass)', padding: 16, borderRadius: 12, border: '1px solid var(--ds-border)' }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ds-text-secondary)', marginBottom: 6 }}>App URL</div>
             <code style={{ fontSize: 13, color: 'var(--ds-accent)', fontFamily: 'monospace' }}>
-              https://buysial.com/api/shopify/install
+              https://commerce.magnetic-ict.com/api/shopify/install
             </code>
           </div>
           
           <div style={{ background: 'var(--ds-glass)', padding: 16, borderRadius: 12, border: '1px solid var(--ds-border)' }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ds-text-secondary)', marginBottom: 6 }}>Redirect URL</div>
             <code style={{ fontSize: 13, color: 'var(--ds-accent)', fontFamily: 'monospace' }}>
-              https://buysial.com/api/shopify/callback
+              https://commerce.magnetic-ict.com/api/shopify/callback
             </code>
           </div>
         </div>

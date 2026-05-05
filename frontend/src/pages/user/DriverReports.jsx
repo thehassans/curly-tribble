@@ -32,7 +32,7 @@ export default function DriverReports(){
   const [selectedTemplate, setSelectedTemplate] = useState(1)
   const reportRef = useRef(null)
   const [branding] = useBranding()
-  const reportLogo = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
+  const reportLogo = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
 
   async function loadDrivers(){
     setLoading(true)

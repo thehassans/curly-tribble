@@ -801,8 +801,8 @@ export default function LiveMap({ orders = [], driverLocation, onSelectOrder, mi
             gap: 6
           }}>
             <img
-              src="/buysiallogo.png"
-              alt="Buysial"
+              src="/magneticcommerce-favicon.png"
+              alt="Magnetic"
               style={{
                 height: 16,
                 opacity: 0.8,

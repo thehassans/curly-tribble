@@ -68,7 +68,7 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
   const countryRef = useRef(null)
   const [branding] = useBranding()
   const brandName = branding.companyName || branding.appName || DEFAULT_BRANDING.companyName
-  const brandLogoSrc = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
+  const brandLogoSrc = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
 
   useEffect(() => {
     // Load announcement bar from API

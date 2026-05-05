@@ -3,6 +3,7 @@ import multer from "multer";
 import fs from "fs";
 import path from "path";
 import Setting from "../models/Setting.js";
+import User from "../models/User.js";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { auth, allowRoles } from "../middleware/auth.js";
 import mime from "mime-types";
@@ -334,10 +335,93 @@ function getStoredBrandingValue(doc) {
   return doc?.value && typeof doc.value === "object" ? doc.value : {};
 }
 
+function isObjectIdLike(value) {
+  return /^[a-fA-F0-9]{24}$/.test(String(value || "").trim());
+}
+
+function buildWorkspaceBrandingValue(user) {
+  const source = user?.workspaceBranding && typeof user.workspaceBranding === "object"
+    ? user.workspaceBranding
+    : {};
+  const fallbackName =
+    String(source.companyName || "").trim() ||
+    String(user?.businessName || "").trim() ||
+    String(`${user?.firstName || ""} ${user?.lastName || ""}`).trim() ||
+    DEFAULT_BRANDING.companyName;
+  const shortName =
+    String(source.appName || "").trim() ||
+    String(fallbackName.split(/\s+/)[0] || "").trim() ||
+    DEFAULT_BRANDING.appName;
+  const websiteUrl =
+    String(source.websiteUrl || "").trim() ||
+    (String(user?.customDomain || "").trim()
+      ? `https://${String(user.customDomain).trim().toLowerCase()}`
+      : DEFAULT_BRANDING.websiteUrl);
+
+  return normalizeBrandingConfig({
+    ...DEFAULT_BRANDING,
+    ...source,
+    title: String(source.title || "").trim() || fallbackName,
+    appName: shortName,
+    companyName: fallbackName,
+    portalName: String(source.portalName || "").trim() || `${fallbackName} Admin`,
+    storeName: String(source.storeName || "").trim() || fallbackName,
+    staffLoginSubtitle:
+      String(source.staffLoginSubtitle || "").trim() ||
+      `Sign in to your ${fallbackName} workspace`,
+    shopLoginSubtitle:
+      String(source.shopLoginSubtitle || "").trim() ||
+      `Access the ${fallbackName} commerce console`,
+    footerText: String(source.footerText || "").trim() || `Powered by ${fallbackName}`,
+    reportSignature: String(source.reportSignature || "").trim() || fallbackName,
+    reportFooterText:
+      String(source.reportFooterText || "").trim() || DEFAULT_BRANDING.reportFooterText,
+    websiteUrl,
+  });
+}
+
+async function resolveBrandingOwner(req) {
+  const requestedOwnerId = String(req.query?.ownerId || req.body?.ownerId || "").trim();
+  if (requestedOwnerId && isObjectIdLike(requestedOwnerId)) {
+    return User.findById(requestedOwnerId)
+      .select("_id firstName lastName businessName customDomain workspaceBranding role createdBy")
+      .lean();
+  }
+
+  if (!req.user?.id) return null;
+
+  const actor = await User.findById(req.user.id)
+    .select("_id role createdBy firstName lastName businessName customDomain workspaceBranding")
+    .lean();
+  if (!actor) return null;
+
+  if (actor.role === "admin") return actor;
+  if (actor.role === "user") return actor;
+
+  const ownerId = String(actor.createdBy || actor._id || "").trim();
+  if (ownerId && isObjectIdLike(ownerId)) {
+    const owner = await User.findById(ownerId)
+      .select("_id firstName lastName businessName customDomain workspaceBranding role createdBy")
+      .lean();
+    if (owner) return owner;
+  }
+
+  return actor;
+}
+
+async function resolveEffectiveBranding(req) {
+  const owner = await resolveBrandingOwner(req);
+  if (owner && String(owner.role || "").toLowerCase() !== "admin") {
+    return buildWorkspaceBrandingValue(owner);
+  }
+  const doc = await Setting.findOne({ key: "branding" }).lean();
+  return normalizeBrandingConfig(getStoredBrandingValue(doc));
+}
+
 router.get("/branding", async (_req, res) => {
   try {
-    const doc = await Setting.findOne({ key: "branding" }).lean();
-    res.json(normalizeBrandingConfig(getStoredBrandingValue(doc)));
+    const branding = await resolveEffectiveBranding(_req);
+    res.json(branding);
   } catch (e) {
     res.status(500).json({ error: e?.message || "failed" });
   }
@@ -357,6 +441,29 @@ router.post(
       const headerFile = req.files?.header?.[0];
       const loginFile = req.files?.login?.[0];
       const faviconFile = req.files?.favicon?.[0];
+
+      const owner = await resolveBrandingOwner(req);
+      if (owner && String(owner.role || "").toLowerCase() !== "admin") {
+        const update = owner.workspaceBranding && typeof owner.workspaceBranding === "object"
+          ? { ...owner.workspaceBranding }
+          : {};
+        if (headerFile) update.headerLogo = toPublicPath(headerFile.path);
+        if (loginFile) update.loginLogo = toPublicPath(loginFile.path);
+        if (faviconFile) update.favicon = toPublicPath(faviconFile.path);
+        for (const key of BRANDING_TEXT_KEYS) {
+          if (typeof req.body?.[key] === "string") update[key] = req.body[key].trim();
+        }
+        const next = await User.findByIdAndUpdate(
+          owner._id,
+          { $set: { workspaceBranding: update } },
+          {
+            new: true,
+            projection:
+              "_id firstName lastName businessName customDomain workspaceBranding role createdBy",
+          }
+        ).lean();
+        return res.json(buildWorkspaceBrandingValue(next || owner));
+      }
 
       let doc = await Setting.findOne({ key: "branding" });
       if (!doc) doc = new Setting({ key: "branding", value: {} });
@@ -385,8 +492,7 @@ router.post(
 
 router.get("/manifest", async (_req, res) => {
   try {
-    const doc = await Setting.findOne({ key: "branding" }).lean();
-    const val = normalizeBrandingConfig(getStoredBrandingValue(doc));
+    const val = await resolveEffectiveBranding(_req);
     const name = val.title || DEFAULT_BRANDING.title;
     const shortName = val.appName || name;
     const themeColor = "#0f172a";
@@ -409,13 +515,13 @@ router.get("/manifest", async (_req, res) => {
         ]
       : [
           {
-            src: "/logo.png",
+            src: "/magneticcommerce-favicon.png",
             sizes: "192x192",
             type: "image/png",
             purpose: "any maskable",
           },
           {
-            src: "/logo.png",
+            src: "/magnetic-commerce.png",
             sizes: "512x512",
             type: "image/png",
             purpose: "any maskable",

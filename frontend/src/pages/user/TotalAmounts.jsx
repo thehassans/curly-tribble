@@ -434,7 +434,7 @@ export default function TotalAmounts() {
       return {
         title: `${periodType === 'daily' ? 'Daily' : 'Monthly'} Closing Report`,
         subtitle: `${periodLabel} • Country Detail • ${selectedCountryRow.country}`,
-        fileName: `Buysial-${periodType}-closing-country-${slugifyText(selectedCountryRow.country)}-${periodKey}.pdf`,
+        fileName: `Magnetic-E-Commerce-${periodType}-closing-country-${slugifyText(selectedCountryRow.country)}-${periodKey}.pdf`,
         cards: buildSummaryCardsForTotals(selectedCountryRow, periodType, selectedCountryRow.currency),
         countryRows: [],
         agentRows: agentOptions.filter((row) => row?.country === selectedCountryRow.country),
@@ -448,7 +448,7 @@ export default function TotalAmounts() {
       return {
         title: `${periodType === 'daily' ? 'Daily' : 'Monthly'} Closing Report`,
         subtitle: `${periodLabel} • Agent Detail • ${selectedAgent.name}`,
-        fileName: `Buysial-${periodType}-closing-agent-${slugifyText(selectedAgent.name)}-${periodKey}.pdf`,
+        fileName: `Magnetic-E-Commerce-${periodType}-closing-agent-${slugifyText(selectedAgent.name)}-${periodKey}.pdf`,
         cards: buildSummaryCardsForPerson(selectedAgent, 'agent', selectedAgent.currency),
         countryRows: [],
         agentRows: [selectedAgent],
@@ -462,7 +462,7 @@ export default function TotalAmounts() {
       return {
         title: `${periodType === 'daily' ? 'Daily' : 'Monthly'} Closing Report`,
         subtitle: `${periodLabel} • Driver Detail • ${selectedDriver.name}`,
-        fileName: `Buysial-${periodType}-closing-driver-${slugifyText(selectedDriver.name)}-${periodKey}.pdf`,
+        fileName: `Magnetic-E-Commerce-${periodType}-closing-driver-${slugifyText(selectedDriver.name)}-${periodKey}.pdf`,
         cards: buildSummaryCardsForPerson(selectedDriver, 'driver', selectedDriver.currency),
         countryRows: [],
         agentRows: [],
@@ -474,7 +474,7 @@ export default function TotalAmounts() {
     return {
       title: `${periodType === 'daily' ? 'Daily' : 'Monthly'} Closing Report`,
       subtitle: `${periodLabel} • All Detail`,
-      fileName: `Buysial-${periodType}-closing-all-detail-${periodKey}.pdf`,
+      fileName: `Magnetic-E-Commerce-${periodType}-closing-all-detail-${periodKey}.pdf`,
       cards: buildSummaryCardsForTotals(summary || {}, periodType),
       countryRows: rows,
       agentRows: agentOptions,

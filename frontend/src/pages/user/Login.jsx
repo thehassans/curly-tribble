@@ -109,7 +109,7 @@ export default function UserLogin() {
     }
   }
 
-  const logoSrc = resolveBrandAsset(branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
+  const logoSrc = resolveBrandAsset(branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
 
   const healthBad = (() => {
     return Boolean(health.checked && (!health.reachable || !health.ready))

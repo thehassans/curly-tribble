@@ -33,6 +33,10 @@ import Expense from "../models/Expense.js";
 import mongoose from "mongoose";
 import { createNotification } from "../routes/notifications.js";
 import {
+  BRANDING_TEXT_KEYS,
+  DEFAULT_BRANDING,
+} from "../utils/branding.js";
+import {
   buildTotalAmountSnapshot as buildLiveTotalAmountSnapshot,
   createEmptySummaryTotals as createLiveEmptySummaryTotals,
   formatMonthLabel as formatLiveMonthLabel,
@@ -44,6 +48,112 @@ import {
 
 const router = Router();
 const TOTAL_AMOUNT_SNAPSHOT_VERSION = LIVE_TOTAL_AMOUNT_SNAPSHOT_VERSION;
+
+function resolveWorkspaceUploadsDir() {
+  try {
+    const here = path.dirname(fileURLToPath(import.meta.url));
+    const candidates = [
+      path.resolve(process.cwd(), "uploads", "workspace-branding"),
+      path.resolve(here, "../../../uploads/workspace-branding"),
+      path.resolve(here, "../../uploads/workspace-branding"),
+      path.resolve("/httpdocs/uploads/workspace-branding"),
+    ];
+    for (const c of candidates) {
+      try {
+        if (!fs.existsSync(c)) fs.mkdirSync(c, { recursive: true });
+        return c;
+      } catch {}
+    }
+  } catch {}
+  try {
+    fs.mkdirSync("uploads/workspace-branding", { recursive: true });
+  } catch {}
+  return path.resolve("uploads", "workspace-branding");
+}
+
+const WORKSPACE_UPLOADS_DIR = resolveWorkspaceUploadsDir();
+const workspaceBrandingStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, WORKSPACE_UPLOADS_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname || "") || ".png";
+    const base = path.basename(file.originalname || "asset", ext);
+    const safeBase = String(base)
+      .normalize("NFKD")
+      .replace(/[^a-zA-Z0-9._-]+/g, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "")
+      .toLowerCase();
+    cb(null, `${safeBase || "workspace"}-${Date.now()}${ext.toLowerCase()}`);
+  },
+});
+const workspaceBrandingUpload = multer({ storage: workspaceBrandingStorage });
+
+function toWorkspacePublicPath(absFilename) {
+  const base = path.basename(absFilename);
+  return `/uploads/workspace-branding/${encodeURIComponent(base)}`;
+}
+
+function buildWorkspaceBrandingSeed({
+  firstName,
+  lastName,
+  businessName,
+  customDomain,
+  workspaceBranding = {},
+} = {}) {
+  const fallbackName =
+    String(workspaceBranding.companyName || "").trim() ||
+    String(businessName || "").trim() ||
+    String(`${firstName || ""} ${lastName || ""}`).trim() ||
+    DEFAULT_BRANDING.companyName;
+  const shortName =
+    String(workspaceBranding.appName || "").trim() ||
+    String(fallbackName.split(/\s+/)[0] || "").trim() ||
+    DEFAULT_BRANDING.appName;
+  const domain = String(customDomain || "").trim().toLowerCase();
+  const websiteUrl =
+    String(workspaceBranding.websiteUrl || "").trim() ||
+    (domain ? `https://${domain}` : DEFAULT_BRANDING.websiteUrl);
+
+  return {
+    headerLogo: String(workspaceBranding.headerLogo || "").trim(),
+    loginLogo: String(workspaceBranding.loginLogo || "").trim(),
+    favicon: String(workspaceBranding.favicon || "").trim(),
+    title: String(workspaceBranding.title || "").trim() || fallbackName,
+    appName: shortName,
+    companyName: fallbackName,
+    portalName:
+      String(workspaceBranding.portalName || "").trim() || `${fallbackName} Admin`,
+    storeName: String(workspaceBranding.storeName || "").trim() || fallbackName,
+    staffLoginSubtitle:
+      String(workspaceBranding.staffLoginSubtitle || "").trim() ||
+      `Sign in to your ${fallbackName} workspace`,
+    shopLoginSubtitle:
+      String(workspaceBranding.shopLoginSubtitle || "").trim() ||
+      `Access the ${fallbackName} commerce console`,
+    footerText:
+      String(workspaceBranding.footerText || "").trim() || `Powered by ${fallbackName}`,
+    reportSignature:
+      String(workspaceBranding.reportSignature || "").trim() || fallbackName,
+    reportFooterText:
+      String(workspaceBranding.reportFooterText || "").trim() ||
+      DEFAULT_BRANDING.reportFooterText,
+    websiteUrl,
+  };
+}
+
+function buildWorkspaceBrandingPayload(req, existing = {}) {
+  const value = existing && typeof existing === "object" ? { ...existing } : {};
+  const headerFile = req.files?.header?.[0];
+  const loginFile = req.files?.login?.[0];
+  const faviconFile = req.files?.favicon?.[0];
+  if (headerFile) value.headerLogo = toWorkspacePublicPath(headerFile.path);
+  if (loginFile) value.loginLogo = toWorkspacePublicPath(loginFile.path);
+  if (faviconFile) value.favicon = toWorkspacePublicPath(faviconFile.path);
+  for (const key of BRANDING_TEXT_KEYS) {
+    if (typeof req.body?.[key] === "string") value[key] = req.body[key].trim();
+  }
+  return value;
+}
 
 router.get("/partners", auth, allowRoles("admin", "user"), async (req, res) => {
   try {
@@ -1165,7 +1275,11 @@ router.get("/", auth, allowRoles("admin", "user"), async (req, res) => {
 });
 
 // Create user (admin, user)
-router.post("/", auth, allowRoles("admin", "user"), async (req, res) => {
+router.post("/", auth, allowRoles("admin", "user"), workspaceBrandingUpload.fields([
+  { name: "header", maxCount: 1 },
+  { name: "login", maxCount: 1 },
+  { name: "favicon", maxCount: 1 },
+]), async (req, res) => {
   const {
     firstName,
     lastName,
@@ -1175,6 +1289,8 @@ router.post("/", auth, allowRoles("admin", "user"), async (req, res) => {
     password,
     role = "user",
     commissionerProfile,
+    businessName,
+    customDomain,
   } = req.body;
   if (!firstName || !lastName || !email || !password)
     return res.status(400).json({ message: "Missing required fields" });
@@ -1190,7 +1306,17 @@ router.post("/", auth, allowRoles("admin", "user"), async (req, res) => {
     password,
     role,
     createdBy,
+    businessName: String(businessName || "").trim(),
+    customDomain: String(customDomain || "").trim().toLowerCase(),
   };
+  const workspaceBrandingInput = buildWorkspaceBrandingPayload(req);
+  userData.workspaceBranding = buildWorkspaceBrandingSeed({
+    firstName,
+    lastName,
+    businessName,
+    customDomain,
+    workspaceBranding: workspaceBrandingInput,
+  });
   
   // Handle commissioner-specific profile
   if (role === 'commissioner' && commissionerProfile) {
@@ -1208,7 +1334,18 @@ router.post("/", auth, allowRoles("admin", "user"), async (req, res) => {
   await user.save();
   res.status(201).json({
     message: "User created",
-    user: { id: user._id, firstName, lastName, email, phone, country, role },
+    user: {
+      id: user._id,
+      firstName,
+      lastName,
+      businessName: user.businessName,
+      email,
+      phone,
+      country,
+      role,
+      customDomain: user.customDomain,
+      workspaceBranding: user.workspaceBranding,
+    },
   });
 });
 
@@ -2134,6 +2271,70 @@ router.post(
   }
 );
 
+router.patch(
+  "/:id/workspace",
+  auth,
+  allowRoles("admin", "user"),
+  workspaceBrandingUpload.fields([
+    { name: "header", maxCount: 1 },
+    { name: "login", maxCount: 1 },
+    { name: "favicon", maxCount: 1 },
+  ]),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const target = await User.findById(id).select(
+        "_id role createdBy firstName lastName businessName customDomain workspaceBranding"
+      );
+      if (!target) return res.status(404).json({ message: "User not found" });
+      const allowed =
+        req.user.role === "admin" ||
+        String(target._id) === String(req.user.id) ||
+        String(target.createdBy || "") === String(req.user.id);
+      if (!allowed) {
+        return res.status(403).json({ message: "Not allowed" });
+      }
+
+      const nextBusinessName =
+        typeof req.body?.businessName === "string"
+          ? req.body.businessName.trim()
+          : target.businessName || "";
+      const nextDomain =
+        typeof req.body?.customDomain === "string"
+          ? req.body.customDomain.trim().toLowerCase()
+          : target.customDomain || "";
+      const workspaceBrandingInput = buildWorkspaceBrandingPayload(
+        req,
+        target.workspaceBranding || {}
+      );
+      const workspaceBranding = buildWorkspaceBrandingSeed({
+        firstName: target.firstName,
+        lastName: target.lastName,
+        businessName: nextBusinessName,
+        customDomain: nextDomain,
+        workspaceBranding: workspaceBrandingInput,
+      });
+
+      const updated = await User.findByIdAndUpdate(
+        id,
+        {
+          $set: {
+            businessName: nextBusinessName,
+            customDomain: nextDomain,
+            workspaceBranding,
+          },
+        },
+        { new: true, projection: "-password" }
+      );
+      return res.json({ ok: true, user: updated });
+    } catch (err) {
+      return res
+        .status(500)
+        .json({ message: err?.message || "Failed to update workspace" });
+    }
+  }
+);
+
 // Investor routes removed - investor feature deprecated
 
 // Configure uploads dir (reuse logic from products.js)
@@ -2187,11 +2388,17 @@ router.get("/by-domain/:domain", async (req, res) => {
       return res.status(400).json({ message: "Domain is required" });
     }
 
-    // For main domain buysial.com, return default/main store info
-    if (normalizedDomain === "buysial.com" || normalizedDomain === "www.buysial.com") {
+    // For primary domains, return platform store info
+    if (
+      normalizedDomain === "buysial.com" ||
+      normalizedDomain === "www.buysial.com" ||
+      normalizedDomain === "magnetic-ict.com" ||
+      normalizedDomain === "www.magnetic-ict.com" ||
+      normalizedDomain === "commerce.magnetic-ict.com"
+    ) {
       return res.json({
         userId: null,
-        storeName: "BuySial",
+        storeName: DEFAULT_BRANDING.companyName,
         customDomain: normalizedDomain,
         isMainDomain: true
       });
@@ -2200,7 +2407,7 @@ router.get("/by-domain/:domain", async (req, res) => {
     const user = await User.findOne({
       customDomain: normalizedDomain,
       role: "user",
-    }).select("_id firstName lastName email customDomain");
+    }).select("_id firstName lastName businessName email customDomain workspaceBranding");
 
     if (!user) {
       return res
@@ -2210,7 +2417,11 @@ router.get("/by-domain/:domain", async (req, res) => {
 
     return res.json({
       userId: user._id,
-      storeName: `${user.firstName} ${user.lastName}`.trim() || "Store",
+      storeName:
+        String(user.workspaceBranding?.storeName || "").trim() ||
+        String(user.businessName || "").trim() ||
+        `${user.firstName} ${user.lastName}`.trim() ||
+        "Store",
       customDomain: user.customDomain,
     });
   } catch (err) {

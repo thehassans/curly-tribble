@@ -604,7 +604,7 @@ export default function Sidebar({
       >
         <span className="brand inline-flex items-center">
           {(() => {
-            const src = resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
+            const src = resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
             return <img src={src} alt={branding.companyName} style={{ height: '56px', width: 'auto', objectFit: 'contain' }} />
           })()}
         </span>

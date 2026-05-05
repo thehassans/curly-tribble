@@ -307,7 +307,7 @@ export default function ProductDetail() {
       },
       countrySeo: product?.countrySeo || {},
       backlinks: Array.isArray(product?.backlinks) ? product.backlinks : [],
-      gscData: product?.gscData || { siteUrl: 'https://buysial.com', indexingStatus: 'not_requested', lastError: '' },
+      gscData: product?.gscData || { siteUrl: 'https://commerce.magnetic-ict.com', indexingStatus: 'not_requested', lastError: '' },
       availableCountries: product?.availableCountries || [],
     })
     // Reset media upload state
@@ -3132,7 +3132,7 @@ export default function ProductDetail() {
                     style={{ width: 18, height: 18 }}
                   />
                   <div>
-                    <div style={{ fontWeight: 600 }}>BuySial Recommendations</div>
+                    <div style={{ fontWeight: 600 }}>Magnetic Recommendations</div>
                     <div style={{ fontSize: 12, opacity: 0.7 }}>Homepage recommendations</div>
                   </div>
                 </label>

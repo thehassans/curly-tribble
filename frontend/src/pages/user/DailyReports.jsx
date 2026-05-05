@@ -221,7 +221,7 @@ export default function DailyReports() {
   const toast = useToast()
   const reportRef = useRef(null)
   const [branding] = useBranding()
-  const logoSrc = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
+  const logoSrc = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
   const [dayKey, setDayKey] = useState(todayKey())
   const [selectedCountry, setSelectedCountry] = useState('all')
   const [loading, setLoading] = useState(true)

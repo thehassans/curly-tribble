@@ -185,7 +185,7 @@ export default function UserShops() {
           <form onSubmit={saveShop} style={{ display: 'grid', gap: 14 }}>
             <div style={{ display: 'grid', gap: 8 }}>
               <Label>Shop name</Label>
-              <TextInput value={form.name} onChange={(e) => updateField('name', e.target.value)} placeholder="Downtown BuySial Hub" required />
+              <TextInput value={form.name} onChange={(e) => updateField('name', e.target.value)} placeholder="Downtown Magnetic Hub" required />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 12 }}>
               <div style={{ display: 'grid', gap: 8 }}>

@@ -25,6 +25,7 @@ const UserSchema = new mongoose.Schema(
   {
     firstName: { type: String, default: "" },
     lastName: { type: String, default: "" },
+    businessName: { type: String, default: "", trim: true },
     email: { type: String, required: true, unique: true, index: true },
     password: { type: String, required: true },
     phone: { type: String, default: "" },
@@ -240,6 +241,22 @@ const UserSchema = new mongoose.Schema(
     // Workspace/user-level settings
     settings: {
       autoSendInvoice: { type: Boolean, default: true }, // controls auto WhatsApp invoice PDF on order create
+    },
+    workspaceBranding: {
+      headerLogo: { type: String, default: "" },
+      loginLogo: { type: String, default: "" },
+      favicon: { type: String, default: "" },
+      title: { type: String, default: "" },
+      appName: { type: String, default: "" },
+      companyName: { type: String, default: "" },
+      portalName: { type: String, default: "" },
+      storeName: { type: String, default: "" },
+      staffLoginSubtitle: { type: String, default: "" },
+      shopLoginSubtitle: { type: String, default: "" },
+      footerText: { type: String, default: "" },
+      reportSignature: { type: String, default: "" },
+      reportFooterText: { type: String, default: "" },
+      websiteUrl: { type: String, default: "" },
     },
     // Custom domain for e-commerce site (e.g., buysial.com)
     customDomain: { type: String, default: "", trim: true },
