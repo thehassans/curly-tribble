@@ -2171,9 +2171,6 @@ router.post(
               destinationKind: activeOrder.driverTracking?.destinationKind || "none",
             };
             io.to(`workspace:${ownerId}`).emit("driver.location.updated", payload);
-            if (activeOrder.assignedShop) {
-              io.to(`shop:${String(activeOrder.assignedShop)}`).emit("shop.driver.location", payload);
-            }
           } catch {}
         }
       } catch {}

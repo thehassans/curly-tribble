@@ -51,7 +51,6 @@ const ConfirmerLayout = lazy(() => import('./layout/ConfirmerLayout.jsx'))
 const DropshipperLayout = lazy(() => import('./layout/DropshipperLayout.jsx'))
 const SEOManagerLayout = lazy(() => import('./layout/SEOManagerLayout.jsx'))
 const CustomerLayout = lazy(() => import('./layout/CustomerLayout.jsx'))
-const ShopVendorLayout = lazy(() => import('./layout/ShopVendorLayout.jsx'))
 
 // Admin pages
 const AdminDashboard = lazyWithRetry(() => import('./pages/admin/Dashboard.jsx'))
@@ -120,9 +119,6 @@ const GoogleOAuthSettings = lazy(() => import('./pages/user/GoogleOAuthSettings.
 const UserCategories = lazy(() => import('./pages/user/Categories.jsx'))
 const UserBrands = lazy(() => import('./pages/user/Brands.jsx'))
 const UserExploreMore = lazy(() => import('./pages/user/ExploreMore.jsx'))
-const ShopLogistics = lazy(() => import('./pages/user/ShopLogistics.jsx'))
-const DeliveryWorkflow = lazy(() => import('./pages/user/DeliveryWorkflow.jsx'))
-const ShopCatalogAssignments = lazy(() => import('./pages/user/ShopCatalogAssignments.jsx'))
 
 // Agent pages
 const AgentDashboard = lazy(() => import('./pages/agent/Dashboard.jsx'))
@@ -181,10 +177,6 @@ const DropshipperSubmitOrder = lazy(() => import('./pages/dropshipper/SubmitOrde
 const DropshipperFinances = lazy(() => import('./pages/dropshipper/Finances.jsx'))
 const DropshipperShopifyConnect = lazy(() => import('./pages/dropshipper/ShopifyConnect.jsx'))
 const DropshipSignup = lazy(() => import('./pages/dropship/DropshipSignup.jsx'))
-const ShopVendorDashboard = lazy(() => import('./pages/shopVendor/Dashboard.jsx'))
-const ShopVendorOrders = lazy(() => import('./pages/shopVendor/Orders.jsx'))
-const ShopVendorProducts = lazy(() => import('./pages/shopVendor/Products.jsx'))
-const ShopVendorPayments = lazy(() => import('./pages/shopVendor/Payments.jsx'))
 
 // SEO Next-Gen AI Panel pages
 const SEODashboard = lazy(() => import('./pages/seo/Dashboard.jsx'))
@@ -363,7 +355,6 @@ function RequireRole({ roles = [], children }) {
     if (role === 'manager') return <Navigate to="/manager" replace />
     if (role === 'dropshipper') return <Navigate to="/dropshipper" replace />
     if (role === 'investor') return <Navigate to="/investor" replace />
-    if (role === 'shop_vendor') return <Navigate to="/shop" replace />
     if (role === 'seo_manager') return <Navigate to="/seo" replace />
     if (role === 'admin' || role === 'user') return <Navigate to="/user" replace />
     if (role === 'partner') return <Navigate to="/partner" replace />
@@ -716,21 +707,6 @@ export default function App() {
             <Route path="/customer-login" element={<Navigate to="/customer/login" replace />} />
             <Route path="/register" element={<Register />} />
             <Route
-              path="/shop"
-              element={
-                <RequireAuth>
-                  <RequireRole roles={['shop_vendor']}>
-                    <ShopVendorLayout />
-                  </RequireRole>
-                </RequireAuth>
-              }
-            >
-              <Route index element={<ShopVendorDashboard />} />
-              <Route path="orders" element={<ShopVendorOrders />} />
-              <Route path="products" element={<ShopVendorProducts />} />
-              <Route path="payments" element={<ShopVendorPayments />} />
-            </Route>
-            <Route
               path="/customer"
               element={
                 <RequireAuth>
@@ -908,9 +884,6 @@ export default function App() {
               <Route path="inhouse-products" element={<InhouseProducts />} />
               <Route path="products" element={<UserProducts />} />
               <Route path="products/:id" element={<UserProductDetail />} />
-              <Route path="shop-logistics" element={<ShopLogistics />} />
-              <Route path="delivery-workflow" element={<DeliveryWorkflow />} />
-              <Route path="shop-assignments" element={<ShopCatalogAssignments />} />
               <Route path="warehouses" element={<Warehouse />} />
               <Route path="shipments" element={<Shipments />} />
               <Route path="reports" element={<Reports />} />

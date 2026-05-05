@@ -74,7 +74,6 @@ export default function InhouseProducts() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
-  const [shops, setShops] = useState([])
   const [uploadProgress, setUploadProgress] = useState(null) // { percent, loaded, total, speed, eta }
   const [uploadQueue, setUploadQueue] = useState([]) // Array of { id, name, progress, status, error }
   const [form, setForm] = useState({
@@ -121,7 +120,6 @@ export default function InhouseProducts() {
     isNewArrival: false,
     isLimitedStock: false,
     variants: {},
-    shops: [],
     images: [],
     video: null,
     // SEO
@@ -267,16 +265,6 @@ export default function InhouseProducts() {
     })
   }
 
-  const normalizeShopAssignments = (entries) =>
-    Array.isArray(entries)
-      ? entries
-          .map((entry) => ({
-            shopId: String(entry?.shopId?._id || entry?.shopId || entry?._id || '').trim(),
-            shopBuyingPrice: Number(entry?.shopBuyingPrice || 0),
-          }))
-          .filter((entry) => entry.shopId)
-      : []
-
   const sortedCategories = useMemo(() => {
     const source = categories && categories.length ? categories : CATEGORIES
     return Array.from(
@@ -297,33 +285,6 @@ export default function InhouseProducts() {
     label: `Image ${index + 1}`,
     url: mediaUrl(path),
   }))
-
-  const toggleShopAssignment = (setter, shopId, enabled) => {
-    setter((prev) => {
-      const curr = prev && typeof prev === 'object' ? prev : {}
-      const list = Array.isArray(curr.shops) ? [...curr.shops] : []
-      const idx = list.findIndex((entry) => String(entry?.shopId) === String(shopId))
-      if (enabled && idx === -1) {
-        return { ...curr, shops: [...list, { shopId: String(shopId), shopBuyingPrice: 0 }] }
-      }
-      if (!enabled && idx >= 0) {
-        list.splice(idx, 1)
-        return { ...curr, shops: list }
-      }
-      return curr
-    })
-  }
-
-  const updateShopAssignmentPrice = (setter, shopId, value) => {
-    setter((prev) => {
-      const curr = prev && typeof prev === 'object' ? prev : {}
-      const list = Array.isArray(curr.shops) ? [...curr.shops] : []
-      const idx = list.findIndex((entry) => String(entry?.shopId) === String(shopId))
-      if (idx === -1) return curr
-      list[idx] = { ...list[idx], shopBuyingPrice: value }
-      return { ...curr, shops: list }
-    })
-  }
 
   const renderVariantEditor = (currentForm, setter, imageOptions) => (
     <div style={{ display: 'grid', gap: 18 }}>
@@ -1016,7 +977,6 @@ export default function InhouseProducts() {
     apiGet('/api/brands').then(r => setBrandsList(Array.isArray(r?.brands) ? r.brands : [])).catch(() => {})
     // Load explore more items for dropdown
     apiGet('/api/explore-more').then(r => setExploreMoreItems(Array.isArray(r?.items) ? r.items : [])).catch(() => {})
-    apiGet('/api/shops').then(r => setShops(Array.isArray(r?.shops) ? r.shops : [])).catch(() => setShops([]))
   }, [])
 
   // Load currency config once
@@ -1230,7 +1190,6 @@ export default function InhouseProducts() {
     fd.append('category', form.category)
     fd.append('subcategory', String(form.subcategory || '').trim())
     fd.append('brand', String(form.brand || '').trim())
-    fd.append('shops', JSON.stringify((form.shops || []).map((entry) => ({ shopId: entry.shopId, shopBuyingPrice: Number(entry.shopBuyingPrice || 0) }))))
     if (form.exploreMoreId) fd.append('exploreMoreId', form.exploreMoreId)
     fd.append('exploreMoreEnabled', String(!!form.exploreMoreEnabled))
     fd.append('madeInCountry', form.madeInCountry)
@@ -1353,7 +1312,6 @@ export default function InhouseProducts() {
       isNewArrival: false,
       isLimitedStock: false,
       variants: {},
-      shops: [],
       images: [],
       video: null,
       seo: { seoTitle: '', seoDescription: '', seoKeywords: '', slug: '', canonicalUrl: '', noIndex: false, ogTitle: '', ogDescription: '' },
@@ -1469,7 +1427,6 @@ export default function InhouseProducts() {
       specifications: p.specifications || '',
       descriptionBlocks: p.descriptionBlocks || [],
       availableCountries: p.availableCountries || [],
-      shops: normalizeShopAssignments(p.shops),
       variants: variantsForEdit,
       inStock: !!p.inStock,
       displayOnWebsite: !!p.displayOnWebsite,
@@ -1528,7 +1485,6 @@ export default function InhouseProducts() {
       fd.append('category', editForm.category)
       fd.append('subcategory', String(editForm.subcategory || '').trim())
       fd.append('brand', String(editForm.brand || '').trim())
-      fd.append('shops', JSON.stringify((editForm.shops || []).map((entry) => ({ shopId: entry.shopId, shopBuyingPrice: Number(entry.shopBuyingPrice || 0) }))))
       if (editForm.exploreMoreId) fd.append('exploreMoreId', editForm.exploreMoreId)
       fd.append('exploreMoreEnabled', String(!!editForm.exploreMoreEnabled))
       fd.append('madeInCountry', editForm.madeInCountry)
@@ -2065,59 +2021,7 @@ export default function InhouseProducts() {
                 background: 'var(--panel-2)',
               }}
             >
-              <div style={{ fontWeight: 700, fontSize: 16 }}>Shop Assignment</div>
-            </div>
-            <div style={{ padding: 24, display: 'grid', gap: 14 }}>
-              {!shops.length ? (
-                <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-                  No shops found yet. Create shop vendors first to assign this product.
-                </div>
-              ) : (
-                shops.map((shop) => {
-                  const entry = (form.shops || []).find((item) => String(item.shopId) === String(shop._id))
-                  const enabled = !!entry
-                  return (
-                    <div
-                      key={shop._id}
-                      style={{
-                        borderRadius: 20,
-                        border: '1px solid rgba(226,232,240,0.95)',
-                        background: 'rgba(255,255,255,0.96)',
-                        padding: 16,
-                        display: 'grid',
-                        gap: 12,
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <div style={{ display: 'grid', gap: 4 }}>
-                          <div style={{ fontWeight: 900, color: '#0f172a' }}>{shop.name || 'Shop'}</div>
-                          <div style={{ color: '#64748b', fontSize: 13 }}>{shop.ownerName || '-'} • {shop.phone || '-'}</div>
-                        </div>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, color: '#0f172a' }}>
-                          <input type="checkbox" checked={enabled} onChange={(e) => toggleShopAssignment(setForm, shop._id, e.target.checked)} />
-                          Assigned
-                        </label>
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '220px minmax(0,1fr)', gap: 12, alignItems: 'center' }}>
-                        <input
-                          className="input"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={enabled ? entry?.shopBuyingPrice ?? '' : ''}
-                          disabled={!enabled}
-                          onChange={(e) => updateShopAssignmentPrice(setForm, shop._id, e.target.value)}
-                          placeholder="Shop buying price"
-                          style={{ padding: 12, borderRadius: 16 }}
-                        />
-                        <div style={{ color: '#64748b', fontSize: 13 }}>
-                          {enabled ? 'This value is used for vendor payout and routing logic.' : 'Enable this shop if it should be able to fulfill the product.'}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })
-              )}
+              <div style={{ fontWeight: 700, fontSize: 16 }}>Pricing & Inventory</div>
             </div>
           </div>
 
@@ -4140,59 +4044,6 @@ export default function InhouseProducts() {
               <div style={{ display: 'grid', gap: 12 }}>
                 <div style={{ fontWeight: 700 }}>Variations</div>
                 {renderVariantEditor(editForm, setEditForm, editVariantImageOptions)}
-              </div>
-              <div style={{ display: 'grid', gap: 12 }}>
-                <div style={{ fontWeight: 700 }}>Shop Assignment</div>
-                {!shops.length ? (
-                  <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-                    No shops found yet. Create shop vendors first to assign this product.
-                  </div>
-                ) : (
-                  shops.map((shop) => {
-                    const entry = (editForm.shops || []).find((item) => String(item.shopId) === String(shop._id))
-                    const enabled = !!entry
-                    return (
-                      <div
-                        key={shop._id}
-                        style={{
-                          borderRadius: 20,
-                          border: '1px solid rgba(226,232,240,0.95)',
-                          background: 'rgba(255,255,255,0.96)',
-                          padding: 16,
-                          display: 'grid',
-                          gap: 12,
-                        }}
-                      >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                          <div style={{ display: 'grid', gap: 4 }}>
-                            <div style={{ fontWeight: 900, color: '#0f172a' }}>{shop.name || 'Shop'}</div>
-                            <div style={{ color: '#64748b', fontSize: 13 }}>{shop.ownerName || '-'} • {shop.phone || '-'}</div>
-                          </div>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 800, color: '#0f172a' }}>
-                            <input type="checkbox" checked={enabled} onChange={(e) => toggleShopAssignment(setEditForm, shop._id, e.target.checked)} />
-                            Assigned
-                          </label>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '220px minmax(0,1fr)', gap: 12, alignItems: 'center' }}>
-                          <input
-                            className="input"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={enabled ? entry?.shopBuyingPrice ?? '' : ''}
-                            disabled={!enabled}
-                            onChange={(e) => updateShopAssignmentPrice(setEditForm, shop._id, e.target.value)}
-                            placeholder="Shop buying price"
-                            style={{ padding: 12, borderRadius: 16 }}
-                          />
-                          <div style={{ color: '#64748b', fontSize: 13 }}>
-                            {enabled ? 'This value is used for vendor payout and routing logic.' : 'Enable this shop if it should be able to fulfill the product.'}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
               </div>
               <div
                 style={{

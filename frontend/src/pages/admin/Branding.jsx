@@ -9,7 +9,6 @@ const TEXT_FIELDS = [
   { key: 'portalName', label: 'Portal Name', placeholder: 'e.g. Magnetic E-commerce Management' },
   { key: 'storeName', label: 'Storefront Name', placeholder: 'e.g. Magnetic Store' },
   { key: 'staffLoginSubtitle', label: 'Staff Login Subtitle', placeholder: 'Shown on the main login screen' },
-  { key: 'shopLoginSubtitle', label: 'Shop Login Subtitle', placeholder: 'Shown on the shop login screen' },
   { key: 'footerText', label: 'Footer Text', placeholder: 'e.g. Powered by Magnetic E-commerce' },
   { key: 'reportSignature', label: 'Report Signature', placeholder: 'e.g. Magnetic E-commerce' },
   { key: 'reportFooterText', label: 'Report Footer Text', placeholder: 'e.g. All Rights Reserved' },

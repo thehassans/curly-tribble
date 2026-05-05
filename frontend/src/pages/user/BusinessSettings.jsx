@@ -13,7 +13,6 @@ const BRANDING_FIELDS = [
   { key: 'storeName', label: 'Storefront Name', placeholder: 'Magnetic E-Commerce' },
   { key: 'websiteUrl', label: 'Website URL', placeholder: 'https://commerce.magnetic-ict.com' },
   { key: 'staffLoginSubtitle', label: 'Staff Login Subtitle', placeholder: 'Sign in to your workspace' },
-  { key: 'shopLoginSubtitle', label: 'Shop Login Subtitle', placeholder: 'Access the commerce console' },
   { key: 'footerText', label: 'Footer Text', placeholder: 'Powered by Magnetic E-Commerce' },
 ]
 

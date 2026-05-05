@@ -10,7 +10,6 @@ const TEXT_FIELDS = [
   { key: 'portalName', label: 'Portal Name', placeholder: 'Magnetic E-Commerce Admin' },
   { key: 'storeName', label: 'Storefront Name', placeholder: 'Magnetic E-Commerce' },
   { key: 'staffLoginSubtitle', label: 'Staff Login Subtitle', placeholder: 'Sign in to your workspace' },
-  { key: 'shopLoginSubtitle', label: 'Shop Login Subtitle', placeholder: 'Access the commerce console' },
   { key: 'footerText', label: 'Footer Text', placeholder: 'Powered by Magnetic E-Commerce' },
   { key: 'reportSignature', label: 'Report Signature', placeholder: 'Magnetic E-Commerce' },
   { key: 'reportFooterText', label: 'Report Footer Text', placeholder: 'All Rights Reserved' },
