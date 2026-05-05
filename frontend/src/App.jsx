@@ -81,7 +81,7 @@ const Notifications = lazy(() => import('./pages/user/Notifications.jsx'))
 const UserOrders = lazy(() => import('./pages/user/Orders.jsx'))
 const UserAPISetup = lazy(() => import('./pages/user/APISetup.jsx'))
 const UserConfiguration = lazy(() => import('./pages/user/Configuration.jsx'))
-const ProfileSettings = lazy(() => import('./pages/user/ProfileSettings.jsx'))
+const BusinessSettings = lazy(() => import('./pages/user/BusinessSettings.jsx'))
 const LabelSettings = lazy(() => import('./pages/user/LabelSettings.jsx'))
 const UserShopifySettings = lazy(() => import('./pages/user/ShopifySettings.jsx'))
 const ShopifyIntegration = lazy(() => import('./pages/user/ShopifyIntegration.jsx'))
@@ -943,7 +943,7 @@ export default function App() {
               <Route path="payment-settings" element={<PaymentSettings />} />
               <Route path="email-settings" element={<EmailSettings />} />
               <Route path="api-setup" element={<UserAPISetup />} />
-              <Route path="profile-settings" element={<ProfileSettings />} />
+              <Route path="profile-settings" element={<BusinessSettings />} />
               <Route path="label-settings" element={<LabelSettings />} />
               <Route path="branding" element={<Branding />} />
               <Route path="shopify-settings" element={<UserShopifySettings />} />

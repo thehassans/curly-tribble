@@ -12,6 +12,7 @@ import saudiRiyalBoldWoff2Url from '@emran-alhaddad/saudi-riyal-font/fonts/bold/
 import saudiRiyalBoldWoffUrl from '@emran-alhaddad/saudi-riyal-font/fonts/bold/saudi_riyal.woff?url'
 import { COUNTRY_LIST } from './utils/constants'
 import { bootstrapBranding } from './util/branding.js'
+import { syncThemeMode } from './util/themeMode.js'
 import { ToastProvider } from './ui/Toast.jsx'
 import { ShopifyAppBridgeProvider } from './components/ShopifyAppBridge.jsx'
 
@@ -87,6 +88,7 @@ class RootErrorBoundary extends React.Component {
 }
 
 const root = document.getElementById('root')
+syncThemeMode()
 if (root) {
   createRoot(root).render(
     <React.StrictMode>

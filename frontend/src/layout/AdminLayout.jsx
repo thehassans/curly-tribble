@@ -4,12 +4,14 @@ import Sidebar from '../components/Sidebar.jsx'
 import Tabs from '../ui/Tabs.jsx'
 import { DEFAULT_BRANDING, resolveBrandAsset } from '../util/branding.js'
 import { useBranding } from '../util/useBranding.js'
+import { getThemeMode, setThemeMode, subscribeThemeMode } from '../util/themeMode.js'
 
 export default function AdminLayout(){
   const navigate = useNavigate()
   const location = useLocation()
   const [closed, setClosed] = useState(()=> (typeof window!=='undefined' ? window.innerWidth <= 768 : false))
   const [isMobile, setIsMobile] = useState(()=> (typeof window!=='undefined' ? window.innerWidth <= 768 : false))
+  const [theme, setTheme] = useState(() => getThemeMode())
 
   useEffect(()=>{
     function onResize(){
@@ -20,6 +22,14 @@ export default function AdminLayout(){
     window.addEventListener('resize', onResize)
     return ()=> window.removeEventListener('resize', onResize)
   },[])
+
+  useEffect(() => {
+    const initial = getThemeMode()
+    setTheme(initial)
+    setThemeMode(initial)
+  }, [])
+
+  useEffect(() => subscribeThemeMode((next) => setTheme(next)), [])
 
   // Swatch helpers for header theme controls
   function applyNavColors(cfg){
@@ -36,8 +46,7 @@ export default function AdminLayout(){
       localStorage.setItem('navColors', JSON.stringify(vars))
     }
     if (__theme){
-      localStorage.setItem('theme', __theme)
-      document.documentElement.setAttribute('data-theme', __theme === 'light' ? 'light' : 'dark')
+      setTheme(setThemeMode(__theme))
     }
   }
   const navPresets = [
@@ -69,6 +78,7 @@ export default function AdminLayout(){
   const [branding] = useBranding()
   const brandName = branding.companyName || branding.title || DEFAULT_BRANDING.companyName
   const logoSrc = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
+  const isLight = theme === 'light'
   return (
     <div>
       <Sidebar closed={closed} links={links} onToggle={()=>setClosed(c=>!c)} />
@@ -76,9 +86,11 @@ export default function AdminLayout(){
         <div
           className="topbar"
           style={{
-            background: 'linear-gradient(135deg, rgba(10,10,10,0.96), rgba(30,41,59,0.96))',
-            borderBottom: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: '0 20px 50px rgba(15,23,42,0.28)',
+            background: isLight
+              ? 'linear-gradient(135deg, rgba(255,255,255,0.96), rgba(241,245,249,0.96))'
+              : 'linear-gradient(135deg, rgba(10,10,10,0.96), rgba(30,41,59,0.96))',
+            borderBottom: isLight ? '1px solid rgba(148,163,184,0.22)' : '1px solid rgba(255,255,255,0.08)',
+            boxShadow: isLight ? '0 20px 50px rgba(148,163,184,0.18)' : '0 20px 50px rgba(15,23,42,0.28)',
             backdropFilter: 'blur(16px)',
             paddingTop: 18,
             paddingBottom: 18,
@@ -90,25 +102,25 @@ export default function AdminLayout(){
               onClick={()=> setClosed(c=>!c)}
               title={closed ? 'Open menu' : 'Close menu'}
               aria-label={closed ? 'Open menu' : 'Close menu'}
-              style={{ borderRadius: 999, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)' }}
+              style={{ borderRadius: 999, background: isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.08)', color: isLight ? '#0f172a' : '#fff', border: isLight ? '1px solid rgba(148,163,184,0.25)' : '1px solid rgba(255,255,255,0.12)' }}
             >
               ☰
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: isMobile ? '10px 12px' : '12px 18px', borderRadius: 24, background: 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04))', border: '1px solid rgba(255,255,255,0.12)', minWidth: isMobile ? undefined : 320 }}>
-              <div style={{ width: isMobile ? 44 : 56, height: isMobile ? 44 : 56, borderRadius: 18, background: 'rgba(255,255,255,0.96)', display: 'grid', placeItems: 'center', overflow: 'hidden', boxShadow: '0 12px 30px rgba(0,0,0,0.25)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16, padding: isMobile ? '10px 12px' : '12px 18px', borderRadius: 24, background: isLight ? 'linear-gradient(135deg, rgba(255,255,255,0.92), rgba(248,250,252,0.88))' : 'linear-gradient(135deg, rgba(255,255,255,0.10), rgba(255,255,255,0.04))', border: isLight ? '1px solid rgba(148,163,184,0.22)' : '1px solid rgba(255,255,255,0.12)', minWidth: isMobile ? undefined : 320 }}>
+              <div style={{ width: isMobile ? 44 : 56, height: isMobile ? 44 : 56, borderRadius: 18, background: 'rgba(255,255,255,0.96)', display: 'grid', placeItems: 'center', overflow: 'hidden', boxShadow: isLight ? '0 10px 24px rgba(148,163,184,0.22)' : '0 12px 30px rgba(0,0,0,0.25)' }}>
                 <img src={logoSrc} alt={brandName} className="h-full w-full object-contain" />
               </div>
               {!isMobile && (
                 <div style={{ display: 'grid', gap: 3 }}>
-                  <div style={{ fontSize: 12, letterSpacing: '0.24em', textTransform: 'uppercase', color: 'rgba(255,255,255,0.62)', fontWeight: 700 }}>Admin Control</div>
-                  <div style={{ fontSize: 24, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{brandName}</div>
-                  <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.72)' }}>Manage users, workspace branding, and separate business panels.</div>
+                  <div style={{ fontSize: 12, letterSpacing: '0.24em', textTransform: 'uppercase', color: isLight ? 'rgba(15,23,42,0.56)' : 'rgba(255,255,255,0.62)', fontWeight: 700 }}>Admin Control</div>
+                  <div style={{ fontSize: 24, fontWeight: 800, color: isLight ? '#0f172a' : '#fff', lineHeight: 1 }}>{brandName}</div>
+                  <div style={{ fontSize: 13, color: isLight ? 'rgba(51,65,85,0.82)' : 'rgba(255,255,255,0.72)' }}>Manage users, workspace branding, and separate business panels.</div>
                 </div>
               )}
             </div>
             {!isMobile && (
               <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full font-bold tracking-tight"
-                style={{ background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)' }}>
+                style={{ background: isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.08)', color: isLight ? '#0f172a' : '#fff', border: isLight ? '1px solid rgba(148,163,184,0.24)' : '1px solid rgba(255,255,255,0.12)' }}>
                 <span role="img" aria-label="gear">⚙️</span>
                 <span>Workspace Admin</span>
               </div>
@@ -124,13 +136,13 @@ export default function AdminLayout(){
                     title={p.title}
                     aria-label={p.title}
                     onClick={()=> applyNavColors(p.cfg)}
-                    className="w-4 h-4 rounded-full border border-white/30 shadow-inner cursor-pointer"
-                    style={{ background: p.sample }}
+                    className="w-4 h-4 rounded-full shadow-inner cursor-pointer"
+                    style={{ background: p.sample, border: isLight ? '1px solid rgba(148,163,184,0.35)' : '1px solid rgba(255,255,255,0.3)' }}
                   />
                 ))}
               </div>
             )}
-            {!isMobile && <NavLink to="/user" className="btn secondary mr-2" style={{ borderRadius: 999, background: 'rgba(255,255,255,0.08)', color: '#fff', border: '1px solid rgba(255,255,255,0.12)' }}>User Panel</NavLink>}
+            {!isMobile && <NavLink to="/user" className="btn secondary mr-2" style={{ borderRadius: 999, background: isLight ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.08)', color: isLight ? '#0f172a' : '#fff', border: isLight ? '1px solid rgba(148,163,184,0.24)' : '1px solid rgba(255,255,255,0.12)' }}>User Panel</NavLink>}
             <button type="button" className="btn danger" onClick={doLogout} style={{ borderRadius: 999 }}>
               Logout
             </button>

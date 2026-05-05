@@ -5,8 +5,10 @@ import Sidebar from '../components/Sidebar.jsx'
 import Modal from '../components/Modal.jsx'
 import NotificationsDropdown from '../components/NotificationsDropdown.jsx'
 import NotificationListener from '../components/NotificationListener.jsx'
+import { ThemeModeSelector } from '../components/ui/theme-toggle-buttons.jsx'
 import { io } from 'socket.io-client'
 import { useBranding } from '../util/useBranding.js'
+import { getThemeMode, setThemeMode, subscribeThemeMode } from '../util/themeMode.js'
 
 export default function UserLayout() {
   const navigate = useNavigate()
@@ -19,7 +21,7 @@ export default function UserLayout() {
   const [isCompact, setIsCompact] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth <= 1180 : false
   )
-  const [theme, setTheme] = useState('dark')
+  const [theme, setTheme] = useState(() => getThemeMode())
   const location = useLocation()
   const me = JSON.parse(localStorage.getItem('me') || '{}')
   const [pendingManagerRemits, setPendingManagerRemits] = useState(0)
@@ -1386,15 +1388,12 @@ export default function UserLayout() {
 
   // Initialize theme from localStorage or system preference
   useEffect(() => {
-    const saved = localStorage.getItem('theme')
-    let t =
-      saved ||
-      (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
-        ? 'light'
-        : 'dark')
-    setTheme(t)
-    document.documentElement.setAttribute('data-theme', t === 'light' ? 'light' : 'dark')
+    const initial = getThemeMode()
+    setTheme(initial)
+    setThemeMode(initial)
   }, [])
+
+  useEffect(() => subscribeThemeMode((next) => setTheme(next)), [])
 
   // Restore saved nav colors from localStorage
   useEffect(() => {
@@ -1469,9 +1468,7 @@ export default function UserLayout() {
       localStorage.setItem('navColors', JSON.stringify(vars))
     }
     if (__theme) {
-      localStorage.setItem('theme', __theme)
-      document.documentElement.setAttribute('data-theme', __theme === 'light' ? 'light' : 'dark')
-      setTheme(__theme)
+      setTheme(setThemeMode(__theme))
     }
   }
 
@@ -1633,9 +1630,7 @@ export default function UserLayout() {
 
   function toggleTheme() {
     const next = theme === 'light' ? 'dark' : 'light'
-    setTheme(next)
-    localStorage.setItem('theme', next)
-    document.documentElement.setAttribute('data-theme', next === 'light' ? 'light' : 'dark')
+    setTheme(setThemeMode(next))
   }
 
   function doLogout() {
@@ -2197,12 +2192,10 @@ export default function UserLayout() {
                       {/* Menu items */}
                       <div style={{ padding: '12px', display: 'grid', gap: '4px' }}>
                         <button
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            setSettingsView('nav')
+                          onClick={() => {
+                            setShowSettingsDropdown(false)
+                            navigate('/user/profile-settings')
                           }}
-                          className="menu-item-btn"
                           style={{
                             width: '100%',
                             padding: '12px 16px',
@@ -2253,9 +2246,9 @@ export default function UserLayout() {
                             </svg>
                           </span>
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600 }}>Navigation</div>
+                            <div style={{ fontWeight: 600 }}>Business Settings</div>
                             <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                              Customize menu
+                              Logo, favicon, business name, domain, and appearance
                             </div>
                           </div>
                           <svg
@@ -2271,67 +2264,6 @@ export default function UserLayout() {
                           >
                             <polyline points="9 18 15 12 9 6"></polyline>
                           </svg>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setShowSettingsDropdown(false)
-                            navigate('/user/profile-settings')
-                          }}
-                          style={{
-                            width: '100%',
-                            padding: '12px 16px',
-                            background: 'transparent',
-                            border: 'none',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            cursor: 'pointer',
-                            color: 'var(--fg)',
-                            borderRadius: '16px',
-                            transition: 'all 0.2s ease',
-                            fontSize: '14px',
-                            fontWeight: 500,
-                            textAlign: 'left',
-                          }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.background = 'var(--panel-2)')
-                          }
-                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <span
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 10,
-                              background: 'rgba(168, 85, 247, 0.1)',
-                              color: '#a855f7',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                            }}
-                          >
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                              <circle cx="12" cy="7" r="4"></circle>
-                            </svg>
-                          </span>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600 }}>Profile</div>
-                            <div style={{ fontSize: '11px', color: 'var(--muted)' }}>
-                              Account settings
-                            </div>
-                          </div>
                         </button>
 
                         <button
@@ -2390,179 +2322,6 @@ export default function UserLayout() {
                           <span>Change Password</span>
                         </button>
 
-                        <button
-                          onClick={() => {
-                            setShowSettingsDropdown(false)
-                            navigate('/user/label-settings')
-                          }}
-                          style={{
-                            width: '100%',
-                            padding: '12px 16px',
-                            background: 'transparent',
-                            border: 'none',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            cursor: 'pointer',
-                            color: 'var(--fg)',
-                            borderRadius: '16px',
-                            transition: 'all 0.2s ease',
-                            fontSize: '14px',
-                            fontWeight: 500,
-                            textAlign: 'left',
-                          }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.background = 'var(--panel-2)')
-                          }
-                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <span
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 10,
-                              background: 'rgba(251, 146, 60, 0.1)',
-                              color: '#f97316',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                            }}
-                          >
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                              <line x1="9" y1="9" x2="15" y2="9" />
-                              <line x1="9" y1="15" x2="15" y2="15" />
-                            </svg>
-                          </span>
-                          <span>Label</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            setShowSettingsDropdown(false)
-                            navigate('/user/api-setup')
-                          }}
-                          style={{
-                            width: '100%',
-                            padding: '12px 16px',
-                            background: 'transparent',
-                            border: 'none',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            cursor: 'pointer',
-                            color: 'var(--fg)',
-                            borderRadius: '16px',
-                            transition: 'all 0.2s ease',
-                            fontSize: '14px',
-                            fontWeight: 500,
-                            textAlign: 'left',
-                          }}
-                          onMouseEnter={(e) =>
-                            (e.currentTarget.style.background = 'var(--panel-2)')
-                          }
-                          onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                        >
-                          <span
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 10,
-                              background: 'rgba(245, 158, 11, 0.1)',
-                              color: '#f59e0b',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                            }}
-                          >
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <circle cx="12" cy="12" r="10" />
-                              <line x1="12" y1="2" x2="12" y2="6" />
-                              <line x1="12" y1="18" x2="12" y2="22" />
-                              <line x1="4.93" y1="4.93" x2="7.76" y2="7.76" />
-                              <line x1="16.24" y1="16.24" x2="19.07" y2="19.07" />
-                            </svg>
-                          </span>
-                          <span>API Setup</span>
-                        </button>
-
-                        <button
-                          onClick={() => {
-                            navigate('/user/shopify-settings')
-                            setShowSettingsDropdown(false)
-                          }}
-                          style={{
-                            width: '100%',
-                            padding: '12px 16px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '12px',
-                            background: 'none',
-                            border: 'none',
-                            cursor: 'pointer',
-                            borderRadius: '12px',
-                            transition: 'all 0.2s ease',
-                            color: 'var(--text)',
-                            fontSize: '14px',
-                            fontWeight: 500,
-                          }}
-                          onMouseOver={(e) =>
-                            (e.currentTarget.style.background = 'var(--hover)')
-                          }
-                          onMouseOut={(e) => (e.currentTarget.style.background = 'none')}
-                          title="Shopify Settings"
-                        >
-                          <span
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 10,
-                              background: 'rgba(124, 58, 237, 0.1)',
-                              color: '#7c3aed',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              flexShrink: 0,
-                            }}
-                          >
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="2"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
-                              <line x1="3" y1="6" x2="21" y2="6" />
-                              <path d="M16 10a4 4 0 0 1-8 0" />
-                            </svg>
-                          </span>
-                          <span>Shopify</span>
-                        </button>
-
                         <div
                           style={{
                             padding: '16px',
@@ -2585,42 +2344,7 @@ export default function UserLayout() {
                           >
                             Theme
                           </div>
-                          <div
-                            style={{
-                              display: 'grid',
-                              gridTemplateColumns: 'repeat(6, 1fr)',
-                              gap: '8px',
-                            }}
-                          >
-                            {navPresets.map((p) => (
-                              <button
-                                key={p.title}
-                                type="button"
-                                title={p.title}
-                                aria-label={p.title}
-                                onClick={() => applyNavColors(p.cfg)}
-                                style={{
-                                  width: '100%',
-                                  aspectRatio: '1',
-                                  borderRadius: '8px',
-                                  border: '2px solid rgba(255,255,255,0.1)',
-                                  cursor: 'pointer',
-                                  background: p.sample,
-                                  padding: 0,
-                                  transition: 'all 0.2s ease',
-                                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.transform = 'scale(1.1)'
-                                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.transform = 'scale(1)'
-                                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)'
-                                }}
-                              />
-                            ))}
-                          </div>
+                          <ThemeModeSelector compact value={theme} onChange={(next) => setTheme(setThemeMode(next))} />
                         </div>
 
                         <button

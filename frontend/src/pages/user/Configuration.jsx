@@ -1,35 +1,26 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import ProfileSettings from './ProfileSettings'
-import APISetup from './APISetup'
+import BusinessSettings from './BusinessSettings'
 import EmailSettings from './EmailSettings'
 import CurrencySettings from './CurrencySettings'
-import LabelSettings from './LabelSettings'
-import ShopifySettings from './ShopifySettings'
 import DeliveryWorkflow from './DeliveryWorkflow'
 import SocialLinks from './SocialLinks'
 import { COUNTRY_LIST, normalizeCountryEntry, resolveCountryEntry } from '../../utils/constants'
 import { autoDetectCountryMeta, loadCountryRegistry, saveCountryRegistry } from '../../util/countryRegistry'
 
 const SECTIONS = [
-  { key: 'profile', label: 'Profile' },
-  { key: 'api', label: 'API Setup' },
+  { key: 'business', label: 'Business Settings' },
   { key: 'email', label: 'Email / SMTP' },
   { key: 'currency', label: 'Currency' },
-  { key: 'label', label: 'Labels' },
-  { key: 'shopify', label: 'Shopify' },
   { key: 'delivery', label: 'Delivery' },
   { key: 'social', label: 'Social Links' },
   { key: 'countries', label: 'Countries' },
 ]
 
 const SECTION_COMPONENTS = {
-  profile: ProfileSettings,
-  api: APISetup,
+  business: BusinessSettings,
   email: EmailSettings,
   currency: CurrencySettings,
-  label: LabelSettings,
-  shopify: ShopifySettings,
   delivery: DeliveryWorkflow,
   social: SocialLinks,
 }
@@ -283,12 +274,12 @@ function CountryManager() {
   )
 }
 
-export default function Configuration() {
+export default function UserConfiguration() {
   const location = useLocation()
   const navigate = useNavigate()
   const params = new URLSearchParams(location.search)
-  const section = params.get('section') || 'profile'
-  const selectedSection = SECTIONS.some((item) => item.key === section) ? section : 'profile'
+  const section = params.get('section') || 'business'
+  const selectedSection = SECTIONS.some((item) => item.key === section) ? section : 'business'
   const ActiveSection = SECTION_COMPONENTS[selectedSection] || null
 
   function selectSection(nextSection) {
@@ -298,11 +289,11 @@ export default function Configuration() {
   }
 
   return (
-    <div className="section" style={{ display: 'grid', gap: 18 }}>
+    <div className="container" style={{ display: 'grid', gap: 20 }}>
       <div className="page-header">
         <div>
           <div className="page-title gradient heading-blue">Configuration</div>
-          <div className="page-subtitle">Manage profile, integrations, operations, and country setup from one place.</div>
+          <div className="page-subtitle">Manage business identity, operations, and country setup from one place.</div>
         </div>
       </div>
 
