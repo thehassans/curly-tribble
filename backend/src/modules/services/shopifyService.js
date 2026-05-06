@@ -1,4 +1,3 @@
-import axios from "axios";
 import Product from "../models/Product.js";
 import Setting from "../models/Setting.js";
 import { DEFAULT_BRANDING } from "../utils/branding.js";
@@ -34,19 +33,32 @@ async function shopifyRequest(method, endpoint, data = null) {
   const url = `https://${config.store}/admin/api/${config.apiVersion}${endpoint}`;
 
   try {
-    const response = await axios({
+    const response = await fetch(url, {
       method,
-      url,
       headers: {
         "X-Shopify-Access-Token": config.accessToken,
         "Content-Type": "application/json",
       },
-      data,
+      ...(data == null ? {} : { body: JSON.stringify(data) }),
     });
-    return response.data;
+    const contentType = response.headers.get("content-type") || "";
+    const responseData = contentType.includes("application/json")
+      ? await response.json()
+      : await response.text();
+
+    if (!response.ok) {
+      console.error("Shopify API Error:", responseData || response.statusText);
+      throw new Error(
+        responseData?.errors ||
+          responseData?.error ||
+          (typeof responseData === "string" ? responseData : response.statusText)
+      );
+    }
+
+    return responseData;
   } catch (error) {
-    console.error("Shopify API Error:", error.response?.data || error.message);
-    throw new Error(error.response?.data?.errors || error.message);
+    console.error("Shopify API Error:", error.message);
+    throw new Error(error.message);
   }
 }
 

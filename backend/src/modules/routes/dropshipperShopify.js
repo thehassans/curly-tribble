@@ -245,7 +245,6 @@ router.delete('/unlist/:productId', auth, allowRoles('dropshipper'), async (req,
 // Helper: Test Shopify connection
 async function testShopifyConnection(shopDomain, accessToken) {
   try {
-    const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args))
     const url = `https://${shopDomain}/admin/api/2024-01/shop.json`
     
     const response = await fetch(url, {
@@ -265,7 +264,6 @@ async function testShopifyConnection(shopDomain, accessToken) {
 // Helper: Create product on Shopify
 async function createShopifyProduct({ shopDomain, accessToken, product, retailPrice, selectedImages, description, currency }) {
   try {
-    const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args))
     const url = `https://${shopDomain}/admin/api/2024-01/products.json`
 
     const API_BASE = process.env.API_BASE || DEFAULT_BRANDING.websiteUrl
@@ -318,7 +316,6 @@ async function createShopifyProduct({ shopDomain, accessToken, product, retailPr
 // Helper: Delete product from Shopify
 async function deleteShopifyProduct({ shopDomain, accessToken, shopifyProductId }) {
   try {
-    const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args))
     const url = `https://${shopDomain}/admin/api/2024-01/products/${shopifyProductId}.json`
 
     const response = await fetch(url, {

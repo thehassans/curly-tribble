@@ -177,7 +177,6 @@ router.delete('/shopify/unlist/:productId', auth, allowRoles('admin', 'user'), a
 // Helper functions
 async function testShopifyConnection(shopDomain, accessToken) {
   try {
-    const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args))
     const url = `https://${shopDomain}/admin/api/2024-01/shop.json`
     
     const response = await fetch(url, {
@@ -196,7 +195,6 @@ async function testShopifyConnection(shopDomain, accessToken) {
 
 async function deleteShopifyProduct({ shopDomain, accessToken, shopifyProductId }) {
   try {
-    const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args))
     const url = `https://${shopDomain}/admin/api/2024-01/products/${shopifyProductId}.json`
 
     const response = await fetch(url, {
