@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { API_BASE, apiGet, apiPatch } from '../api.js'
 import NotificationListener from '../components/NotificationListener.jsx'
+import AccountDropdown from '../components/ui/account-dropdown.jsx'
+import { DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator } from '../components/ui/dropdown-menu.jsx'
+import { KeyRound, LogOut } from 'lucide-react'
 
 const PREMIUM_STYLES = `
   .dropshipper-layout {
@@ -256,7 +259,6 @@ export default function DropshipperLayout() {
     }
   })
   
-  const [showSettings, setShowSettings] = useState(false)
   const [showPassModal, setShowPassModal] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -345,17 +347,6 @@ export default function DropshipperLayout() {
       setChangingPass(false)
     }
   }
-
-  // Click outside to close settings
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (showSettings && !e.target.closest('.settings-dropdown') && !e.target.closest('.settings-button')) {
-        setShowSettings(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showSettings])
 
   const links = [
     { to: '/dropshipper/dashboard', label: 'Overview', icon: (
@@ -500,86 +491,36 @@ export default function DropshipperLayout() {
               </div>
             </button>
             
-            {/* Settings Button */}
-            <button
-              className="settings-button"
-              onClick={() => setShowSettings(!showSettings)}
-              title="Settings"
-              style={{
-                width: '36px',
-                height: '36px',
-                borderRadius: '10px',
-                border: '1px solid var(--border)',
-                background: 'var(--panel)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s',
-                boxShadow: showSettings ? '0 0 0 2px #10b981' : 'none'
-              }}
+            <AccountDropdown
+              name={`${me.firstName || ''} ${me.lastName || ''}`.trim()}
+              email={me.email || ''}
+              fallbackLabel="Dropshipper"
+              triggerLabel="Open account menu"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9 3.09V3a2 2 0 0 1 4 0v.09c0 .67.39 1.28 1 1.57h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0c.3.61.91 1 1.58 1H21a2 2 0 0 1 0 4h-.09c-.67 0-1.28.39-1.57 1z"/>
-              </svg>
-            </button>
-
-            {/* Settings Dropdown */}
-            {showSettings && (
-              <div 
-                className="settings-dropdown"
-                style={{
-                  position: 'absolute',
-                  top: '100%',
-                  right: 0,
-                  marginTop: '8px',
-                  width: '280px',
-                  maxHeight: '400px',
-                  overflowY: 'auto',
-                  background: 'var(--panel)',
-                  border: '1px solid var(--border)',
-                  borderRadius: '12px',
-                  boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
-                  zIndex: 1000,
-                  padding: '12px'
+              <DropdownMenuGroup>
+                <DropdownMenuItem
+                  className="rounded-2xl px-3 py-3"
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    setShowPassModal(true)
+                  }}
+                >
+                  <KeyRound size={16} strokeWidth={2} className="opacity-70" aria-hidden="true" />
+                  <span>Change Password</span>
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator className="mx-0 my-2 bg-[color:var(--border)]" />
+              <DropdownMenuItem
+                className="rounded-2xl px-3 py-3 text-red-500 focus:bg-red-500/10 focus:text-red-500"
+                onSelect={(e) => {
+                  e.preventDefault()
+                  doLogout()
                 }}
               >
-                <div style={{fontSize: '14px', fontWeight: 700, marginBottom: '12px', padding: '0 4px'}}>Settings</div>
-                
-                {/* Password Change */}
-                <div style={{padding: '12px 8px', borderBottom: '1px solid var(--border)'}}>
-                  <button
-                    className="btn small secondary"
-                    onClick={() => {
-                      setShowSettings(false)
-                      setShowPassModal(true)
-                    }}
-                    style={{width: '100%', fontSize: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'}}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                      <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-                    </svg>
-                    Change Password
-                  </button>
-                </div>
-
-                {/* Logout */}
-                <div style={{padding: '12px 8px'}}>
-                  <button
-                    className="btn small danger"
-                    onClick={() => {
-                      setShowSettings(false)
-                      doLogout()
-                    }}
-                    style={{width: '100%', fontSize: '12px', padding: '6px 12px'}}
-                  >
-                    Logout
-                  </button>
-                </div>
-              </div>
-            )}
+                <LogOut size={16} strokeWidth={2} aria-hidden="true" />
+                <span>Logout</span>
+              </DropdownMenuItem>
+            </AccountDropdown>
           </div>
         </div>
 

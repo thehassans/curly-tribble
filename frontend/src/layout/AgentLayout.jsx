@@ -4,6 +4,9 @@ import { API_BASE, apiGet, apiPatch } from '../api.js'
 import Sidebar from '../components/Sidebar.jsx'
 import NotificationListener from '../components/NotificationListener.jsx'
 import NotificationsDropdown from '../components/NotificationsDropdown.jsx'
+import AccountDropdown from '../components/ui/account-dropdown.jsx'
+import { DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator } from '../components/ui/dropdown-menu.jsx'
+import { FileText, KeyRound, LogOut, UserPen, Wallet } from 'lucide-react'
 
 export default function AgentLayout() {
   const [closed, setClosed] = useState(() =>
@@ -18,7 +21,6 @@ export default function AgentLayout() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [ordersSubmitted, setOrdersSubmitted] = useState(0)
   const levelThresholds = useMemo(() => [0, 5, 50, 100, 250, 500], [])
-  const [showSettings, setShowSettings] = useState(false)
   const [availability, setAvailability] = useState('available')
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [ringtone, setRingtone] = useState('shopify')
@@ -599,17 +601,6 @@ export default function AgentLayout() {
     }
   }
 
-  // Click outside to close settings
-  useEffect(() => {
-    function handleClickOutside(e) {
-      if (showSettings && !e.target.closest('.settings-dropdown') && !e.target.closest('.settings-button')) {
-        setShowSettings(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [showSettings])
-
   // Initialize settings from localStorage and user data
   useEffect(() => {
     try {
@@ -759,176 +750,110 @@ export default function AgentLayout() {
               {/* Notifications */}
               <NotificationsDropdown />
 
-              {/* Settings Button */}
-              <button
-                className="settings-button"
-                onClick={() => setShowSettings(!showSettings)}
-                title="Settings"
-                style={{
-                  width: '36px',
-                  height: '36px',
-                  borderRadius: '10px',
-                  border: '1px solid var(--border)',
-                  background: 'var(--panel)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.2s',
-                  boxShadow: showSettings ? '0 0 0 2px var(--accent)' : 'none'
-                }}
+              <AccountDropdown
+                name={`${me.firstName || ''} ${me.lastName || ''}`.trim()}
+                email={me.email || ''}
+                fallbackLabel="Agent"
+                triggerLabel="Open account menu"
               >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="3"/>
-                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 9 3.09V3a2 2 0 0 1 4 0v.09c0 .67.39 1.28 1 1.57h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0c.3.61.91 1 1.58 1H21a2 2 0 0 1 0 4h-.09c-.67 0-1.28.39-1.57 1z"/>
-                </svg>
-              </button>
-
-              {/* Settings Dropdown */}
-              {showSettings && (
-                <div 
-                  className="settings-dropdown"
-                  style={{
-                    position: 'absolute',
-                    top: '100%',
-                    right: 0,
-                    marginTop: '8px',
-                    width: '320px',
-                    maxHeight: '500px',
-                    overflowY: 'auto',
-                    background: 'var(--panel)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '12px',
-                    boxShadow: '0 4px 24px rgba(0,0,0,0.15)',
-                    zIndex: 1000,
-                    padding: '12px'
-                  }}
-                >
-                  <div style={{fontSize: '14px', fontWeight: 700, marginBottom: '12px', padding: '0 4px'}}>Settings</div>
-                  
-                  {/* Availability */}
-                  <div style={{padding: '12px 8px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
-                    <div style={{display: 'flex', alignItems: 'center', gap: 10}}>
-                      <div style={{width: 20, height: 20, borderRadius: '50%', background: availability === 'available' ? '#10b981' : '#ef4444'}}></div>
-                      <div style={{fontSize: '13px', fontWeight: 600}}>Availability</div>
+                <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--panel-2)] p-4">
+                  <div className="mb-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div
+                        style={{
+                          width: 18,
+                          height: 18,
+                          borderRadius: 999,
+                          background: availability === 'available' ? '#10b981' : '#ef4444',
+                        }}
+                      />
+                      <div className="text-sm font-semibold">Availability</div>
                     </div>
                     <button
                       className={`btn small ${availability === 'available' ? 'success' : 'secondary'}`}
                       onClick={() => updateAvailability(availability === 'available' ? 'offline' : 'available')}
-                      style={{fontSize: '11px', padding: '4px 10px'}}
+                      style={{ fontSize: '11px', padding: '4px 10px' }}
                     >
                       {availability === 'available' ? 'Online' : 'Offline'}
                     </button>
                   </div>
-
-                  {/* Notifications */}
-                  <div style={{padding: '12px 8px', borderBottom: '1px solid var(--border)'}}>
-                    <div style={{fontSize: '13px', fontWeight: 600, marginBottom: '8px'}}>Notifications</div>
-                    <div style={{display: 'flex', gap: 6, alignItems: 'center'}}>
-                      <select
-                        className="input small"
-                        value={ringtone}
-                        onChange={(e) => {
-                          setRingtone(e.target.value)
-                          storeSoundPrefs(soundEnabled, e.target.value)
-                        }}
-                        style={{flex: 1, fontSize: '12px', padding: '4px 8px'}}
-                      >
-                        <option value="shopify">Shopify</option>
-                        <option value="bell">Bell</option>
-                        <option value="ping">Ping</option>
-                        <option value="knock">Knock</option>
-                        <option value="beep">Beep</option>
-                      </select>
-                      <button className="btn small secondary" onClick={playPreview} style={{fontSize: '11px', padding: '4px 10px'}}>Test</button>
-                    </div>
-                  </div>
-
-                  {/* Profile */}
-                  <div style={{padding: '12px 8px', borderBottom: '1px solid var(--border)'}}>
-                    <button
-                      className="btn small secondary"
-                      onClick={() => {
-                        setShowSettings(false)
-                        navigate('/agent/profile')
+                  <div className="text-xs font-semibold text-[color:var(--muted)]">Notifications</div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <select
+                      className="input small"
+                      value={ringtone}
+                      onChange={(e) => {
+                        setRingtone(e.target.value)
+                        storeSoundPrefs(soundEnabled, e.target.value)
                       }}
-                      style={{width: '100%', fontSize: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'}}
+                      style={{ flex: 1, fontSize: '12px', padding: '4px 8px' }}
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-                        <circle cx="12" cy="7" r="4"/>
-                      </svg>
-                      Profile
-                    </button>
-                  </div>
-
-                  {/* Payout Profile */}
-                  <div style={{padding: '12px 8px', borderBottom: '1px solid var(--border)'}}>
-                    <button
-                      className="btn small secondary"
-                      onClick={() => {
-                        setShowSettings(false)
-                        navigate('/agent/payout')
-                      }}
-                      style={{width: '100%', fontSize: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'}}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <rect x="2" y="4" width="20" height="16" rx="2"/>
-                        <path d="M2 10h20"/>
-                        <circle cx="16" cy="14" r="2"/>
-                      </svg>
-                      Payout Profile
-                    </button>
-                  </div>
-
-                  <div style={{padding: '12px 8px', borderBottom: '1px solid var(--border)'}}>
-                    <button
-                      className="btn small secondary"
-                      onClick={() => {
-                        setShowSettings(false)
-                        navigate('/agent/closings')
-                      }}
-                      style={{width: '100%', fontSize: '12px', padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px'}}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/>
-                        <polyline points="14 2 14 8 20 8"/>
-                        <path d="M9 13h6"/>
-                        <path d="M9 17h6"/>
-                      </svg>
-                      Closings
-                    </button>
-                  </div>
-
-                  {/* Change Password */}
-                  <div style={{padding: '12px 8px', borderBottom: '1px solid var(--border)'}}>
-                    <button
-                      className="btn small secondary"
-                      onClick={() => {
-                        setShowPassModal(true)
-                        setShowSettings(false)
-                      }}
-                      style={{width: '100%', fontSize: '12px', padding: '6px 12px'}}
-                    >
-                      Change Password
-                    </button>
-                  </div>
-
-                  {/* Logout */}
-                  <div style={{padding: '12px 8px'}}>
-                    <button
-                      className="btn small danger"
-                      onClick={() => {
-                        setShowSettings(false)
-                        doLogout()
-                      }}
-                      style={{width: '100%', fontSize: '12px', padding: '6px 12px'}}
-                    >
-                      Logout
+                      <option value="shopify">Shopify</option>
+                      <option value="bell">Bell</option>
+                      <option value="ping">Ping</option>
+                      <option value="knock">Knock</option>
+                      <option value="beep">Beep</option>
+                    </select>
+                    <button className="btn small secondary" onClick={playPreview} style={{ fontSize: '11px', padding: '4px 10px' }}>
+                      Test
                     </button>
                   </div>
                 </div>
-              )}
+                <DropdownMenuSeparator className="mx-0 my-2 bg-[color:var(--border)]" />
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    className="rounded-2xl px-3 py-3"
+                    onSelect={(e) => {
+                      e.preventDefault()
+                      navigate('/agent/profile')
+                    }}
+                  >
+                    <UserPen size={16} strokeWidth={2} className="opacity-70" aria-hidden="true" />
+                    <span>Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="rounded-2xl px-3 py-3"
+                    onSelect={(e) => {
+                      e.preventDefault()
+                      navigate('/agent/payout')
+                    }}
+                  >
+                    <Wallet size={16} strokeWidth={2} className="opacity-70" aria-hidden="true" />
+                    <span>Payout Profile</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="rounded-2xl px-3 py-3"
+                    onSelect={(e) => {
+                      e.preventDefault()
+                      navigate('/agent/closings')
+                    }}
+                  >
+                    <FileText size={16} strokeWidth={2} className="opacity-70" aria-hidden="true" />
+                    <span>Closings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="rounded-2xl px-3 py-3"
+                    onSelect={(e) => {
+                      e.preventDefault()
+                      setShowPassModal(true)
+                    }}
+                  >
+                    <KeyRound size={16} strokeWidth={2} className="opacity-70" aria-hidden="true" />
+                    <span>Change Password</span>
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                <DropdownMenuSeparator className="mx-0 my-2 bg-[color:var(--border)]" />
+                <DropdownMenuItem
+                  className="rounded-2xl px-3 py-3 text-red-500 focus:bg-red-500/10 focus:text-red-500"
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    doLogout()
+                  }}
+                >
+                  <LogOut size={16} strokeWidth={2} aria-hidden="true" />
+                  <span>Logout</span>
+                </DropdownMenuItem>
+              </AccountDropdown>
             </div>
           </div>
         )}

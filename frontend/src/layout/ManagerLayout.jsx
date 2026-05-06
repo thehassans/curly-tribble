@@ -1,7 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Outlet, useLocation, NavLink, useNavigate } from 'react-router-dom'
 import { API_BASE, apiGet } from '../api.js'
 import Sidebar from '../components/Sidebar.jsx'
+import AccountDropdown from '../components/ui/account-dropdown.jsx'
+import { DropdownMenuGroup, DropdownMenuItem, DropdownMenuSeparator } from '../components/ui/dropdown-menu.jsx'
+import { LogOut, UserPen } from 'lucide-react'
 
 export default function ManagerLayout(){
   const [closed, setClosed] = useState(()=> (typeof window!=='undefined' ? window.innerWidth <= 768 : false))
@@ -11,9 +14,6 @@ export default function ManagerLayout(){
   const [theme, setTheme] = useState(()=>{
     try{ return localStorage.getItem('theme') || 'dark' }catch{ return 'dark' }
   })
-  const [showSettingsDropdown, setShowSettingsDropdown] = useState(false)
-  const settingsBtnRef = useRef(null)
-  const settingsDropRef = useRef(null)
   
   useEffect(()=>{
     try{ localStorage.setItem('theme', theme) }catch{}
@@ -29,21 +29,6 @@ export default function ManagerLayout(){
     try{ return JSON.parse(localStorage.getItem('me') || '{}') }catch{ return {} }
   })
   useEffect(()=>{ (async()=>{ try{ const { user } = await apiGet('/api/users/me'); setMe(user||{}) }catch{} })() },[])
-  
-  // Close dropdown when clicking outside
-  useEffect(()=>{
-    function handleClickOutside(e){
-      if (showSettingsDropdown){
-        const dropdown = settingsDropRef.current
-        const button = settingsBtnRef.current
-        if (dropdown && !dropdown.contains(e.target) && button && !button.contains(e.target)){
-          setShowSettingsDropdown(false)
-        }
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return ()=> document.removeEventListener('mousedown', handleClickOutside)
-  }, [showSettingsDropdown])
 
   // Check permissions
   const canManageBanners = !!(me?.managerPermissions?.canManageBanners)
@@ -112,6 +97,41 @@ export default function ManagerLayout(){
     }catch{}
     try{ navigate('/login', { replace: true }) }catch{}
     setTimeout(()=>{ try{ window.location.replace('/login') }catch{} }, 30)
+  }
+
+  function renderAccountDropdown() {
+    return (
+      <AccountDropdown
+        name={`${me.firstName || ''} ${me.lastName || ''}`.trim()}
+        email={me.email || ''}
+        fallbackLabel="Manager"
+        triggerLabel="Open account menu"
+      >
+        <DropdownMenuGroup>
+          <DropdownMenuItem
+            className="rounded-2xl px-3 py-3"
+            onSelect={(e) => {
+              e.preventDefault()
+              navigate('/manager/me')
+            }}
+          >
+            <UserPen size={16} strokeWidth={2} className="opacity-70" aria-hidden="true" />
+            <span>Manager Profile</span>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator className="mx-0 my-2 bg-[color:var(--border)]" />
+        <DropdownMenuItem
+          className="rounded-2xl px-3 py-3 text-red-500 focus:bg-red-500/10 focus:text-red-500"
+          onSelect={(e) => {
+            e.preventDefault()
+            doLogout()
+          }}
+        >
+          <LogOut size={16} strokeWidth={2} aria-hidden="true" />
+          <span>Sign Out</span>
+        </DropdownMenuItem>
+      </AccountDropdown>
+    )
   }
 
   return (
@@ -205,88 +225,8 @@ export default function ManagerLayout(){
                   </svg>
                 )}
               </button>
-              <div style={{ position: 'relative', borderLeft:'1px solid var(--border)' }}>
-                <button
-                  ref={settingsBtnRef}
-                  type="button"
-                  title="Settings"
-                  aria-label="Settings"
-                  onClick={(e)=> { e.preventDefault(); e.stopPropagation(); setShowSettingsDropdown(prev => !prev) }}
-                  style={{width:'40px', height:'40px', padding:0, display:'grid', placeItems:'center', border:'none', background: showSettingsDropdown ? 'rgba(99, 102, 241, 0.12)' : 'transparent', color:'var(--fg)', cursor:'pointer', boxSizing:'border-box', appearance:'none', WebkitAppearance:'none', outline:'none', WebkitTapHighlightColor:'transparent', lineHeight:0}}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{display:'block', transform:'translateY(0.5px)', opacity:0.95}}>
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.6 1.65 1.65 0 0 0 10.51 3.1V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.25.5.39 1.05.39 1.62s-.14 1.12-.39 1.62z" />
-                  </svg>
-                </button>
-                {showSettingsDropdown && (
-                  <div
-                    ref={settingsDropRef}
-                    style={{
-                      position: 'absolute',
-                      top: 'calc(100% + 8px)',
-                      right: 0,
-                      width: '260px',
-                      background: 'var(--panel)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '16px',
-                      boxShadow: '0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05)',
-                      zIndex: 3000,
-                      overflow: 'hidden',
-                      backdropFilter: 'blur(20px)'
-                    }}
-                  >
-                    <div style={{ padding: '14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '12px', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(168, 85, 247, 0.05))' }}>
-                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px', fontWeight: 700, color: '#fff', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)' }}>
-                        {((me.firstName||'')[0]||(me.lastName||'')[0]||'M').toUpperCase()}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, fontSize: '14px', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {`${me.firstName||''} ${me.lastName||''}`.trim() || 'Manager'}
-                        </div>
-                        <div style={{ fontSize: '12px', color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {me.email || ''}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ padding: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={(e)=> {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setShowSettingsDropdown(false)
-                          doLogout()
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '12px 14px',
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#ef4444',
-                          textAlign: 'left',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '12px',
-                          fontSize: '14px',
-                          fontWeight: 600,
-                          borderRadius: '10px',
-                          transition: 'all 0.2s ease'
-                        }}
-                        onMouseEnter={(e)=> { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'; e.currentTarget.style.transform = 'translateX(4px)' }}
-                        onMouseLeave={(e)=> { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.transform = 'translateX(0)' }}
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                          <polyline points="16 17 21 12 16 7"/>
-                          <line x1="21" y1="12" x2="9" y2="12"/>
-                        </svg>
-                        Sign Out
-                      </button>
-                    </div>
-                  </div>
-                )}
+              <div style={{ position: 'relative', borderLeft:'1px solid var(--border)', paddingLeft: 2 }}>
+                {renderAccountDropdown()}
               </div>
             </div>
           </div>
@@ -394,117 +334,8 @@ export default function ManagerLayout(){
                   </svg>
                 )}
               </button>
-              {/* Settings dropdown */}
-              <div style={{ position: 'relative', borderLeft:'1px solid var(--border)' }}>
-                <button 
-                  ref={settingsBtnRef}
-                  type="button"
-                  title="Settings" 
-                  aria-label="Settings" 
-                  onClick={(e)=> { e.preventDefault(); e.stopPropagation(); setShowSettingsDropdown(prev => !prev) }}
-                  style={{width:'40px', height:'40px', padding:0, display:'grid', placeItems:'center', border:'none', background: showSettingsDropdown ? 'rgba(99, 102, 241, 0.12)' : 'transparent', color:'var(--fg)', cursor:'pointer', boxSizing:'border-box', appearance:'none', WebkitAppearance:'none', outline:'none', WebkitTapHighlightColor:'transparent', lineHeight:0}}
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{display:'block', transform:'translateY(0.5px)', opacity:0.95}}>
-                    <circle cx="12" cy="12" r="3" />
-                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.6 1.65 1.65 0 0 0 10.51 3.1V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.25.5.39 1.05.39 1.62s-.14 1.12-.39 1.62z" />
-                  </svg>
-                </button>
-                {showSettingsDropdown && (
-                  <div 
-                    ref={settingsDropRef}
-                    style={{
-                      position:'absolute',
-                      top: 'calc(100% + 8px)',
-                      right: 0,
-                      width: '280px',
-                      background: 'var(--panel)',
-                      border: '1px solid var(--border)',
-                      borderRadius: '16px',
-                      boxShadow: '0 20px 60px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05)',
-                      zIndex: 3000,
-                      overflow: 'hidden',
-                      backdropFilter: 'blur(20px)'
-                    }}
-                  >
-                    {/* User info header */}
-                    <div style={{
-                      padding: '20px',
-                      borderBottom: '1px solid var(--border)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '14px',
-                      background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(168, 85, 247, 0.05))'
-                    }}>
-                      <div style={{
-                        width: '52px',
-                        height: '52px',
-                        borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '20px',
-                        fontWeight: 600,
-                        color: '#fff',
-                        boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
-                      }}>
-                        {((me.firstName||'')[0]||(me.lastName||'')[0]||'M').toUpperCase()}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, fontSize: '16px', marginBottom: '2px' }}>
-                          {`${me.firstName||''} ${me.lastName||''}`.trim() || 'Manager'}
-                        </div>
-                        <div style={{ fontSize: '13px', color: 'var(--muted)' }}>
-                          {me.email || ''}
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Menu items */}
-                    <div style={{ padding: '8px' }}>
-                      <button
-                        type="button"
-                        onClick={(e)=> {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          setShowSettingsDropdown(false)
-                          doLogout()
-                        }}
-                        style={{
-                          width: '100%',
-                          padding: '14px 16px',
-                          background: 'transparent',
-                          border: 'none',
-                          color: '#ef4444',
-                          textAlign: 'left',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '14px',
-                          fontSize: '14px',
-                          fontWeight: 500,
-                          borderRadius: '10px',
-                          transition: 'all 0.2s ease'
-                        }}
-                        onMouseEnter={(e)=> {
-                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'
-                          e.currentTarget.style.transform = 'translateX(4px)'
-                        }}
-                        onMouseLeave={(e)=> {
-                          e.currentTarget.style.background = 'transparent'
-                          e.currentTarget.style.transform = 'translateX(0)'
-                        }}
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                          <polyline points="16 17 21 12 16 7"/>
-                          <line x1="21" y1="12" x2="9" y2="12"/>
-                        </svg>
-                        Sign Out
-                      </button>
-                    </div>
-                  </div>
-                )}
+              <div style={{ position: 'relative', borderLeft:'1px solid var(--border)', paddingLeft: 2 }}>
+                {renderAccountDropdown()}
               </div>
             </div>
           </div>
