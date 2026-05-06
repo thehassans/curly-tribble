@@ -5,12 +5,23 @@ import crypto from "crypto";
 import User from "../models/User.js";
 import Setting from "../models/Setting.js";
 import rateLimit from "../middleware/rateLimit.js";
-import { OAuth2Client } from "google-auth-library";
 
 // Use a default secret in development so the app works without .env
 const SECRET = process.env.JWT_SECRET || "devsecret-change-me";
 
 const router = Router();
+
+let OAuth2ClientClass = null;
+
+async function getOAuth2Client() {
+  if (OAuth2ClientClass) return OAuth2ClientClass;
+  const mod = await import("google-auth-library");
+  OAuth2ClientClass = mod?.OAuth2Client || mod?.default?.OAuth2Client || mod?.default || null;
+  if (!OAuth2ClientClass) {
+    throw new Error("Google auth library is unavailable");
+  }
+  return OAuth2ClientClass;
+}
 
 // Seed an initial admin if none exists (dev helper)
 router.post("/seed-admin", async (req, res) => {
@@ -276,6 +287,7 @@ router.post(
         return res.status(500).json({ message: "Google OAuth not configured" });
       }
 
+      const OAuth2Client = await getOAuth2Client();
       const client = new OAuth2Client(storedClientId);
       
       let ticket;

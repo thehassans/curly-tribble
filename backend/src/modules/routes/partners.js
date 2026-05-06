@@ -12,10 +12,18 @@ import AgentRemit from "../models/AgentRemit.js";
 import PartnerClosing from "../models/PartnerClosing.js";
 import PartnerDriverStock from "../models/PartnerDriverStock.js";
 import { getIO } from "../config/socket.js";
-import { generatePartnerClosingPDF } from "../../utils/generatePartnerClosingPDF.js";
-import { generateCommissionPayoutPDF } from "../../utils/generateCommissionPayoutPDF.js";
 
 const router = express.Router();
+
+async function generatePartnerClosingPDF(...args) {
+  const mod = await import("../../utils/generatePartnerClosingPDF.js");
+  return mod.generatePartnerClosingPDF(...args);
+}
+
+async function generateCommissionPayoutPDF(...args) {
+  const mod = await import("../../utils/generateCommissionPayoutPDF.js");
+  return mod.generateCommissionPayoutPDF(...args);
+}
 
 function normalizeCountryKey(country) {
   const c = String(country || "").trim();

@@ -18,18 +18,44 @@ import InvestorBonus from "../models/InvestorBonus.js";
 import DriverCommissionRequest from "../models/DriverCommissionRequest.js";
 import ManagerSalary from "../models/ManagerSalary.js";
 import PartnerDriverPayment from "../models/PartnerDriverPayment.js";
-import { generatePayoutReceiptPDF } from "../utils/payoutReceipt.js";
-import {
-  generateSettlementPDF,
-  generateAcceptedSettlementPDF,
-} from "../../utils/generateSettlementPDF.js";
-import { generateCommissionPayoutPDF } from "../../utils/generateCommissionPayoutPDF.js";
-import { generateAgentCommissionReceiptPDF } from "../../utils/generateAgentCommissionReceiptPDF.js";
-import { generateAgentMonthlyReportPDF } from "../../utils/generateAgentMonthlyReportPDF.js";
-import { generateDriverMonthlyReportPDF } from "../../utils/generateDriverMonthlyReportPDF.js";
 import mongoose from "mongoose";
 
 const router = express.Router();
+
+async function generatePayoutReceiptPDF(...args) {
+  const mod = await import("../utils/payoutReceipt.js");
+  return mod.generatePayoutReceiptPDF(...args);
+}
+
+async function generateSettlementPDF(...args) {
+  const mod = await import("../../utils/generateSettlementPDF.js");
+  return mod.generateSettlementPDF(...args);
+}
+
+async function generateAcceptedSettlementPDF(...args) {
+  const mod = await import("../../utils/generateSettlementPDF.js");
+  return mod.generateAcceptedSettlementPDF(...args);
+}
+
+async function generateCommissionPayoutPDF(...args) {
+  const mod = await import("../../utils/generateCommissionPayoutPDF.js");
+  return mod.generateCommissionPayoutPDF(...args);
+}
+
+async function generateAgentCommissionReceiptPDF(...args) {
+  const mod = await import("../../utils/generateAgentCommissionReceiptPDF.js");
+  return mod.generateAgentCommissionReceiptPDF(...args);
+}
+
+async function generateAgentMonthlyReportPDF(...args) {
+  const mod = await import("../../utils/generateAgentMonthlyReportPDF.js");
+  return mod.generateAgentMonthlyReportPDF(...args);
+}
+
+async function generateDriverMonthlyReportPDF(...args) {
+  const mod = await import("../../utils/generateDriverMonthlyReportPDF.js");
+  return mod.generateDriverMonthlyReportPDF(...args);
+}
 
 // Centralized currency config helpers
 function defaultCurrencyConfig() {
