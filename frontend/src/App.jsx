@@ -9,6 +9,7 @@ import { apiGet } from './api.js'
 import DynamicPixels from './components/DynamicPixels.jsx'
 import AppLaunchOverlay from './components/AppLaunchOverlay.jsx'
 import DeliveryDetailsPrompt from './components/DeliveryDetailsPrompt.jsx'
+import PanelBottomNav from './components/ui/panel-bottom-nav.jsx'
 
 // =============================================================================
 // LAZY LOADING - All components loaded on demand for faster initial load
@@ -996,6 +997,7 @@ export default function App() {
               <Route path="support" element={<Support />} />
             </Route>
           </Routes>
+          <PanelBottomNav />
           </Suspense>
         </CustomDomainRouter>
         </CountryProvider>

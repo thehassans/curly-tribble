@@ -202,7 +202,65 @@ function MetricRail({ title, subtitle, items }) {
   )
 }
 
-function CountryPill({ active, label, flag, onClick }) {
+function FlagBadge({ code, flag, label }) {
+  const [hasImageError, setHasImageError] = useState(false)
+  const normalizedCode = String(code || '').trim().toLowerCase()
+  const imageSrc = normalizedCode ? `https://flagcdn.com/${normalizedCode}.svg` : ''
+  const showImage = Boolean(imageSrc && !hasImageError && normalizedCode !== 'all')
+  const badgeWidth = showImage ? 20 : 18
+  const badgeHeight = showImage ? 14 : 18
+
+  return (
+    <span
+      aria-hidden="true"
+      style={{
+        width: badgeWidth,
+        height: badgeHeight,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        borderRadius: showImage ? 4 : 999,
+        background: showImage ? 'rgba(255,255,255,0.9)' : 'transparent',
+        boxShadow: showImage ? 'inset 0 0 0 1px rgba(148,163,184,0.18)' : 'none',
+        overflow: 'hidden',
+      }}
+    >
+      {showImage ? (
+        <img
+          src={imageSrc}
+          alt={`${label || code || 'Country'} flag`}
+          width="20"
+          height="14"
+          loading="lazy"
+          draggable={false}
+          onError={() => setHasImageError(true)}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'block',
+          }}
+        />
+      ) : (
+        <span
+          style={{
+            fontSize: 14,
+            lineHeight: 1,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif',
+          }}
+        >
+          {flag}
+        </span>
+      )}
+    </span>
+  )
+}
+
+function CountryPill({ active, label, flag, code, onClick }) {
   return (
     <button
       type="button"
@@ -222,7 +280,7 @@ function CountryPill({ active, label, flag, onClick }) {
         fontWeight: 700,
       }}
     >
-      <span style={{ fontSize: 18 }}>{flag}</span>
+      <FlagBadge code={code} flag={flag} label={label} />
       <span style={{ fontSize: 13 }}>{label}</span>
     </button>
   )
@@ -488,13 +546,13 @@ export default function DashboardPremium({ mode = 'user' } = {}) {
                   (() => {
                     const countryName = report?.countries?.[0]?.country || report?.summary?.country
                     const meta = getCountryMetaFromName(countryName) || activeMeta || countryMetaOptions[0]
-                    return <CountryPill active label={meta?.label || countryName || 'Country'} flag={meta?.flag || '🌐'} onClick={() => {}} />
+                    return <CountryPill active label={meta?.label || countryName || 'Country'} flag={meta?.flag || '🌐'} code={meta?.code} onClick={() => {}} />
                   })()
                 ) : (
                   <>
-                    <CountryPill active={selectedCountryCode === 'all'} label="All Countries" flag="🌐" onClick={() => handleCountrySelect('all')} />
+                    <CountryPill active={selectedCountryCode === 'all'} label="All Countries" flag="🌐" code="all" onClick={() => handleCountrySelect('all')} />
                     {countryMetaOptions.map((item) => (
-                      <CountryPill key={item.code} active={selectedCountryCode === item.code} label={item.label} flag={item.flag} onClick={() => handleCountrySelect(item.code)} />
+                      <CountryPill key={item.code} active={selectedCountryCode === item.code} label={item.label} flag={item.flag} code={item.code} onClick={() => handleCountrySelect(item.code)} />
                     ))}
                   </>
                 )}

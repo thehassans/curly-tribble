@@ -23,6 +23,8 @@
     "@capacitor/ios": "^8.0.0",
     "@emran-alhaddad/saudi-riyal-font": "^1.1.0",
     "@heroicons/react": "^2.2.0",
+    "@radix-ui/react-slot": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
     "firebase": "^12.9.0",
     "framer-motion": "^11.18.2",
     "html2canvas": "^1.4.1",
