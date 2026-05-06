@@ -1,6 +1,17 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { DEFAULT_BRANDING } from '../utils/branding.js';
 import Setting from '../models/Setting.js'
+
+let GoogleGenerativeAIClass = null
+
+async function getGoogleGenerativeAI() {
+  if (GoogleGenerativeAIClass) return GoogleGenerativeAIClass
+  const mod = await import('@google/generative-ai')
+  GoogleGenerativeAIClass = mod?.GoogleGenerativeAI || mod?.default || null
+  if (!GoogleGenerativeAIClass) {
+    throw new Error('Google Generative AI SDK is unavailable')
+  }
+  return GoogleGenerativeAIClass
+}
 
 class GeminiService {
   constructor() {
@@ -26,8 +37,9 @@ class GeminiService {
     if (!apiKey) {
       throw new Error('Gemini API key not configured. Please add it in Settings > API Setup.');
     }
-    
-    this.client = new GoogleGenAI({ apiKey });
+
+    const GoogleGenerativeAI = await getGoogleGenerativeAI()
+    this.client = new GoogleGenerativeAI(apiKey);
     console.log(`[GeminiService] Initialized with model: ${await this.getModelName()}`);
     return this.client;
   }
@@ -36,24 +48,22 @@ class GeminiService {
     if (!this.client) {
       await this.initClient();
     }
-    
+
     const modelName = await this.getModelName();
     let lastError = null;
-    
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const response = await this.client.models.generateContent({
-          model: modelName,
-          contents: prompt,
-        });
-        return response.text;
+        const model = this.client.getGenerativeModel({ model: modelName })
+        const response = await model.generateContent(prompt);
+        return await response.response.text();
       } catch (error) {
         lastError = error;
         const errorMsg = error.message || '';
         const is503 = errorMsg.includes('503') || errorMsg.includes('overloaded') || errorMsg.includes('UNAVAILABLE');
-        
+
         console.error(`[GeminiService] Attempt ${attempt}/${maxRetries} failed:`, errorMsg);
-        
+
         if (is503 && attempt < maxRetries) {
           // Exponential backoff: 3s, 6s, 12s, 24s
           const waitTime = Math.pow(2, attempt) * 1500;
@@ -288,19 +298,9 @@ Rules:
 - do not include markdown or explanation`
     let response = null
     const inlineImage = { inlineData: { mimeType, data: base64Data } }
-    const textPart = { text: prompt }
-    try {
-      response = await this.client.models.generateContent({
-        model: modelName,
-        contents: [textPart, inlineImage],
-      })
-    } catch {
-      response = await this.client.models.generateContent({
-        model: modelName,
-        contents: [{ role: 'user', parts: [textPart, inlineImage] }],
-      })
-    }
-    const text = response?.text || ''
+    const model = this.client.getGenerativeModel({ model: modelName })
+    response = await model.generateContent([prompt, inlineImage])
+    const text = await response.response.text()
     const jsonMatch = String(text).match(/\{[\s\S]*\}/)
     if (!jsonMatch) {
       throw new Error('Failed to parse AI visual search response')

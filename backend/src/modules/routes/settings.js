@@ -4,7 +4,6 @@ import fs from "fs";
 import path from "path";
 import Setting from "../models/Setting.js";
 import User from "../models/User.js";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { auth, allowRoles } from "../middleware/auth.js";
 import mime from "mime-types";
 import googleMapsService from "../services/googleMapsService.js";
@@ -20,6 +19,18 @@ import {
 } from "../utils/branding.js";
 
 const router = express.Router();
+
+let GoogleGenerativeAIClass = null;
+
+async function getGoogleGenerativeAI() {
+  if (GoogleGenerativeAIClass) return GoogleGenerativeAIClass;
+  const mod = await import("@google/generative-ai");
+  GoogleGenerativeAIClass = mod?.GoogleGenerativeAI || mod?.default || null;
+  if (!GoogleGenerativeAIClass) {
+    throw new Error("Google Generative AI SDK is unavailable");
+  }
+  return GoogleGenerativeAIClass;
+}
 
 // Ensure uploads/branding directory exists
 const BRANDING_DIR = path.resolve(process.cwd(), "uploads", "branding");
@@ -349,6 +360,7 @@ router.post("/ai/test", auth, allowRoles("admin", "user"), async (req, res) => {
         process.env.GEMINI_API_KEY ||
         "";
       if (!key) throw new Error("Missing Gemini API key");
+      const GoogleGenerativeAI = await getGoogleGenerativeAI();
       const genAI = new GoogleGenerativeAI(key);
       // Use gemini-2.5-flash model (stable)
       const descModel = "gemini-2.5-flash";
