@@ -2,7 +2,6 @@ import express from 'express'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
-import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 import Brand from '../models/Brand.js'
 import { auth, allowRoles } from '../middleware/auth.js'
@@ -10,6 +9,14 @@ import { auth, allowRoles } from '../middleware/auth.js'
 const router = express.Router()
 const __filename_brand = fileURLToPath(import.meta.url)
 const __dirname_brand = path.dirname(__filename_brand)
+let sharpLib = null
+
+async function getSharp() {
+  if (sharpLib) return sharpLib
+  const mod = await import('sharp')
+  sharpLib = mod?.default || mod
+  return sharpLib
+}
 
 function resolveBrandUploadsDir() {
   const candidates = [
@@ -148,6 +155,7 @@ router.post('/:id/logo', auth, allowRoles('admin', 'user', 'manager'), brandUplo
         const dir = path.dirname(absPath)
         const base = path.basename(absPath, ext)
         const webpPath = path.join(dir, `${base}.webp`)
+        const sharp = await getSharp()
         await sharp(absPath).resize(400, 400, { fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } }).webp({ quality: 90 }).toFile(webpPath)
         try { fs.unlinkSync(absPath) } catch {}
         finalPath = webpPath

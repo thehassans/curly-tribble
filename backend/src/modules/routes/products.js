@@ -4,9 +4,7 @@ import mongoose from 'mongoose'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs'
-import sharp from 'sharp'
 import { execFile } from 'child_process'
-import ffmpegPath from 'ffmpeg-static'
 import { auth, allowRoles } from '../middleware/auth.js'
 import Product from '../models/Product.js'
 import User from '../models/User.js'
@@ -25,6 +23,27 @@ import imageGenService from '../services/imageGenService.js'
 const router = express.Router()
 
 const ObjectId = mongoose.Types.ObjectId
+
+let sharpLib = null
+let ffmpegBinaryPath
+
+async function getSharp() {
+  if (sharpLib) return sharpLib
+  const mod = await import('sharp')
+  sharpLib = mod?.default || mod
+  return sharpLib
+}
+
+async function getFfmpegPath() {
+  if (ffmpegBinaryPath !== undefined) return ffmpegBinaryPath
+  try {
+    const mod = await import('ffmpeg-static')
+    ffmpegBinaryPath = mod?.default || mod || null
+  } catch {
+    ffmpegBinaryPath = null
+  }
+  return ffmpegBinaryPath
+}
 
 function fallbackSkuFromId(id) {
   const s = String(id || '').toUpperCase()
@@ -507,6 +526,7 @@ async function convertToWebP(filePath) {
     const baseName = path.basename(filePath, ext)
     const webpPath = path.join(dir, `${baseName}.webp`)
     
+    const sharp = await getSharp()
     await sharp(filePath)
       .webp({ quality: 85 }) // Good balance between quality and file size
       .toFile(webpPath)
@@ -547,6 +567,7 @@ async function processVideoFile(file, uploadsDir) {
   const webmPath = path.join(uploadsDir, `${baseName}.webm`)
 
   try {
+    const ffmpegPath = await getFfmpegPath()
     if (!ffmpegPath) throw new Error('ffmpeg not available')
 
     await new Promise((resolve, reject) => {
@@ -1098,6 +1119,7 @@ router.post('/public/visual-search', uploadMemory.single('image'), async (req, r
     if (!(await geminiService.ensureInitialized())) {
       return res.status(503).json({ message: 'Visual search is not available. Configure Gemini API key first.' })
     }
+    const sharp = await getSharp()
     const optimized = await sharp(req.file.buffer)
       .rotate()
       .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true })

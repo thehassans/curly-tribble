@@ -2,7 +2,6 @@ import express from 'express'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
-import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 import Category from '../models/Category.js'
 import Product from '../models/Product.js'
@@ -11,6 +10,14 @@ import { auth, allowRoles } from '../middleware/auth.js'
 const router = express.Router()
 const __filename_cat = fileURLToPath(import.meta.url)
 const __dirname_cat = path.dirname(__filename_cat)
+let sharpLib = null
+
+async function getSharp() {
+  if (sharpLib) return sharpLib
+  const mod = await import('sharp')
+  sharpLib = mod?.default || mod
+  return sharpLib
+}
 
 function resolveCatUploadsDir() {
   const candidates = [
@@ -417,6 +424,7 @@ router.post('/:id/image', auth, allowRoles('admin', 'user', 'manager'), catUploa
         const dir = path.dirname(absPath)
         const base = path.basename(absPath, ext)
         const webpPath = path.join(dir, `${base}.webp`)
+        const sharp = await getSharp()
         await sharp(absPath).webp({ quality: 85 }).toFile(webpPath)
         try { fs.unlinkSync(absPath) } catch {}
         finalPath = webpPath

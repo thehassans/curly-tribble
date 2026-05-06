@@ -2,7 +2,6 @@ import express from 'express'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
-import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 import Setting from '../models/Setting.js'
 import User from '../models/User.js'
@@ -11,6 +10,14 @@ import { auth, allowRoles } from '../middleware/auth.js'
 const router = express.Router()
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+let sharpLib = null
+
+async function getSharp() {
+  if (sharpLib) return sharpLib
+  const mod = await import('sharp')
+  sharpLib = mod?.default || mod
+  return sharpLib
+}
 
 function resolveUploadsDir(){
   try{
@@ -72,6 +79,7 @@ async function convertToWebP(filePath) {
     const dir = path.dirname(filePath)
     const baseName = path.basename(filePath, ext)
     const webpPath = path.join(dir, `${baseName}.webp`)
+    const sharp = await getSharp()
     await sharp(filePath).webp({ quality: 85 }).toFile(webpPath)
     try { fs.unlinkSync(filePath) } catch {}
     return webpPath

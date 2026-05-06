@@ -2,7 +2,6 @@ import express from 'express'
 import multer from 'multer'
 import path from 'path'
 import fs from 'fs'
-import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 import ExploreMore from '../models/ExploreMore.js'
 import { auth, allowRoles } from '../middleware/auth.js'
@@ -10,6 +9,14 @@ import { auth, allowRoles } from '../middleware/auth.js'
 const router = express.Router()
 const __filename_em = fileURLToPath(import.meta.url)
 const __dirname_em = path.dirname(__filename_em)
+let sharpLib = null
+
+async function getSharp() {
+  if (sharpLib) return sharpLib
+  const mod = await import('sharp')
+  sharpLib = mod?.default || mod
+  return sharpLib
+}
 
 function resolveUploadsDir() {
   const candidates = [
@@ -136,6 +143,7 @@ router.post('/:id/image', auth, upload.single('image'), async (req, res) => {
     const outDir = path.join(UPLOADS, 'explore-more')
     fs.mkdirSync(outDir, { recursive: true })
     const outPath = path.join(outDir, webpName)
+    const sharp = await getSharp()
     await sharp(req.file.path).resize(600, 600, { fit: 'cover' }).webp({ quality: 85 }).toFile(outPath)
     try { fs.unlinkSync(req.file.path) } catch {}
     if (item.image) { try { fs.unlinkSync(path.join(UPLOADS, item.image)) } catch {} }
