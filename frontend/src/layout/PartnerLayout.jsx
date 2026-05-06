@@ -62,7 +62,7 @@ export default function PartnerLayout() {
       <div className="partner-mobile-header">
         <div className="partner-mobile-header__brand">
           <div className="partner-mobile-header__logo-box">
-            <img src={logoSrc} alt="BuySial" className="partner-mobile-header__logo" />
+            <img src={logoSrc} alt="Brand logo" className="partner-mobile-header__logo" />
           </div>
           <div className="partner-mobile-header__text">
             <div className="partner-mobile-header__eyebrow">Partner Panel</div>

@@ -9,6 +9,7 @@ import ChatAssignment from '../models/ChatAssignment.js';
 import WaMessage from '../models/WaMessage.js';
 import Setting from '../models/Setting.js';
 import User from '../models/User.js';
+import { DEFAULT_BRANDING } from '../utils/branding.js';
 import rateLimit from '../middleware/rateLimit.js';
 import WaSession from '../models/WaSession.js';
 
@@ -52,11 +53,11 @@ router.post('/webhook', async (req, res) => {
 
 // Ensure upload temp directory exists with safe permissions (avoid EACCES on /tmp)
 function ensureTmpDir(){
-  // Prefer env WA_TMP_DIR, else project-local tmp/buysial-wa, else os.tmpdir
+  // Prefer env WA_TMP_DIR, else project-local tmp/magnetic-wa, else os.tmpdir
   const preferred = process.env.WA_TMP_DIR
     ? path.resolve(process.env.WA_TMP_DIR)
-    : path.resolve(process.cwd(), 'tmp', 'buysial-wa')
-  const fallbacks = [preferred, path.join(os.tmpdir(), 'buysial-wa')]
+    : path.resolve(process.cwd(), 'tmp', 'magnetic-wa')
+  const fallbacks = [preferred, path.join(os.tmpdir(), 'magnetic-wa')]
   for (const p of fallbacks){
     try{
       fs.mkdirSync(p, { recursive: true, mode: 0o777 })
@@ -857,7 +858,7 @@ router.post('/chat-meta/assign', auth, allowRoles('admin', 'user'), async (req, 
           // Get country info instead of showing phone number
           const countryInfo = getCountryFromPhone(customerPhone);
           
-          const notificationText = `🔔 *New Chat Assignment*\n\nHello ${agentName},\n\nYou have been assigned a new customer chat:\n${countryInfo.flag} Customer from: ${countryInfo.name}\n\nPlease respond to the customer as soon as possible.\n\n_This is an automated notification from BuySial Commerce._`;
+          const notificationText = `🔔 *New Chat Assignment*\n\nHello ${agentName},\n\nYou have been assigned a new customer chat:\n${countryInfo.flag} Customer from: ${countryInfo.name}\n\nPlease respond to the customer as soon as possible.\n\n_This is an automated notification from ${DEFAULT_BRANDING.companyName}._`;
           
           // Send WhatsApp message to agent
           const agentJid = agent.phone.replace(/[^0-9]/g, '') + '@s.whatsapp.net';

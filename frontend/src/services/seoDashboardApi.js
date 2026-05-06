@@ -79,6 +79,7 @@ export const fetchGa4Metrics = async (days = 30) => {
  * Can be called entirely client-side if you provide the API Key directly, but safer via backend.
  */
 export const fetchPageSpeedInsights = async (urlToTest, isMobile = true) => {
+  const fallbackUrl = typeof window !== 'undefined' ? window.location.origin : 'https://commerce.magnetic-ict.com';
   try {
     const strategy = isMobile ? 'MOBILE' : 'DESKTOP';
     
@@ -86,7 +87,7 @@ export const fetchPageSpeedInsights = async (urlToTest, isMobile = true) => {
     const API_KEY = 'ENTER_YOUR_GCP_API_KEY_HERE'; 
     
     // If you don't use a key, it will heavily rate limit you.
-    const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(urlToTest || 'https://buysial.com')}&strategy=${strategy}&key=${API_KEY}`;
+    const endpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(urlToTest || fallbackUrl)}&strategy=${strategy}&key=${API_KEY}`;
     
     const response = await fetch(endpoint);
     const data = await response.json();
@@ -116,8 +117,8 @@ export const fetchPageSpeedInsights = async (urlToTest, isMobile = true) => {
       cls: '0.04',
       inp: '120 ms',
       failingElements: [
-        { type: 'Render Blocking', url: 'https://buysial.com/assets/style.css' },
-        { type: 'Unoptimized Image', url: 'https://buysial.com/images/hero.jpg' }
+        { type: 'Render Blocking', url: `${fallbackUrl}/assets/style.css` },
+        { type: 'Unoptimized Image', url: `${fallbackUrl}/images/hero.jpg` }
       ]
     };
   }

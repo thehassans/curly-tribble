@@ -12,6 +12,7 @@ import User from "../models/User.js";
 import Product from "../models/Product.js";
 import { getIO } from "../config/socket.js";
 import Setting from "../models/Setting.js";
+import { DEFAULT_BRANDING } from "../utils/branding.js";
 import PayoutRequest from "../models/PayoutRequest.js";
 import InvestorBonus from "../models/InvestorBonus.js";
 import DriverCommissionRequest from "../models/DriverCommissionRequest.js";
@@ -3384,7 +3385,7 @@ router.post(
               `🎉 *Commission Payment Received!*\n\n` +
                 `Amount: PKR ${amt.toLocaleString()}\n` +
                 `Thank you for your excellent work!\n\n` +
-                `BuySial Commerce`
+                `${DEFAULT_BRANDING.companyName}`
             );
 
             // Do not delete file, keep for history download

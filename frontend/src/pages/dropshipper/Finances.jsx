@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react'
 import { apiGet, apiPost } from '../../api'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
 import { useToast } from '../../ui/Toast.jsx'
+import { useBranding } from '../../util/useBranding.js'
 
 export default function DropshipperFinances() {
   const toast = useToast()
+  const [branding] = useBranding()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
   const [recalculating, setRecalculating] = useState(false)
@@ -12,6 +15,7 @@ export default function DropshipperFinances() {
   const [myPayoutRequests, setMyPayoutRequests] = useState([])
   const [requestNotes, setRequestNotes] = useState('')
   const [requesting, setRequesting] = useState(false)
+  const brandName = branding.storeName || branding.companyName || branding.appName || DEFAULT_BRANDING.storeName
 
   useEffect(() => {
     load()
@@ -343,7 +347,7 @@ export default function DropshipperFinances() {
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 13, color: 'var(--ds-text-secondary)', marginBottom: 4 }}>Dropship Cost (Paid to BuySial)</div>
+              <div style={{ fontSize: 13, color: 'var(--ds-text-secondary)', marginBottom: 4 }}>{`Dropship Cost (Paid to ${brandName})`}</div>
               <div style={{ fontSize: 24, fontWeight: 700, color: '#ef4444' }}>
                 - AED {totalDropshipCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </div>

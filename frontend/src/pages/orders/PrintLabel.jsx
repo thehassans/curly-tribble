@@ -1,16 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { apiGet } from '../../api'
+import { DEFAULT_BRANDING, resolvePanelBrandLogo } from '../../util/branding.js'
 import { getCurrencyConfig, convert } from '../../util/currency'
+import { useBranding } from '../../util/useBranding.js'
 
 export default function PrintLabel() {
   const { id } = useParams()
+  const [branding] = useBranding()
   const [order, setOrder] = useState(null)
   const [loading, setLoading] = useState(true)
   const barcodeRef = useRef(null)
   const [curCfg, setCurCfg] = useState(null)
   const [designId, setDesignId] = useState(1)
   const [qrDataUrl, setQrDataUrl] = useState('')
+  const siteUrl = (branding.websiteUrl || DEFAULT_BRANDING.websiteUrl || '').replace(/\/$/, '')
+  const brandName = branding.storeName || branding.companyName || branding.appName || DEFAULT_BRANDING.storeName
+  const logoSrc = resolvePanelBrandLogo(branding, { fallback: `${import.meta.env.BASE_URL}magnetic-commerce.png` })
 
   useEffect(() => {
     let alive = true
@@ -127,8 +133,7 @@ export default function PrintLabel() {
         }
         const QR = window.QRCode || window.qrcode
         if (QR?.toDataURL) {
-          const url = 'https://buysial.com'
-          const dataUrl = await QR.toDataURL(url, {
+          const dataUrl = await QR.toDataURL(siteUrl, {
             width: 88,
             margin: 1,
             color: { dark: '#000000', light: '#FFFFFF' },
@@ -588,16 +593,16 @@ export default function PrintLabel() {
         <div className="sec header-sec" style={{ alignItems: 'center' }}>
           <div style={{ flex: '1 1 0', display: 'flex', alignItems: 'center' }}>
             <img
-              alt="BuySial"
-              src={`${import.meta.env.BASE_URL}BSBackgroundremoved.png`}
+              alt={brandName}
+              src={logoSrc}
               style={{ height: 50, objectFit: 'contain' }}
             />
           </div>
 
           <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <a href="https://buysial.com" target="_blank" rel="noreferrer" style={{ display: 'inline-flex' }}>
+            <a href={siteUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-flex' }}>
               {qrDataUrl ? (
-                <img alt="BuySial QR" src={qrDataUrl} style={{ width: 58, height: 58 }} />
+                <img alt={`${brandName} QR`} src={qrDataUrl} style={{ width: 58, height: 58 }} />
               ) : (
                 <div style={{ width: 58, height: 58 }} />
               )}

@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { apiGet, apiPost } from '../../api'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
 import { useToast } from '../../ui/Toast'
+import { useBranding } from '../../util/useBranding.js'
 
 export default function SEODashboard() {
   const toast = useToast()
+  const [branding] = useBranding()
   const location = useLocation()
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const domainLabel = (() => {
+    try {
+      return new URL(branding.websiteUrl || DEFAULT_BRANDING.websiteUrl).hostname.replace(/^www\./i, '')
+    } catch {
+      return 'yourdomain.com'
+    }
+  })()
   
   // Map URL paths to tab IDs
   const getTabFromPath = (pathname) => {
@@ -746,7 +756,7 @@ export default function SEODashboard() {
                   { code: 'bh', label: 'Bahrain' }, { code: 'om', label: 'Oman' }, { code: 'kw', label: 'Kuwait' },
                   { code: 'jo', label: 'Jordan' }, { code: 'us', label: 'USA' }, { code: 'ca', label: 'Canada' }, { code: 'au', label: 'Australia' },
                 ].map(c => (
-                  <div key={c.code}><span style={{ color: '#38bdf8' }}>buysial.com</span><span style={{ color: '#f97316' }}>/{c.code}/</span> <span style={{ color: '#475569', fontSize: 11 }}>— {c.label}</span></div>
+                  <div key={c.code}><span style={{ color: '#38bdf8' }}>{domainLabel}</span><span style={{ color: '#f97316' }}>/{c.code}/</span> <span style={{ color: '#475569', fontSize: 11 }}>— {c.label}</span></div>
                 ))}
               </div>
               <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 10 }}>

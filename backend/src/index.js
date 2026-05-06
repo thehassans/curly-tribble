@@ -10,6 +10,7 @@ import { fileURLToPath } from "url";
 import fs from "fs";
 import Product from "./modules/models/Product.js";
 import { initSocket, getIO } from "./modules/config/socket.js";
+import { DEFAULT_BRANDING } from "./modules/utils/branding.js";
 import productsRoutes from "./modules/routes/products.js";
 import authRoutes from "./modules/routes/auth.js";
 import userRoutes from "./modules/routes/users.js";
@@ -158,7 +159,7 @@ app.get("/api/health", (_req, res) => {
       }
     : { status: "not_initialized" };
   res.json({
-    name: "BuySial Commerce API",
+    name: `${DEFAULT_BRANDING.companyName} API`,
     status: "ok",
     ready: db.ready,
     db,
@@ -389,10 +390,10 @@ function getPublicBaseUrl(req) {
       .toString()
       .split(",")[0]
       .trim();
-    if (!host) return "https://buysial.com";
+    if (!host) return DEFAULT_BRANDING.websiteUrl;
     return `${proto}://${host}`.replace(/\/$/, "");
   } catch {
-    return "https://buysial.com";
+    return DEFAULT_BRANDING.websiteUrl;
   }
 }
 

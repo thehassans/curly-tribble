@@ -424,9 +424,6 @@ function buildWorkspaceBrandingValue(user) {
     staffLoginSubtitle:
       String(source.staffLoginSubtitle || "").trim() ||
       `Sign in to your ${fallbackName} workspace`,
-    shopLoginSubtitle:
-      String(source.shopLoginSubtitle || "").trim() ||
-      `Access the ${fallbackName} commerce console`,
     footerText: String(source.footerText || "").trim() || `Powered by ${fallbackName}`,
     reportSignature: String(source.reportSignature || "").trim() || fallbackName,
     reportFooterText:
@@ -1368,8 +1365,8 @@ router.get(
         smtpPort: val.smtpPort || 587,
         smtpUser: val.smtpUser || "",
         smtpPass: val.smtpPass ? mask(val.smtpPass) : "",
-        fromName: val.fromName || "BuySial",
-        fromEmail: val.fromEmail || "shop@buysial.com",
+        fromName: val.fromName || DEFAULT_BRANDING.companyName,
+        fromEmail: val.fromEmail || `shop@${new URL(DEFAULT_BRANDING.websiteUrl).hostname.replace(/^www\./, '')}`,
         enabled: val.enabled !== false
       });
     } catch (e) {
@@ -1440,16 +1437,16 @@ router.post(
       // Send test email if address provided
       if (testEmail && testEmail.includes("@")) {
         await transporter.sendMail({
-          from: { name: "BuySial", address: smtpUser },
+          from: { name: DEFAULT_BRANDING.companyName, address: smtpUser },
           to: testEmail,
-          subject: "✅ BuySial Email Test - Connection Successful!",
+          subject: `✅ ${DEFAULT_BRANDING.companyName} Email Test - Connection Successful!`,
           html: `
             <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 500px; margin: 0 auto;">
               <h2 style="color: #f97316;">🎉 Email Configuration Successful!</h2>
-              <p>Your BuySial email settings are working correctly.</p>
-              <p style="color: #666; font-size: 14px;">This is a test email sent from your BuySial store.</p>
+              <p>Your ${DEFAULT_BRANDING.companyName} email settings are working correctly.</p>
+              <p style="color: #666; font-size: 14px;">This is a test email sent from your ${DEFAULT_BRANDING.companyName} store.</p>
               <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
-              <p style="color: #999; font-size: 12px;">© BuySial - Your Premium Shopping Destination</p>
+              <p style="color: #999; font-size: 12px;">© ${DEFAULT_BRANDING.companyName} - Your Premium Shopping Destination</p>
             </div>
           `
         });

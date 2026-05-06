@@ -12,8 +12,10 @@ import {
   apiPost,
   mediaUrl,
 } from '../../api'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
 import { getCurrencyConfig, convert as fxConvert } from '../../util/currency'
 import ProductSEOPanel from './ProductSEOPanel'
+import { useBranding } from '../../util/useBranding.js'
 
 // Convert ISO 3166-1 alpha-2 country code to emoji flag
 function codeToFlag(code) {
@@ -49,10 +51,13 @@ const CATEGORIES = [
 ]
 
 export default function InhouseProducts() {
+  const [branding] = useBranding()
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth <= 768 : false
   )
   const [me, setMe] = useState(null)
+  const siteUrl = (branding.websiteUrl || DEFAULT_BRANDING.websiteUrl || '').replace(/\/$/, '')
+  const brandName = branding.storeName || branding.companyName || branding.appName || DEFAULT_BRANDING.storeName
   const COUNTRY_OPTS = [
     { key: 'UAE', name: 'UAE', flag: '🇦🇪' },
     { key: 'Oman', name: 'Oman', flag: '🇴🇲' },
@@ -111,7 +116,7 @@ export default function InhouseProducts() {
     stockCanada: 0,
     stockAustralia: 0,
     // Premium E-commerce Features
-    sellByBuysial: false,
+    sellByStore: false,
     salePrice: '',
     onSale: false,
     isBestSelling: false,
@@ -809,7 +814,7 @@ export default function InhouseProducts() {
             category: form.category,
             description: response.data?.description || form.description || '',
             availableCountries: Array.isArray(form.availableCountries) ? form.availableCountries : [],
-            baseUrl: 'https://buysial.com',
+            baseUrl: siteUrl || DEFAULT_BRANDING.websiteUrl,
           })
           if (seoRes?.success && seoRes?.seo) {
             const s = seoRes.seo
@@ -834,7 +839,7 @@ export default function InhouseProducts() {
                     ...s.backlinks.map(b => ({ url: b.url || '', anchor: b.anchor || '', type: b.type || 'dofollow', status: b.status || 'pending', aiSuggested: true, addedAt: new Date().toISOString() })),
                   ]
                 : f.backlinks,
-              gscData: { ...(f.gscData || {}), siteUrl: 'https://buysial.com' },
+              gscData: { ...(f.gscData || {}), siteUrl: siteUrl || DEFAULT_BRANDING.websiteUrl },
             }))
             setMsg('AI content generated! Description + SEO fields filled. Review below.')
           } else {
@@ -1214,7 +1219,7 @@ export default function InhouseProducts() {
     fd.append('stockUK', String(form.stockUK))
     fd.append('stockCanada', String(form.stockCanada))
     fd.append('stockAustralia', String(form.stockAustralia))
-    fd.append('sellByBuysial', String(!!form.sellByBuysial))
+    fd.append('sellByStore', String(!!form.sellByStore))
     fd.append('salePrice', form.salePrice || '')
     fd.append('onSale', String(!!form.onSale))
     fd.append('isBestSelling', String(!!form.isBestSelling))
@@ -1303,7 +1308,7 @@ export default function InhouseProducts() {
       stockIndia: 0,
       stockKuwait: 0,
       stockQatar: 0,
-      sellByBuysial: false,
+      sellByStore: false,
       salePrice: '',
       onSale: false,
       isBestSelling: false,
@@ -2452,14 +2457,14 @@ export default function InhouseProducts() {
                   PREMIUM BADGES (Shown on Website)
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
-                  {/* Sell by Buysial */}
+                  {/* Sold by workspace brand */}
                   <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
                     <div
                       style={{
                         position: 'relative',
                         width: 40,
                         height: 24,
-                        background: form.sellByBuysial ? '#f97316' : '#e5e7eb',
+                        background: form.sellByStore ? '#f97316' : '#e5e7eb',
                         borderRadius: 12,
                         transition: '0.3s',
                       }}
@@ -2467,7 +2472,7 @@ export default function InhouseProducts() {
                       <div
                         style={{
                           position: 'absolute',
-                          left: form.sellByBuysial ? 18 : 2,
+                          left: form.sellByStore ? 18 : 2,
                           top: 2,
                           width: 20,
                           height: 20,
@@ -2480,12 +2485,12 @@ export default function InhouseProducts() {
                     </div>
                     <input
                       type="checkbox"
-                      name="sellByBuysial"
-                      checked={!!form.sellByBuysial}
+                      name="sellByStore"
+                      checked={!!form.sellByStore}
                       onChange={onChange}
                       style={{ display: 'none' }}
                     />
-                    <span style={{ fontWeight: 600, fontSize: 13 }}>🏪 Sell by Buysial</span>
+                    <span style={{ fontWeight: 600, fontSize: 13 }}>{`🏪 Sold by ${brandName}`}</span>
                   </label>
 
                   {/* Best Selling */}

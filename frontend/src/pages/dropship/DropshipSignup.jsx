@@ -1,13 +1,24 @@
-import React, { useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { apiPost } from '../../api'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 
 export default function DropshipSignup() {
   const navigate = useNavigate()
+  const [branding] = useBranding()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
   const [step, setStep] = useState(1)
+  const supportEmail = useMemo(() => {
+    try {
+      const host = new URL(branding.websiteUrl || DEFAULT_BRANDING.websiteUrl).hostname.replace(/^www\./i, '')
+      return `support@${host}`
+    } catch {
+      return 'support@magnetic-ict.com'
+    }
+  }, [branding.websiteUrl])
   const [formData, setFormData] = useState({
     businessName: '',
     contactName: '',
@@ -514,7 +525,7 @@ export default function DropshipSignup() {
 
             {/* Footer Note */}
             <p className="text-center text-sm text-gray-500 mt-8">
-              Questions? <a href="mailto:support@buysial.com" className="text-orange-400 hover:underline">support@buysial.com</a>
+              Questions? <a href={`mailto:${supportEmail}`} className="text-orange-400 hover:underline">{supportEmail}</a>
             </p>
           </div>
         </div>

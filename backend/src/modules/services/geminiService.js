@@ -1,4 +1,5 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { DEFAULT_BRANDING } from '../utils/branding.js';
 import Setting from '../models/Setting.js'
 
 class GeminiService {
@@ -179,7 +180,7 @@ class GeminiService {
     }
   }
 
-  async generateProductSEO(productName, category, description = '', availableCountries = [], baseUrl = 'https://buysial.com') {
+  async generateProductSEO(productName, category, description = '', availableCountries = [], baseUrl = DEFAULT_BRANDING.websiteUrl) {
     const countriesList = availableCountries.length > 0 ? availableCountries.join(', ') : 'UAE, KSA, UK, US';
     const prompt = `You are a world-class Elite SEO and GEO Content Strategist specialising in fast-ranking Google results AND Answer Engine Optimization (ChatGPT, Perplexity, Google AI Overviews).
 

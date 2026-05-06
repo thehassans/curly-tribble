@@ -1,3 +1,5 @@
+import { DEFAULT_BRANDING } from '../utils/branding.js';
+
 // firebase-admin is loaded lazily via dynamic import() so the backend
 // does NOT crash when the package is missing or misconfigured.
 
@@ -76,17 +78,17 @@ export async function sendPushNotification(tokens, notification, data = {}) {
   try {
     const message = {
       notification: {
-        title: notification.title || 'BuySial',
+        title: notification.title || DEFAULT_BRANDING.companyName,
         body: notification.body || '',
         ...(notification.image ? { image: notification.image } : {}),
       },
       data: stringData,
       webpush: {
         notification: {
-          title: notification.title || 'BuySial',
+          title: notification.title || DEFAULT_BRANDING.companyName,
           body: notification.body || '',
-          icon: '/BuySial2.png',
-          badge: '/BuySial2.png',
+          icon: '/magneticcommerce-favicon.png',
+          badge: '/magneticcommerce-favicon.png',
           requireInteraction: true,
         },
         fcmOptions: {

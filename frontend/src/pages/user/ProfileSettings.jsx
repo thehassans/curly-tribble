@@ -179,7 +179,7 @@ export default function ProfileSettings() {
     setError('')
 
     try {
-      const res = await apiPost('/api/user/update-profile', {
+      const res = await apiPost('/api/users/update-profile', {
         firstName,
         lastName,
         phone,

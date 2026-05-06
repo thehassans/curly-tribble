@@ -406,7 +406,7 @@ export default function DropshipperLayout() {
               return (
                 <img
                   src={src}
-                  alt="BuySial"
+                  alt="Brand logo"
                   style={{ height: 36, width: 'auto', objectFit: 'contain' }}
                 />
               )

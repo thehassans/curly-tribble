@@ -66,7 +66,7 @@ export default function MobileBottomNav({ onCartClick }) {
               active ? 'shadow-[0_0_18px_rgba(249,115,22,0.45)]' : 'opacity-90'
             }`}
           >
-            <img src="/BSBackgroundremoved.png" alt="BuySial" className="w-5 h-5 object-contain" />
+            <img src="/BSBackgroundremoved.png" alt="Brand logo" className="w-5 h-5 object-contain" />
           </div>
         </div>
       )

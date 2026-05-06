@@ -1,5 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
+import { DEFAULT_BRANDING } from '../utils/branding.js';
 
 const router = express.Router();
 
@@ -221,7 +222,7 @@ router.post('/applepay/session', async (req, res) => {
       },
       body: JSON.stringify({
         validation_url: validationUrl,
-        display_name: process.env.STORE_NAME || 'BuySial Store',
+        display_name: process.env.STORE_NAME || DEFAULT_BRANDING.storeName,
         domain_name: process.env.APPLE_PAY_DOMAIN || req.get('host')
       })
     });

@@ -117,7 +117,7 @@ class SocketManager {
 
     // Monitor all incoming requests for debugging
     this.io.engine.on('initial_headers', (headers, req) => {
-      headers['X-Socket-Server'] = 'BuySial-v1';
+      headers['X-Socket-Server'] = 'Magnetic-v1';
     });
 
     // Add session verification middleware

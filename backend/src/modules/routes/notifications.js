@@ -2,7 +2,10 @@ import express from 'express'
 import { auth, allowRoles } from '../middleware/auth.js'
 import Notification from '../models/Notification.js'
 import User from '../models/User.js'
+import { sendPush } from '../config/firebase.js'
+import { DEFAULT_BRANDING } from '../utils/branding.js'
 import { getIO } from '../config/socket.js'
+
 // Lazy-load Firebase push so the app doesn't crash if firebase-admin is missing
 async function sendPush(tokens, notification, data) {
   try {
@@ -46,7 +49,7 @@ export const createNotification = async (notificationData) => {
         await sendPush(
           targetUser.fcmTokens,
           {
-            title: notification.title || 'BuySial',
+            title: notification.title || DEFAULT_BRANDING.companyName,
             body: notification.message || '',
             link: notification.relatedId ? `/orders?id=${notification.relatedId}` : '/',
           },

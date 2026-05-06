@@ -9,6 +9,7 @@ import Setting from "../models/Setting.js";
 import { auth, allowRoles } from "../middleware/auth.js";
 import jwt from "jsonwebtoken";
 import { getIO } from "../config/socket.js";
+import { DEFAULT_BRANDING } from "../utils/branding.js";
 // Lazy WhatsApp import to avoid startup crashes when WA is disabled or deps missing
 async function getWA() {
   const enabled = process.env.ENABLE_WA !== "false";
@@ -130,9 +131,6 @@ function buildWorkspaceBrandingSeed({
     staffLoginSubtitle:
       String(workspaceBranding.staffLoginSubtitle || "").trim() ||
       `Sign in to your ${fallbackName} workspace`,
-    shopLoginSubtitle:
-      String(workspaceBranding.shopLoginSubtitle || "").trim() ||
-      `Access the ${fallbackName} commerce console`,
     footerText:
       String(workspaceBranding.footerText || "").trim() || `Powered by ${fallbackName}`,
     reportSignature:
@@ -1206,7 +1204,7 @@ function generateTempPassword(len = 10) {
 function generateWelcomeMessage(name, email, password) {
   return `🌟 *Welcome to the future of the E-commerce world.*
 
-By joining Buysial, you've aligned yourself with a global community that settles for nothing less than the best. We are honored to be part of your story and look forward to helping you reach your next milestone.
+By joining ${DEFAULT_BRANDING.companyName}, you've aligned yourself with a global community that settles for nothing less than the best. We are honored to be part of your story and look forward to helping you reach your next milestone.
 
 Your account is now active, fully optimized, and ready for deployment. Please find your secure access details below:
 
@@ -1214,7 +1212,7 @@ Your account is now active, fully optimized, and ready for deployment. Please fi
 *Your Gateway to Excellence:*
 ━━━━━━━━━━━━━━━━━━━━━
 
-🌐 *Domain:* https://buysial.com
+🌐 *Domain:* ${DEFAULT_BRANDING.websiteUrl}
 
 👤 *Username:* ${email}
 
@@ -1223,7 +1221,7 @@ _(For your security, we recommend updating this password upon your first entry.)
 
 ━━━━━━━━━━━━━━━━━━━━━
 
-👉 *Experience Buysial Now:* https://web.buysial.com/login
+👉 *Start Here:* ${DEFAULT_BRANDING.websiteUrl}/login
 
 Welcome aboard, ${name}! 🚀`;
 }
@@ -1599,7 +1597,7 @@ router.post(
       fresh.password = tempPassword;
       await fresh.save();
       const jid = `${digits}@s.whatsapp.net`;
-      const text = `🌟 Welcome to Buysial Commerce!\n\nDear ${fresh.firstName} ${fresh.lastName},\n\nYour account details have been updated. Please find your login details below:\n\n🌐 Login URL: https://buysial.com/login\n\n👤 Email: ${fresh.email}\n🔑 Password: ${tempPassword}\n\nOnce logged in, you’ll be able to access all features of Buysial Commerce and benefit from the exclusive opportunities available through our platform.\n\nIf you face any issues signing in, please reach out to our support team.`;
+      const text = `🌟 Welcome to ${DEFAULT_BRANDING.companyName}!\n\nDear ${fresh.firstName} ${fresh.lastName},\n\nYour account details have been updated. Please find your login details below:\n\n🌐 Login URL: ${DEFAULT_BRANDING.websiteUrl}/login\n\n👤 Email: ${fresh.email}\n🔑 Password: ${tempPassword}\n\nOnce logged in, you’ll be able to access all features of ${DEFAULT_BRANDING.companyName} and benefit from the exclusive opportunities available through our platform.\n\nIf you face any issues signing in, please reach out to our support team.`;
       const wa = await getWA();
       try {
         await wa.sendText(jid, text);
@@ -2253,7 +2251,7 @@ router.post(
       ) {
         return res.status(400).json({
           message:
-            "Invalid domain format. Please enter a valid domain (e.g., buysial.com)",
+            "Invalid domain format. Please enter a valid domain (e.g., yourstore.com)",
         });
       }
 
@@ -2394,8 +2392,6 @@ router.get("/by-domain/:domain", async (req, res) => {
 
     // For primary domains, return platform store info
     if (
-      normalizedDomain === "buysial.com" ||
-      normalizedDomain === "www.buysial.com" ||
       normalizedDomain === "magnetic-ict.com" ||
       normalizedDomain === "www.magnetic-ict.com" ||
       normalizedDomain === "commerce.magnetic-ict.com"
@@ -4299,7 +4295,7 @@ router.post(
       await user.save();
       
       const jid = `${digits}@s.whatsapp.net`;
-      const text = `🌟 Welcome to VITALBLAZE Commerce!\n\nDear ${user.firstName} ${user.lastName},\n\nYour account details have been updated.\n\n🌐 Login URL: https://web.buysial.com/login\n\n👤 Email: ${user.email}\n🔑 Password: ${tempPassword}\n\nStart selling our premium products and earn profits today!`;
+      const text = `🌟 Welcome to ${DEFAULT_BRANDING.companyName}!\n\nDear ${user.firstName} ${user.lastName},\n\nYour account details have been updated.\n\n🌐 Login URL: ${DEFAULT_BRANDING.websiteUrl}/login\n\n👤 Email: ${user.email}\n🔑 Password: ${tempPassword}\n\nStart selling our premium products and earn profits today!`;
       const wa = await getWA();
       await wa.sendText(jid, text);
       await User.updateOne({ _id: user._id }, { $set: { welcomeSent: true, welcomeSentAt: new Date(), welcomeError: "" } });

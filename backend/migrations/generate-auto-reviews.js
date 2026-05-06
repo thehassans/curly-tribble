@@ -3,7 +3,7 @@ import Product from "../src/modules/models/Product.js";
 import Review from "../src/modules/models/Review.js";
 
 // Direct MongoDB connection - replace with your actual MongoDB URI
-const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://hassanssialmagnetic:yd3LqiJKkdDXm4mq@buysial.nqihk.mongodb.net/buysial?retryWrites=true&w=majority";
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/magnetic-commerce";
 
 // Mixed names from Arab, UK, and US
 const arabNames = [

@@ -3,14 +3,20 @@ import { useNavigate } from 'react-router-dom'
 import { useToast } from '../../ui/Toast'
 import { trackProductView, trackAddToCart } from '../../utils/analytics'
 import { mediaUrl } from '../../api.js'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
 import { getCurrencyConfig, convert as fxConvert, formatMoney } from '../../util/currency'
+import { useBranding } from '../../util/useBranding.js'
 import { resolveWarehouse, getLocalStockByCountry } from '../../utils/warehouse'
 import { readCartItems, writeCartItems } from '../../utils/cartStorage'
 
 export default function ProductCard({ product, onAddToCart, selectedCountry = 'SA', selectionEnabled = false, selected = false, onToggleSelect }) {
   const navigate = useNavigate()
   const toast = useToast()
+  const [branding] = useBranding()
   const [isHovered, setIsHovered] = useState(false)
+  const brandName = branding.storeName || branding.companyName || branding.appName || DEFAULT_BRANDING.storeName
+  const [quickAddLoading, setQuickAddLoading] = useState(false)
+  const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [imageLoaded, setImageLoaded] = useState(false)
   const [addingToCart, setAddingToCart] = useState(false)
 
@@ -225,9 +231,9 @@ export default function ProductCard({ product, onAddToCart, selectedCountry = 'S
                 </span>
               </div>
             )}
-            {product.sellByBuysial && (
-              <div className="premium-badge buysial-badge">
-                <span className="badge-text">🏪 Sell by Buysial</span>
+            {product.sellByStore && (
+              <div className="premium-badge brand-badge">
+                <span className="badge-text">{`🏪 Sold by ${brandName}`}</span>
               </div>
             )}
             {product.isBestSelling && (
@@ -800,7 +806,7 @@ export default function ProductCard({ product, onAddToCart, selectedCountry = 'S
           color: white;
         }
 
-        .buysial-badge {
+        .brand-badge {
           background: linear-gradient(135deg, #f97316, #ea580c);
           color: white;
         }

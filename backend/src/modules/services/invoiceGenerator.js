@@ -2,12 +2,14 @@ import PDFDocument from 'pdfkit'
 import path from 'path'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
+import { DEFAULT_BRANDING } from '../utils/branding.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+const SUPPORT_EMAIL = `support@${new URL(DEFAULT_BRANDING.websiteUrl).hostname.replace(/^www\./, '')}`
 
 /**
- * Generate professional BuySial invoice PDF matching the exact brand design
+ * Generate professional storefront invoice PDF matching the exact brand design
  * @param {Object} order - Order object with all details
  * @returns {Buffer} PDF buffer
  */
@@ -21,7 +23,7 @@ export async function generateInvoicePDF(order) {
       doc.on('end', () => resolve(Buffer.concat(chunks)))
       doc.on('error', reject)
 
-      // BuySial Brand Colors (from screenshot)
+      // Brand colors (from screenshot)
       const orangeColor = '#FF9D52'
       const navyColor = '#1A3A5C'
       const whiteColor = '#FFFFFF'
@@ -46,7 +48,7 @@ export async function generateInvoicePDF(order) {
          .fill(orangeColor)
       
       // Logo
-      const logoPath = path.join(__dirname, '../../../public/BuySial2.png')
+      const logoPath = path.join(__dirname, '../../../public/magnetic-commerce.png')
       if (fs.existsSync(logoPath)) {
         try {
           doc.image(logoPath, 20, 8, { width: 90, height: 35 })
@@ -57,7 +59,7 @@ export async function generateInvoicePDF(order) {
       doc.fontSize(9)
          .fillColor(whiteColor)
          .font('Helvetica')
-         .text('SUPPORT@BUYSIAL.COM', 430, 12, { width: 150, align: 'right' })
+         .text(SUPPORT_EMAIL.toUpperCase(), 430, 12, { width: 150, align: 'right' })
          .text('+97158549154', 430, 28, { width: 150, align: 'right' })
       
       // === Navy Blue Decorative Shape ===
@@ -243,7 +245,7 @@ export async function generateInvoicePDF(order) {
          .font('Helvetica')
          .text('THANK YOU FOR YOUR SHOPPING FROM', 0, thanksY + 15, { width: 595, align: 'center' })
          .font('Helvetica-Bold')
-         .text('BUYSIAL', 0, thanksY + 30, { width: 595, align: 'center' })
+         .text(DEFAULT_BRANDING.companyName.toUpperCase(), 0, thanksY + 30, { width: 595, align: 'center' })
       
       // === FOOTER - Orange Bar ===
       doc.rect(0, 792, 595, 50)

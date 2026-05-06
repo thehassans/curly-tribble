@@ -1,9 +1,12 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react'
 import { apiGet } from '../../api'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 
 const GOOGLE_MAPS_SCRIPT_ID = 'google-maps-script'
 
 export default function LiveMap({ orders = [], driverLocation, onSelectOrder, minimal = false, activeOrderId = '', mapHeight = 400, mapCommand = null }) {
+  const [branding] = useBranding()
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const markersRef = useRef([])
@@ -785,7 +788,7 @@ export default function LiveMap({ orders = [], driverLocation, onSelectOrder, mi
           }
         `}</style>
         
-        {/* Buysial Logo Overlay */}
+        {/* Brand logo overlay */}
         {!minimal && (
           <div style={{
             position: 'absolute',
@@ -802,7 +805,7 @@ export default function LiveMap({ orders = [], driverLocation, onSelectOrder, mi
           }}>
             <img
               src="/magneticcommerce-favicon.png"
-              alt="Magnetic"
+              alt={brandName}
               style={{
                 height: 16,
                 opacity: 0.8,
@@ -816,7 +819,7 @@ export default function LiveMap({ orders = [], driverLocation, onSelectOrder, mi
               fontWeight: 500,
               letterSpacing: '0.5px'
             }}>
-              Buysial
+              {brandName}
             </span>
           </div>
         )}

@@ -149,7 +149,7 @@ export default function ManagerLayout(){
                     aria-label="Dashboard"
                     style={{background:'transparent', border:'none', padding:0, cursor:'pointer', display:'grid', placeItems:'center', width:36, height:36, borderRadius:12, flexShrink:0}}
                   >
-                    <img src={src} alt="BuySial" style={{height:24, width:'auto', objectFit:'contain', display:'block'}} />
+                    <img src={src} alt="Brand logo" style={{height:24, width:'auto', objectFit:'contain', display:'block'}} />
                   </button>
                 )
               })()}
@@ -307,7 +307,7 @@ export default function ManagerLayout(){
                     aria-label="Dashboard"
                     style={{background:'transparent', border:'none', padding:0, cursor:'pointer', display:'grid', placeItems:'center', width:36, height:36, borderRadius:12, flexShrink:0}}
                   >
-                    <img src={src} alt="BuySial" style={{height:24, width:'auto', objectFit:'contain', display:'block'}} />
+                    <img src={src} alt="Brand logo" style={{height:24, width:'auto', objectFit:'contain', display:'block'}} />
                   </button>
                 )
               })()}

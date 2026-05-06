@@ -1,11 +1,23 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { fetchPageSpeedInsights } from '../../services/seoDashboardApi';
+import { DEFAULT_BRANDING } from '../../util/branding.js';
+import { useBranding } from '../../util/useBranding.js';
 
 export default function OptimizationPage() {
-  const [urlToTest, setUrlToTest] = useState('https://buysial.com');
+  const [branding] = useBranding();
+  const defaultSiteUrl = branding.websiteUrl || DEFAULT_BRANDING.websiteUrl;
+  const [urlToTest, setUrlToTest] = useState(defaultSiteUrl);
   const [deviceMap, setDeviceMap] = useState({ mobile: null, desktop: null });
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [activeDevice, setActiveDevice] = useState('mobile');
+
+  useEffect(() => {
+    setUrlToTest((current) => {
+      const next = String(current || '').trim();
+      if (!next) return defaultSiteUrl;
+      return current;
+    });
+  }, [defaultSiteUrl]);
 
   const handleAnalyze = async () => {
     if (!urlToTest) return;
@@ -49,7 +61,7 @@ export default function OptimizationPage() {
             value={urlToTest}
             onChange={(e) => setUrlToTest(e.target.value)}
             className="flex-1 w-full xl:w-64 px-4 py-2 text-sm bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-            placeholder="https://buysial.com/product/..."
+            placeholder={`${defaultSiteUrl.replace(/\/$/, '')}/product/...`}
           />
           <button 
             onClick={handleAnalyze}

@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-// Firebase Messaging Service Worker for BuySial Push Notifications
+// Firebase Messaging Service Worker for storefront push notifications
 // Handles background push notifications when the app tab is not in focus.
 
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
@@ -18,12 +18,12 @@ self.addEventListener('message', (event) => {
         // Handle background messages
         messaging.onBackgroundMessage((payload) => {
           console.log('[SW] Background message:', payload);
-          const title = payload.notification?.title || payload.data?.title || 'BuySial';
+          const title = payload.notification?.title || payload.data?.title || 'Notification';
           const options = {
             body: payload.notification?.body || payload.data?.body || '',
-            icon: '/BuySial2.png',
-            badge: '/BuySial2.png',
-            tag: payload.data?.notificationId || 'buysial-push-' + Date.now(),
+            icon: '/magneticcommerce-favicon.png',
+            badge: '/magneticcommerce-favicon.png',
+            tag: payload.data?.notificationId || 'storefront-push-' + Date.now(),
             requireInteraction: true,
             vibrate: [200, 100, 200, 100, 200],
             data: {
@@ -51,15 +51,15 @@ self.addEventListener('push', (event) => {
   let data = {};
   try { data = event.data ? event.data.json() : {}; } catch { return; }
 
-  const title = data.notification?.title || data.data?.title || 'BuySial';
+  const title = data.notification?.title || data.data?.title || 'Notification';
   const body = data.notification?.body || data.data?.body || '';
 
   event.waitUntil(
     self.registration.showNotification(title, {
       body,
-      icon: '/BuySial2.png',
-      badge: '/BuySial2.png',
-      tag: 'buysial-push-' + Date.now(),
+      icon: '/magneticcommerce-favicon.png',
+      badge: '/magneticcommerce-favicon.png',
+      tag: 'storefront-push-' + Date.now(),
       requireInteraction: true,
       vibrate: [200, 100, 200, 100, 200],
       data: { url: data.fcmOptions?.link || data.data?.link || '/' },

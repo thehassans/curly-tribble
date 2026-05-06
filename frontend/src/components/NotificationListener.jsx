@@ -40,7 +40,7 @@ export default function NotificationListener() {
         // Background messages are handled by firebase-messaging-sw.js automatically
         onForegroundMessage((payload) => {
           const data = {
-            title: payload.notification?.title || payload.data?.title || 'BuySial',
+            title: payload.notification?.title || payload.data?.title || 'Notification',
             message: payload.notification?.body || payload.data?.body || '',
             type: payload.data?.type || '',
             _id: payload.data?.notificationId || '',
@@ -101,10 +101,10 @@ function handleNotification(data) {
 // Simple in-app toast that doesn't depend on external toast library
 function showInAppToast(data) {
   // Create toast container if not exists
-  let container = document.getElementById('buysial-toast-container')
+  let container = document.getElementById('notification-toast-container')
   if (!container) {
     container = document.createElement('div')
-    container.id = 'buysial-toast-container'
+    container.id = 'notification-toast-container'
     Object.assign(container.style, {
       position: 'fixed',
       top: '16px',
@@ -143,7 +143,7 @@ function showInAppToast(data) {
     alignItems: 'flex-start',
     gap: '10px',
     color: 'var(--fg, #e2e8f0)',
-    animation: 'buysialToastIn 0.3s ease-out',
+    animation: 'notificationToastIn 0.3s ease-out',
     cursor: 'pointer',
     maxWidth: '100%',
     backdropFilter: 'blur(16px)',
@@ -159,15 +159,15 @@ function showInAppToast(data) {
   `
 
   // Add animation keyframes if not yet added
-  if (!document.getElementById('buysial-toast-style')) {
+  if (!document.getElementById('notification-toast-style')) {
     const style = document.createElement('style')
-    style.id = 'buysial-toast-style'
+    style.id = 'notification-toast-style'
     style.textContent = `
-      @keyframes buysialToastIn {
+      @keyframes notificationToastIn {
         from { opacity: 0; transform: translateX(40px) scale(0.95); }
         to { opacity: 1; transform: translateX(0) scale(1); }
       }
-      @keyframes buysialToastOut {
+      @keyframes notificationToastOut {
         from { opacity: 1; transform: translateX(0) scale(1); }
         to { opacity: 0; transform: translateX(40px) scale(0.95); }
       }
@@ -179,7 +179,7 @@ function showInAppToast(data) {
 
   // Auto-remove after 5 seconds
   setTimeout(() => {
-    toast.style.animation = 'buysialToastOut 0.25s ease-in forwards'
+    toast.style.animation = 'notificationToastOut 0.25s ease-in forwards'
     setTimeout(() => { try { toast.remove() } catch {} }, 300)
   }, 5000)
 }

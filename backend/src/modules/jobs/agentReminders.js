@@ -1,5 +1,6 @@
 import ChatMeta from '../models/ChatMeta.js';
 import User from '../models/User.js';
+import { DEFAULT_BRANDING } from '../utils/branding.js';
 
 /**
  * Background job to send reminder messages to agents who haven't replied
@@ -118,7 +119,7 @@ async function checkAndSendReminders(getWaService) {
         // Calculate time since assignment
         const minutesSinceAssignment = Math.floor((now - meta.assignedAt) / (1000 * 60));
         
-        const reminderText = `⏰ *Reminder: Chat Assigned to You*\n\nHello ${agentName},\n\nYou were assigned a chat ${minutesSinceAssignment} minutes ago, but haven't replied yet.\n\n${countryInfo.flag} Customer from: ${countryInfo.name}\n\nPlease respond to the customer as soon as possible to avoid delays.\n\n_This is an automated reminder from BuySial Commerce._`;
+        const reminderText = `⏰ *Reminder: Chat Assigned to You*\n\nHello ${agentName},\n\nYou were assigned a chat ${minutesSinceAssignment} minutes ago, but haven't replied yet.\n\n${countryInfo.flag} Customer from: ${countryInfo.name}\n\nPlease respond to the customer as soon as possible to avoid delays.\n\n_This is an automated reminder from ${DEFAULT_BRANDING.companyName}._`;
         
         // Send WhatsApp reminder to agent
         const agentJid = agent.phone.replace(/[^0-9]/g, '') + '@s.whatsapp.net';

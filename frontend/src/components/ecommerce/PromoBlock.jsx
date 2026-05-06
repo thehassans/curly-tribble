@@ -1,9 +1,11 @@
 import React from 'react'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 
 const PROMO_ITEMS = [
   {
     title: 'Shop.',
-    highlight: 'BuySial is your trusted marketplace',
+    highlight: '',
     desc: 'with the best deals on everything you need.',
     icon: (
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -38,6 +40,14 @@ const PROMO_ITEMS = [
 ]
 
 export default function PromoBlock() {
+  const [branding] = useBranding()
+  const brandName = branding.storeName || branding.companyName || branding.appName || DEFAULT_BRANDING.storeName
+  const items = PROMO_ITEMS.map((item, index) => (
+    index === 0
+      ? { ...item, highlight: `${brandName} is your trusted marketplace` }
+      : item
+  ))
+
   return (
     <section className="max-w-7xl mx-auto px-2 sm:px-3 lg:px-4" style={{ marginTop: 20, marginBottom: 16 }}>
       <div style={{
@@ -82,7 +92,7 @@ export default function PromoBlock() {
           position: 'relative',
           zIndex: 1,
         }}>
-          {PROMO_ITEMS.map((item, i) => (
+          {items.map((item, i) => (
             <div
               key={i}
               style={{

@@ -42,11 +42,6 @@ export default function UserLogin() {
     if (token) {
       try {
         const me = JSON.parse(localStorage.getItem('me') || '{}')
-        if (me?.role === 'shop_vendor') {
-          localStorage.removeItem('token')
-          localStorage.removeItem('me')
-          return
-        }
         redirectForRole(me.role)
       } catch {}
     }

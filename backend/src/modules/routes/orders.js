@@ -16,6 +16,7 @@ import { getIO } from "../config/socket.js";
 import { createNotification } from "./notifications.js";
 import { assignInvestorProfitToOrder, preAssignInvestorToOrder } from "../services/investorProfitService.js";
 import googleMapsService from "../services/googleMapsService.js";
+import { DEFAULT_BRANDING } from "../utils/branding.js";
 // Removed invoice PDF generation
 
 const router = express.Router();
@@ -531,7 +532,7 @@ async function resolveOrderDropoffInput(body = {}) {
 function getDestinationPoint(order) {
   const phase = String(order?.logisticsPhase || "");
   const shipmentStatus = String(order?.shipmentStatus || "").toLowerCase();
-  const pickupPhase = new Set(["assigned_to_shop", "driver_assigned", "to_pickup", "at_pickup"]);
+  const pickupPhase = new Set(["pickup_pending", "driver_assigned", "to_pickup", "at_pickup"]);
   if (
     pickupPhase.has(phase) ||
     (!order?.pickupVerification?.verifiedAt &&
@@ -554,7 +555,7 @@ async function syncDriverOrderState(driverId, order) {
   const phase = String(order?.logisticsPhase || "");
   let stage = "idle";
   let currentOrder = null;
-  if (["assigned_to_shop", "driver_assigned", "to_pickup", "at_pickup"].includes(phase)) {
+  if (["pickup_pending", "driver_assigned", "to_pickup", "at_pickup"].includes(phase)) {
     stage = "to_pickup";
     currentOrder = order?._id || null;
   } else if (["picked_up", "to_dropoff"].includes(phase)) {
@@ -1705,8 +1706,8 @@ router.post(
           // Get branding info for Stripe checkout
           const brandDoc = await Setting.findOne({ key: "branding" }).lean();
           const brandVal = (brandDoc && brandDoc.value) || {};
-          const baseUrl = process.env.FRONTEND_URL || process.env.BASE_URL || req.headers.origin || "https://buysial.com";
-          const businessName = brandVal.appName || brandVal.title || "BuySial";
+          const baseUrl = process.env.FRONTEND_URL || process.env.BASE_URL || req.headers.origin || DEFAULT_BRANDING.websiteUrl;
+          const businessName = brandVal.appName || brandVal.title || DEFAULT_BRANDING.appName;
 
           // Helper to build absolute image URL
           const absImageUrl = (imgPath) => {
@@ -1978,7 +1979,7 @@ router.post(
       const Stripe = (await import("stripe")).default;
       const stripe = new Stripe(stripeKey);
 
-      const baseUrl = process.env.FRONTEND_URL || process.env.BASE_URL || req.headers.origin || "https://buysial.com";
+      const baseUrl = process.env.FRONTEND_URL || process.env.BASE_URL || req.headers.origin || DEFAULT_BRANDING.websiteUrl;
       const session = await stripe.checkout.sessions.create({
         mode: "payment",
         line_items: [{
@@ -5640,7 +5641,7 @@ router.patch(
                   driver.lastName
                 },\n\nYou have been assigned a new delivery:\n\n🔖 Order: ${orderNum}\n👤 Customer: ${customerInfo}\n📞 Phone: ${
                   ord.customerPhone || "N/A"
-                }\n📍 Address: ${address}\n\nPlease log in to your dashboard to view full order details and update the delivery status.\n\n🌐 Login: https://buysial.com/login\n\nThank you for your service!\nBuysial Commerce`;
+                }\n📍 Address: ${address}\n\nPlease log in to your dashboard to view full order details and update the delivery status.\n\n🌐 Login: ${DEFAULT_BRANDING.websiteUrl}/login\n\nThank you for your service!\n${DEFAULT_BRANDING.companyName}`;
                 const wa = await getWA();
                 await wa.sendText(jid, text);
               }
@@ -6061,7 +6062,7 @@ function generateInvoiceHTML(order) {
           </div>
           <div style="text-align: right;">
             <h3 style="color: #374151; margin: 0 0 10px 0;">From:</h3>
-            <p style="margin: 5px 0;"><strong>Buysial Commerce</strong></p>
+            <p style="margin: 5px 0;"><strong>${DEFAULT_BRANDING.companyName}</strong></p>
             <p style="margin: 5px 0; color: #6b7280;">Agent: ${
               order.createdBy
                 ? `${order.createdBy.firstName} ${order.createdBy.lastName}`
@@ -6125,7 +6126,7 @@ function generateInvoiceHTML(order) {
         
         <div style="text-align: center; padding-top: 30px; border-top: 1px solid #e5e7eb; color: #6b7280;">
           <p style="margin: 5px 0;">Thank you for your business!</p>
-          <p style="margin: 5px 0; font-size: 14px;">Buysial Commerce</p>
+          <p style="margin: 5px 0; font-size: 14px;">${DEFAULT_BRANDING.companyName}</p>
         </div>
       </div>
     </body>
@@ -6198,7 +6199,7 @@ ${[order.customerArea, order.city, order.orderCountry]
 ━━━━━━━━━━━━━━━━━━━━━
 
 Thank you for your business!
-_Buysial Commerce_
+_${DEFAULT_BRANDING.companyName}_
 ${
   order.createdBy
     ? `Agent: ${order.createdBy.firstName} ${order.createdBy.lastName}`

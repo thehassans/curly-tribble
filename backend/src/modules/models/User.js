@@ -44,7 +44,6 @@ const UserSchema = new mongoose.Schema(
         "investor",
         "driver",
         "customer",
-        "shop_vendor",
         "dropshipper",
         "reference",
         "commissioner",
@@ -102,7 +101,13 @@ const UserSchema = new mongoose.Schema(
     // Investor specific profile (only applicable when role === 'investor')
     investorProfile: {
       investmentAmount: { type: Number, default: 0 }, // Initial investment
+      sharePercent: { type: Number, default: 0 },
       profitAmount: { type: Number, default: 0 }, // Total profit amount to earn (user-defined)
+      businessType: {
+        type: String,
+        enum: ["individual", "small_business", "enterprise"],
+        default: "individual",
+      },
       profitPercentage: { type: Number, default: 15 }, // Profit % per order (e.g., 15%)
       earnedProfit: { type: Number, default: 0 }, // Profit earned so far from orders
       totalReturn: { type: Number, default: 0 }, // investmentAmount + earnedProfit
@@ -185,16 +190,6 @@ const UserSchema = new mongoose.Schema(
       totalCommission: { type: Number, default: 0 }, // Total commission earned from all delivered orders
       paidCommission: { type: Number, default: 0 }, // Total commission already paid via remittances
     },
-    shopVendorProfile: {
-      shop: { type: mongoose.Schema.Types.ObjectId, ref: "Shop" },
-      permissions: [
-        {
-          type: String,
-          enum: ["dashboard", "orders", "products", "payments"],
-        },
-      ],
-      lastSeenAt: { type: Date },
-    },
     // Dropshipper-specific profile
     dropshipperProfile: {
       businessName: { type: String, default: "" },
@@ -253,13 +248,12 @@ const UserSchema = new mongoose.Schema(
       portalName: { type: String, default: "" },
       storeName: { type: String, default: "" },
       staffLoginSubtitle: { type: String, default: "" },
-      shopLoginSubtitle: { type: String, default: "" },
       footerText: { type: String, default: "" },
       reportSignature: { type: String, default: "" },
       reportFooterText: { type: String, default: "" },
       websiteUrl: { type: String, default: "" },
     },
-    // Custom domain for e-commerce site (e.g., buysial.com)
+    // Custom domain for e-commerce site (e.g., yourstore.com)
     customDomain: { type: String, default: "", trim: true },
     // Firebase Cloud Messaging tokens for push notifications (multiple devices)
     fcmTokens: [{ type: String }],
@@ -269,7 +263,6 @@ const UserSchema = new mongoose.Schema(
 );
 
 UserSchema.index({ lastKnownLocation: "2dsphere" });
-UserSchema.index({ "shopVendorProfile.shop": 1 });
 
 UserSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next();

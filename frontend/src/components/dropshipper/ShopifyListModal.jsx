@@ -200,10 +200,9 @@ export default function ShopifyListModal({ product, onClose, onSuccess, currency
                     {product.name}
                   </div>
                   <div style={{ fontSize: 13, color: '#64748b' }}>
-                    SKU: <span style={{ fontWeight: 600, color: '#0f172a' }}>
-                      {product.sku || `BUYSIAL-${product._id}`}
-                    </span>
-                  </div>
+                  SKU: <span style={{ fontWeight: 600, color: '#0f172a' }}>
+                      {product.sku || `STORE-${product._id}`}
+                  </span>
                 </div>
               </div>
               

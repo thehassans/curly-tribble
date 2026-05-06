@@ -12,9 +12,9 @@ import FormattedPrice from '../../components/ui/FormattedPrice'
 import { resolveWarehouse, getLocalStockByCountry } from '../../utils/warehouse'
 import { readWishlistIds, toggleWishlist } from '../../util/wishlist'
 import { getProductRating, getProductReviews, getStarArray } from '../../utils/autoReviews'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
 import { readCartItems, writeCartItems } from '../../utils/cartStorage'
-
-const SITE_URL = 'https://buysial.com'
+import { useBranding } from '../../util/useBranding.js'
 
 const PremiumText = ({ content, className = '' }) => {
   if (!content) return null;
@@ -46,6 +46,7 @@ const ProductDetail = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const toast = useToast()
+  const [branding] = useBranding()
   const [product, setProduct] = useState(null)
   const [loading, setLoading] = useState(true)
   const [selectedImage, setSelectedImage] = useState(0)
@@ -58,6 +59,7 @@ const ProductDetail = () => {
   const [newReview, setNewReview] = useState({ rating: 5, comment: '', name: '' })
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [ccyCfg, setCcyCfg] = useState(null)
+  const siteUrl = (branding.websiteUrl || DEFAULT_BRANDING.websiteUrl || '').replace(/\/$/, '')
   const [wishlisted, setWishlisted] = useState(false)
   const [wishBusy, setWishBusy] = useState(false)
   const [cartSuccessModal, setCartSuccessModal] = useState(null)
@@ -180,8 +182,8 @@ const ProductDetail = () => {
     const pageTitle = product.seoTitle || product.metaTitle || product.name || 'Product'
     document.title = pageTitle
 
-    const canonicalHref = product.canonicalUrl || `${SITE_URL}/product/${product._id}`
-    const pageUrl = `${SITE_URL}${location.pathname}`
+    const canonicalHref = product.canonicalUrl || `${siteUrl}/product/${product._id}`
+    const pageUrl = `${siteUrl}${location.pathname}`
     const metaDesc = product.seoDescription || product.metaDescription || (product.description || '').slice(0, 158)
     const keywords = product.seoKeywords || ''
     const ogTitle = product.ogTitle || pageTitle
@@ -189,7 +191,7 @@ const ProductDetail = () => {
     const ogImage = (() => {
       const imgs = Array.isArray(product.images) ? product.images : []
       const raw = imgs[0] || product.imagePath || ''
-      return raw.startsWith('http') ? raw : raw ? `${SITE_URL}${raw}` : ''
+      return raw.startsWith('http') ? raw : raw ? `${siteUrl}${raw}` : ''
     })()
 
     const setMeta = (sel, attr, val) => {
@@ -325,7 +327,7 @@ const ProductDetail = () => {
     setIndexingStatus('')
     try {
       const token = localStorage.getItem('token')
-      const res = await apiPost(`/api/products/${product._id}/seo/request-index`, { siteUrl: SITE_URL }, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await apiPost(`/api/products/${product._id}/seo/request-index`, { siteUrl }, { headers: { Authorization: `Bearer ${token}` } })
       if (res?.success) {
         setIndexingStatus(`✅ Submitted to Google — ${res.productUrl || ''}`)
       } else if (res?.noCredentials) {

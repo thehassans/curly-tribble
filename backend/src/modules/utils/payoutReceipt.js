@@ -1,15 +1,17 @@
 import fs from 'fs'
 import path from 'path'
 import PDFDocument from 'pdfkit'
+import { DEFAULT_BRANDING } from './branding.js'
 
 function ensureDir(p){ if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive:true }) }
+const BRAND_NAME = DEFAULT_BRANDING.companyName
 
 function getLogoPath(){
   const candidates = [
-    path.resolve(process.cwd(), 'backend/assets/BuySial2.png'),
-    path.resolve(process.cwd(), 'assets/BuySial2.png'),
-    path.resolve(process.cwd(), 'BuySial2.png'),
-    path.resolve(process.cwd(), '../frontend/public/BuySial2.png'),
+    path.resolve(process.cwd(), 'backend/assets/magnetic-commerce.png'),
+    path.resolve(process.cwd(), 'assets/magnetic-commerce.png'),
+    path.resolve(process.cwd(), 'magnetic-commerce.png'),
+    path.resolve(process.cwd(), '../frontend/public/magnetic-commerce.png'),
   ]
   for (const p of candidates){ try{ if (fs.existsSync(p)) return p }catch{} }
   return null
@@ -33,7 +35,7 @@ export async function generatePayoutReceiptPDF(agent, amountPKR){
   if (logo){
     try{ doc.image(logo, 52, 52, { width: 48, height:48, fit:[48,48] }); x = 52 + 48 + 10 }catch{}
   }
-  doc.fill('#ffffff').font('Helvetica-Bold').fontSize(20).text('BuySial', x, 58)
+  doc.fill('#ffffff').font('Helvetica-Bold').fontSize(20).text(BRAND_NAME, x, 58)
   doc.font('Helvetica').fontSize(12).text('Payout Receipt', x, 84)
 
   const bodyY = 150
@@ -42,7 +44,7 @@ export async function generatePayoutReceiptPDF(agent, amountPKR){
   const amt = Number(amountPKR||0).toLocaleString('en-PK')
   const lines = [
     `Dear ${name},`,
-    `You have received PKR ${amt} from team BuySial.`,
+    `You have received PKR ${amt} from ${BRAND_NAME}.`,
     `Thank you.`,
   ]
   let y=bodyY

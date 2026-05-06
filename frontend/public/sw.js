@@ -1,8 +1,8 @@
-// High-Performance Service Worker for BuySial Commerce
+// High-Performance Service Worker for storefront caching
 // Optimized for speed, caching, and offline support
-const CACHE_NAME = 'buysial-v9'
-const API_CACHE_NAME = 'buysial-api-v1'
-const IMAGE_CACHE_NAME = 'buysial-images-v1'
+const CACHE_NAME = 'storefront-v9'
+const API_CACHE_NAME = 'storefront-api-v1'
+const IMAGE_CACHE_NAME = 'storefront-images-v1'
 
 // Critical resources to pre-cache
 const SHELL = [

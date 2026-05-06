@@ -662,7 +662,7 @@ export default function AgentLayout() {
                 return (
                   <img
                     src={src}
-                    alt="BuySial"
+                    alt="Brand logo"
                     style={{ height: 36, width: 'auto', objectFit: 'contain' }}
                   />
                 )

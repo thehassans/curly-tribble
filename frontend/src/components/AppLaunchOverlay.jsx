@@ -12,17 +12,18 @@ function shouldShowAndroidLaunchOverlay() {
 export default function AppLaunchOverlay() {
   const [visible, setVisible] = useState(() => shouldShowAndroidLaunchOverlay())
   const [entered, setEntered] = useState(false)
+  const launchOverlayKey = '__android_launch_overlay__'
 
   useEffect(() => {
     if (!visible) return undefined
 
     try {
-      const alreadyPlayed = sessionStorage.getItem('__buysial_android_launch_overlay__')
+      const alreadyPlayed = sessionStorage.getItem(launchOverlayKey)
       if (alreadyPlayed === '1') {
         setVisible(false)
         return undefined
       }
-      sessionStorage.setItem('__buysial_android_launch_overlay__', '1')
+      sessionStorage.setItem(launchOverlayKey, '1')
     } catch {}
 
     const frameId = window.requestAnimationFrame(() => setEntered(true))
@@ -44,7 +45,7 @@ export default function AppLaunchOverlay() {
         <div className="app-launch-content">
           <div className="app-launch-logo-shell">
             <div className="app-launch-logo-glow" />
-            <img src={`${import.meta.env.BASE_URL}mobile-app-launcher.png`} alt="BuySial" className="app-launch-logo" />
+            <img src={`${import.meta.env.BASE_URL}mobile-app-launcher.png`} alt="Brand logo" className="app-launch-logo" />
           </div>
           <div className="app-launch-progress">
             <span />

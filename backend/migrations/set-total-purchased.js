@@ -6,7 +6,7 @@ dotenv.config()
 
 async function migrate() {
   try {
-    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/buysial')
+    await mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/magnetic-commerce')
     console.log('Connected to database')
 
     const products = await Product.find({})

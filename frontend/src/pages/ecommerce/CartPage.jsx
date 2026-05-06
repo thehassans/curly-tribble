@@ -11,7 +11,8 @@ import { COUNTRY_LIST, COUNTRY_TO_CURRENCY } from '../../utils/constants'
 import { resolveWarehouse } from '../../utils/warehouse'
 import { readCartItems, writeCartItems, clearCartItems, areCartItemsEqual } from '../../utils/cartStorage'
 
-const DELIVERY_DRAFT_KEY = '__buysial_delivery_draft__'
+const DELIVERY_DRAFT_KEY = '__delivery_draft__'
+const DELIVERY_DRAFT_EVENT = 'deliveryDraftUpdated'
 
 export default function CartPage() {
   const [cartItems, setCartItems] = useState(() => readCartItems())
@@ -710,8 +711,8 @@ export default function CartPage() {
     }
 
     applyDraft()
-    window.addEventListener('buysialDeliveryDraftUpdated', applyDraft)
-    return () => window.removeEventListener('buysialDeliveryDraftUpdated', applyDraft)
+    window.addEventListener(DELIVERY_DRAFT_EVENT, applyDraft)
+    return () => window.removeEventListener(DELIVERY_DRAFT_EVENT, applyDraft)
   }, [])
 
   // Handle PayPal return

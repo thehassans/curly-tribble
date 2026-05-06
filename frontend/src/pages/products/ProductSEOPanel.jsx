@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { apiPost, apiPatch, apiGet } from '../../api'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 
-const SITE_URL = 'https://commerce.magnetic-ict.com'
 const TABS = ['General SEO', 'Country SEO', 'Backlinks', 'Google Search Console', '✨ AI SEO']
 
 const LINK_TYPES = ['dofollow', 'nofollow', 'sponsored', 'ugc']
@@ -22,12 +23,16 @@ function slugify(str) {
 }
 
 export default function ProductSEOPanel({ form, setForm, countryOpts, productId, isMobile }) {
+  const [branding] = useBranding()
   const [activeTab, setActiveTab] = useState(0)
   const [gscMsg, setGscMsg] = useState('')
   const [gscLoading, setGscLoading] = useState(false)
   const [gscPermDenied, setGscPermDenied] = useState(null) // { email, manualUrl }
   const [newBacklink, setNewBacklink] = useState({ url: '', anchor: '', type: 'dofollow', status: 'pending' })
   const [activeCountry, setActiveCountry] = useState(null)
+  const siteUrl = (branding.websiteUrl || DEFAULT_BRANDING.websiteUrl || '').replace(/\/$/, '')
+  const brandName = branding.storeName || branding.companyName || branding.appName || DEFAULT_BRANDING.storeName
+
   const [aiSeoLoading, setAiSeoLoading] = useState(false)
   const [aiSeoMsg, setAiSeoMsg] = useState('')
   const [aiSeoPreview, setAiSeoPreview] = useState(null)
@@ -35,13 +40,20 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
 
   const seo = form.seo || {}
   const countrySeo = form.countrySeo || {}
-  const backlinks = Array.isArray(form.backlinks) ? form.backlinks : []
+  const backlinks = Array.isArray(form.backlinks) ? form.backlinks.map(b => ({
+    url: b?.url || '',
+    anchor: b?.anchor || '',
+    type: b?.type || 'dofollow',
+    status: b?.status || 'pending',
+    aiSuggested: !!b?.aiSuggested,
+    addedAt: b?.addedAt || new Date().toISOString(),
+  })) : []
   const gscData = form.gscData || {}
 
   // Always pre-fill the commerce domain as site URL
   useEffect(() => {
     if (!form.gscData?.siteUrl) {
-      setGscData({ siteUrl: SITE_URL })
+      setGscData({ siteUrl })
     }
   }, []) // eslint-disable-line
 
@@ -112,7 +124,7 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
           addedAt: new Date().toISOString(),
         })) : []),
       ],
-      gscData: { ...(f.gscData || {}), siteUrl: SITE_URL },
+      gscData: { ...(f.gscData || {}), siteUrl },
     }))
     setAiSeoMsg('✅ AI SEO applied to all tabs — review and save')
   }
@@ -128,7 +140,7 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
         category: form.category || '',
         description: form.description || '',
         availableCountries: Array.isArray(form.availableCountries) ? form.availableCountries : [],
-        baseUrl: SITE_URL,
+        baseUrl: siteUrl,
       })
       if (!res?.success || !res?.seo) {
         setAiSeoMsg('❌ ' + (res?.message || 'Failed to generate SEO'))
@@ -151,7 +163,7 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
     setGscPermDenied(null)
     try {
       const res = await apiPost(`/api/products/${productId}/seo/request-index`, {
-        siteUrl: gscData.siteUrl || SITE_URL,
+        siteUrl: gscData.siteUrl || siteUrl,
       })
       if (res?.success) {
         setGscMsg(`✅ Submitted to Google — ${res.productUrl || ''}`)
@@ -240,7 +252,7 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
                   style={inputStyle}
                   value={seo.seoTitle || ''}
                   maxLength={60}
-                  placeholder={`e.g. Buy ${form.name || 'Product'} — BuySial`}
+                  placeholder={`e.g. Buy ${form.name || 'Product'} — ${brandName}`}
                   onChange={e => setSeo({ seoTitle: e.target.value })}
                 />
                 <div style={{ fontSize: 11, color: (seo.seoTitle || '').length > 55 ? '#dc2626' : 'var(--text-muted)', textAlign: 'right' }}>
@@ -345,7 +357,7 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
                   {seo.seoTitle || form.name}
                 </div>
                 <div style={{ fontSize: 13, color: '#006621', marginBottom: 4, fontFamily: 'Arial, sans-serif' }}>
-                  {`${gscData.siteUrl || 'https://yourdomain.com'}/products/${seo.slug || slugify(form.name)}`}
+                  {`${siteUrl}/products/${seo.slug || slugify(form.name) || '[slug]'}`}
                 </div>
                 <div style={{ fontSize: 13, color: '#545454', fontFamily: 'Arial, sans-serif' }}>
                   {seo.seoDescription || 'No meta description set. Add one to improve click-through rates.'}
@@ -444,7 +456,7 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
                     <div style={{ background: '#1e293b', borderRadius: 8, padding: '12px 16px' }}>
                       <div style={{ fontSize: 11, color: '#94a3b8', marginBottom: 6, fontWeight: 700 }}>GENERATED HREFLANG TAG</div>
                       <code style={{ fontSize: 12, color: '#7dd3fc', fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                        {`<link rel="alternate" hreflang="${countrySeo[selectedCountry]?.hreflang || 'en-' + selectedCountry.toUpperCase()}" href="${gscData.siteUrl || 'https://yourdomain.com'}/products/${seo.slug || slugify(form.name)}" />`}
+                        {`<link rel="alternate" hreflang="${countrySeo[selectedCountry]?.hreflang || 'en-' + selectedCountry.toUpperCase()}" href="${siteUrl}/products/${seo.slug || slugify(form.name)}" />`}
                       </code>
                     </div>
                   </div>
@@ -465,7 +477,7 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
             <div style={{ padding: '10px 14px', background: '#f0fdf4', borderRadius: 8, border: '1px solid #bbf7d0', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontWeight: 700, color: '#166534', whiteSpace: 'nowrap' }}>Target URL:</span>
               <span style={{ color: '#16a34a', wordBreak: 'break-all' }}>
-                {SITE_URL}/products/{seo.slug || slugify(form.name) || '[slug]'}
+                {siteUrl}/products/{seo.slug || slugify(form.name) || '[slug]'}
               </span>
             </div>
 
@@ -590,19 +602,19 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
                 <label style={labelStyle}>Site URL (GSC Property)</label>
                 <input
                   style={inputStyle}
-                  value={gscData.siteUrl || SITE_URL}
-                  placeholder={SITE_URL}
+                  value={gscData.siteUrl || siteUrl}
+                  placeholder={siteUrl}
                   onChange={e => setGscData({ siteUrl: e.target.value })}
                 />
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Must match your verified property in Google Search Console</div>
               </div>
-              <div style={fieldStyle}>
+              <div>
                 <label style={labelStyle}>Product URL Preview</label>
                 <div style={{
                   padding: '10px 12px', borderRadius: 8, background: 'var(--panel-2)', border: '1px solid var(--border)',
                   fontSize: 13, color: '#3b82f6', wordBreak: 'break-all'
                 }}>
-                  {`${(gscData.siteUrl || SITE_URL).replace(/\/$/, '')}/products/${seo.slug || slugify(form.name) || '[slug]'}`}
+                  {`${(gscData.siteUrl || siteUrl).replace(/\/$/, '')}/products/${seo.slug || slugify(form.name) || '[slug]'}`}
                 </div>
               </div>
             </div>
@@ -698,7 +710,7 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
                 </div>
                 <ol style={{ margin: '0 0 12px', paddingLeft: 20, color: '#7f1d1d' }}>
                   <li>Click <strong>Open GSC → Users</strong> button below</li>
-                  <li>Select property: <strong>{gscData.siteUrl || SITE_URL}</strong></li>
+                  <li>Select property: <strong>{gscData.siteUrl || siteUrl}</strong></li>
                   <li>Click <strong>Add User</strong> → paste the email above</li>
                   <li>Set permission to <strong style={{ color: '#dc2626' }}>Owner</strong> (NOT "Full user") → Save</li>
                   <li>Wait 1–2 minutes, then click <strong>Request Google Indexing</strong> again</li>
@@ -760,7 +772,7 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
                 <code style={{ fontSize: 12, color: '#7dd3fc', fontFamily: 'monospace', whiteSpace: 'pre-wrap', display: 'block' }}>
                   {availableCountries.map(c => {
                     const hl = countrySeo[c]?.hreflang || 'en-' + (c === 'UAE' ? 'AE' : c === 'KSA' ? 'SA' : c.toUpperCase().slice(0, 2))
-                    const url = `${(gscData.siteUrl || SITE_URL).replace(/\/$/, '')}/products/${seo.slug || slugify(form.name)}`
+                    const url = `${(gscData.siteUrl || siteUrl).replace(/\/$/, '')}/products/${seo.slug || slugify(form.name)}`
                     return `<link rel="alternate" hreflang="${hl}" href="${url}" />`
                   }).join('\n')}
                 </code>
@@ -863,7 +875,7 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
                     {aiSeoPreview.seoTitle}
                   </div>
                   <div style={{ fontSize: 13, color: '#006621', marginBottom: 4, fontFamily: 'Arial,sans-serif' }}>
-                    {SITE_URL}/products/{aiSeoPreview.slug}
+                    {siteUrl}/products/{aiSeoPreview.slug}
                   </div>
                   <div style={{ fontSize: 13, color: '#545454', fontFamily: 'Arial,sans-serif' }}>
                     {aiSeoPreview.seoDescription}
@@ -940,7 +952,7 @@ export default function ProductSEOPanel({ form, setForm, countryOpts, productId,
                     ['🌍', 'Country SEO', 'Per-market titles, descriptions, hreflang'],
                     ['🔗', 'Backlinks', '5 topically relevant authority targets'],
                     ['📊', 'Open Graph', 'Social sharing title + description'],
-                    ['🌐', 'Canonical URL', `${SITE_URL}/products/[slug]`],
+                    ['🌐', 'Canonical URL', `${siteUrl}/products/[slug]`],
                   ].map(([icon, title, desc]) => (
                     <div key={title} style={{ display: 'flex', gap: 8, padding: '8px 10px', background: 'var(--card)', borderRadius: 8 }}>
                       <span style={{ fontSize: 16 }}>{icon}</span>

@@ -1,13 +1,18 @@
 import React, { useState } from 'react';
 import { checkAiSummaryStructure, validateLdJsonSchema, generateLlmsTxt } from '../../utils/geoAeoOptimizer';
+import { DEFAULT_BRANDING } from '../../util/branding.js';
+import { useBranding } from '../../util/useBranding.js';
 
 export default function AeoPage() {
+  const [branding] = useBranding();
   const [contentToAnalyze, setContentToAnalyze] = useState('');
   const [schemaToAnalyze, setSchemaToAnalyze] = useState('{\n  "@context": "https://schema.org",\n  "@type": "Article",\n  "headline": "Example"\n}');
   
   const [summaryResult, setSummaryResult] = useState(null);
   const [schemaResult, setSchemaResult] = useState(null);
   const [llmsText, setLlmsText] = useState('');
+  const siteUrl = (branding.websiteUrl || DEFAULT_BRANDING.websiteUrl || '').replace(/\/$/, '');
+  const brandName = branding.storeName || branding.companyName || branding.appName || DEFAULT_BRANDING.storeName;
 
   const handleAnalyzeContent = () => {
     const hasSummary = checkAiSummaryStructure(contentToAnalyze);
@@ -26,12 +31,12 @@ export default function AeoPage() {
 
   const handleGenerateLlms = () => {
     const txt = generateLlmsTxt({
-      url: 'https://buysial.com',
-      brandName: 'Buysial',
-      description: 'Premium e-commerce destination for authentic skincare and hardware products in the GCC.',
+      url: siteUrl,
+      brandName,
+      description: `${brandName} online storefront and commerce experience.`,
       keyEndpoints: [
-        { name: 'Products Catalog', url: 'https://buysial.com/catalog', desc: 'Full inventory' },
-        { name: 'Categories API', url: 'https://api.buysial.com/categories', desc: 'JSON list of categories' }
+        { name: 'Products Catalog', url: `${siteUrl}/catalog`, desc: 'Full inventory' },
+        { name: 'Categories API', url: `${siteUrl}/api/categories`, desc: 'JSON list of categories' }
       ]
     });
     setLlmsText(txt);

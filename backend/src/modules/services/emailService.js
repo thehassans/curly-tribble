@@ -1,3 +1,5 @@
+import { DEFAULT_BRANDING } from '../utils/branding.js';
+
 // Lazy import nodemailer to prevent crash if not installed
 let nodemailer = null;
 
@@ -24,7 +26,8 @@ async function getTransporter() {
   
   const host = config.smtpHost || process.env.SMTP_HOST || 'smtp.gmail.com';
   const port = config.smtpPort || process.env.SMTP_PORT || 587;
-  const user = config.smtpUser || process.env.SMTP_USER || 'shop@buysial.com';
+  const defaultSupportEmail = `shop@${new URL(DEFAULT_BRANDING.websiteUrl).hostname.replace(/^www\./, '')}`;
+  const user = config.smtpUser || process.env.SMTP_USER || defaultSupportEmail;
   const pass = config.smtpPass || process.env.SMTP_PASS;
   
   if (!pass) {
@@ -49,7 +52,8 @@ function generateOrderConfirmationEmail(order) {
   const customerName = order.customerName || 'Valued Customer';
   const total = order.total || 0;
   const currency = order.currency || 'SAR';
-  const trackingUrl = `https://buysial.com/track-order?id=${order._id}`;
+  const supportEmail = `support@${new URL(DEFAULT_BRANDING.websiteUrl).hostname.replace(/^www\./, '')}`;
+  const trackingUrl = `${DEFAULT_BRANDING.websiteUrl}/track-order?id=${order._id}`;
   
   const itemsHtml = items.map(item => `
     <tr>
@@ -69,7 +73,7 @@ function generateOrderConfirmationEmail(order) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Order Confirmation - BuySial</title>
+  <title>Order Confirmation - ${DEFAULT_BRANDING.companyName}</title>
 </head>
 <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8f9fa;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8f9fa; padding: 40px 20px;">
@@ -80,7 +84,7 @@ function generateOrderConfirmationEmail(order) {
           <!-- Header -->
           <tr>
             <td style="background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); padding: 40px 40px 35px; text-align: center;">
-              <img src="https://buysial.com/buysial-logo.png" alt="BuySial" style="height: 50px; margin-bottom: 20px;" />
+              <img src="${DEFAULT_BRANDING.websiteUrl}/magnetic-commerce.png" alt="${DEFAULT_BRANDING.companyName}" style="height: 50px; margin-bottom: 20px;" />
               <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Thank You for Your Order!</h1>
               <p style="margin: 12px 0 0; color: rgba(255,255,255,0.9); font-size: 16px;">We're thrilled to have you shop with us</p>
             </td>
@@ -103,7 +107,7 @@ function generateOrderConfirmationEmail(order) {
                 Dear <strong>${customerName}</strong>,
               </p>
               <p style="margin: 16px 0 0; color: #6b7280; font-size: 15px; line-height: 1.7;">
-                Thank you for shopping at <strong style="color: #f97316;">BuySial</strong>! Your order has been successfully placed and is being processed. We'll notify you once it's on its way.
+                Thank you for shopping at <strong style="color: #f97316;">${DEFAULT_BRANDING.companyName}</strong>! Your order has been successfully placed and is being processed. We'll notify you once it's on its way.
               </p>
             </td>
           </tr>
@@ -160,7 +164,7 @@ function generateOrderConfirmationEmail(order) {
           <tr>
             <td style="padding: 0 40px 30px; text-align: center;">
               <p style="margin: 0; color: #9ca3af; font-size: 14px;">
-                Need help? Contact us at <a href="mailto:support@buysial.com" style="color: #f97316; text-decoration: none; font-weight: 600;">support@buysial.com</a>
+                Need help? Contact us at <a href="mailto:${supportEmail}" style="color: #f97316; text-decoration: none; font-weight: 600;">${supportEmail}</a>
               </p>
             </td>
           </tr>
@@ -168,11 +172,11 @@ function generateOrderConfirmationEmail(order) {
           <!-- Footer -->
           <tr>
             <td style="background: #1a1a2e; padding: 30px 40px; text-align: center;">
-              <p style="margin: 0 0 12px; color: #f97316; font-weight: 700; font-size: 18px;">BuySial</p>
+              <p style="margin: 0 0 12px; color: #f97316; font-weight: 700; font-size: 18px;">${DEFAULT_BRANDING.companyName}</p>
               <p style="margin: 0; color: #9ca3af; font-size: 13px;">Your Premium Shopping Destination</p>
               <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #374151;">
                 <p style="margin: 0; color: #6b7280; font-size: 12px;">
-                  © ${new Date().getFullYear()} BuySial. All rights reserved.
+                  © ${new Date().getFullYear()} ${DEFAULT_BRANDING.companyName}. All rights reserved.
                 </p>
               </div>
             </td>
@@ -206,11 +210,11 @@ export async function sendOrderConfirmationEmail(order) {
     
     const mailOptions = {
       from: {
-        name: 'BuySial',
-        address: process.env.SMTP_USER || 'shop@buysial.com'
+        name: DEFAULT_BRANDING.companyName,
+        address: process.env.SMTP_USER || `shop@${new URL(DEFAULT_BRANDING.websiteUrl).hostname.replace(/^www\./, '')}`
       },
       to: email,
-      subject: `🎉 Order Confirmed! Your BuySial Order #${orderNumber}`,
+      subject: `🎉 Order Confirmed! Your ${DEFAULT_BRANDING.companyName} Order #${orderNumber}`,
       html: generateOrderConfirmationEmail(order)
     };
     

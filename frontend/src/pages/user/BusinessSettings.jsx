@@ -136,7 +136,7 @@ export default function BusinessSettings() {
     setMessage('')
     setError('')
     try {
-      await apiPost('/api/user/update-profile', { firstName, lastName, phone })
+      await apiPost('/api/users/update-profile', { firstName, lastName, phone })
       const nextUser = { ...(currentUser || {}), firstName, lastName, phone }
       setCurrentUser(nextUser)
       syncStoredUser(nextUser)

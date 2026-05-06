@@ -150,7 +150,7 @@ export default function PremiumFooter() {
       <div className="pf2-glow-tr" />
       <div className="pf2-glow-bl" />
 
-      {/* Why shop with BuySial */}
+      {/* Why shop with your brand */}
       <div className="pf2-why">
         <h3 className="pf2-why-title">Why shop with <span style={{ color: '#f97316', fontStyle: 'italic' }}>{brandName}</span>?</h3>
         <div className="pf2-why-divider" />
@@ -288,7 +288,7 @@ export default function PremiumFooter() {
           pointer-events: none;
         }
 
-        /* Why shop with BuySial */
+        /* Why shop with your brand */
         .pf2-why {
           max-width: 700px;
           margin: 0 auto;

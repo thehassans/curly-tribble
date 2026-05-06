@@ -18,6 +18,7 @@ import ChatMeta from '../models/ChatMeta.js';
 import RoundRobin from '../models/RoundRobin.js';
 import User from '../models/User.js';
 import Setting from '../models/Setting.js';
+import { DEFAULT_BRANDING } from '../utils/branding.js';
 import WaMessage from '../models/WaMessage.js';
 
 // Singleton state
@@ -132,7 +133,7 @@ async function ensureSock() {
       version,
       printQRInTerminal: false,
       auth: state,
-      browser: ['BuySial', 'Chrome', '1.0.0'],
+      browser: [DEFAULT_BRANDING.appName, 'Chrome', '1.0.0'],
       logger: Pino({ level: 'silent' })
     });
 
@@ -922,7 +923,7 @@ async function sendVoice(jid, file) {
       }
       if (ffmpegPath) {
         // Use a writable temp directory to avoid EACCES on hosts with restricted /tmp
-        const tmpRoot = (process.env.WA_TMP_DIR && path.resolve(process.env.WA_TMP_DIR)) || path.resolve(process.cwd(), 'tmp', 'buysial-wa')
+        const tmpRoot = (process.env.WA_TMP_DIR && path.resolve(process.env.WA_TMP_DIR)) || path.resolve(process.cwd(), 'tmp', 'magnetic-wa')
         try { fs.mkdirSync(tmpRoot, { recursive: true, mode: 0o777 }); try{ fs.chmodSync(tmpRoot, 0o777) }catch{} } catch { }
         outputPath = path.join(tmpRoot, `voice-${Date.now()}.ogg`);
         await new Promise((resolve, reject) => {
@@ -957,7 +958,7 @@ async function sendVoice(jid, file) {
         let ffmpegPath = process.env.WA_FFMPEG_PATH || null
         if (!ffmpegPath) ffmpegPath = (await import('ffmpeg-static')).default;
         if (ffmpegPath && file?.mimetype && /audio\/webm/i.test(file.mimetype)){
-          const tmpDir = path.join(os.tmpdir(), 'buysial-wa');
+          const tmpDir = path.join(os.tmpdir(), 'magnetic-wa');
           try { fs.mkdirSync(tmpDir, { recursive: true }); } catch { }
           outputPath = path.join(tmpDir, `voice-${Date.now()}.ogg`);
           await new Promise((resolve, reject) => {
@@ -984,7 +985,7 @@ async function sendVoice(jid, file) {
     // Robustness: if the expected path does not exist (e.g., tmp cleanup or cross-instance write), try a fallback in WA_TMP_DIR/os.tmpdir
     try{
       if (!fs.existsSync(sendPath)){
-        const tmpRoot = (process.env.WA_TMP_DIR && path.resolve(process.env.WA_TMP_DIR)) || path.join(os.tmpdir(), 'buysial-wa')
+        const tmpRoot = (process.env.WA_TMP_DIR && path.resolve(process.env.WA_TMP_DIR)) || path.join(os.tmpdir(), 'magnetic-wa')
         const alt = path.join(tmpRoot, path.basename(sendPath))
         if (fs.existsSync(alt)){
           try{ console.warn('[sendVoice] primary send path missing, using fallback', { primary: sendPath, alt }) }catch{}

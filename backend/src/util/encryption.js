@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 
 // Encryption key should be stored in environment variables in production
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'buysial-shopify-encryption-key-32b' // Must be 32 bytes
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || 'magnetic-shopify-encryption-key' // Must be 32 bytes
 const ALGORITHM = 'aes-256-cbc'
 
 /**

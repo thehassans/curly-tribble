@@ -302,7 +302,7 @@ export default memo(function HorizontalProductSection({
             {title === 'Trending Products' && 'Hot items everyone loves'}
             {title === 'Super Deals' && 'Limited time offers'}
             {title === 'Top Selling' && 'Best sellers this week'}
-            {title === 'BuySial Recommendations' && 'Handpicked picks from BuySial'}
+            {title.toLowerCase().includes('recommendation') && 'Handpicked picks from our store'}
             {title === 'Video Products' && 'Watch, explore, and shop instantly'}
           </p>
         </div>

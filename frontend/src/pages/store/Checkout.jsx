@@ -4,7 +4,8 @@ import { apiPost, API_BASE } from '../../api'
 import { COUNTRY_TO_CODE, COUNTRY_TO_CURRENCY } from '../../utils/constants'
 import { readCartItems, writeCartItems, clearCartItems } from '../../utils/cartStorage'
 
-const DELIVERY_DRAFT_KEY = '__buysial_delivery_draft__'
+const DELIVERY_DRAFT_KEY = '__delivery_draft__'
+const DELIVERY_DRAFT_EVENT = 'deliveryDraftUpdated'
 
 export default function Checkout(){
   const navigate = useNavigate()
@@ -50,8 +51,8 @@ export default function Checkout(){
     }
 
     applyDraft()
-    window.addEventListener('buysialDeliveryDraftUpdated', applyDraft)
-    return () => window.removeEventListener('buysialDeliveryDraftUpdated', applyDraft)
+    window.addEventListener(DELIVERY_DRAFT_EVENT, applyDraft)
+    return () => window.removeEventListener(DELIVERY_DRAFT_EVENT, applyDraft)
   }, [])
 
   useEffect(() => { writeCartItems(cart, { dispatchEvent: false }) }, [cart])

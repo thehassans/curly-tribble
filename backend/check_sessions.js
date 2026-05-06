@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 import WaSession from './src/modules/models/WaSession.js';
 
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/buysial')
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/magnetic-commerce')
   .then(async () => {
     const sessions = await WaSession.find({}).sort({ connectedAt: -1 }).limit(5).lean();
     console.log('Recent WaSession entries:');

@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import Header from '../../components/layout/Header'
 import MobileBottomNav from '../../components/ecommerce/MobileBottomNav'
 import { API_BASE } from '../../api.js'
+import { DEFAULT_BRANDING, resolvePanelBrandLogo } from '../../util/branding.js'
+import { useBranding } from '../../util/useBranding.js'
 
 const getImageUrl = (p) => {
   const imagePath = p || ''
@@ -35,9 +37,12 @@ const formatCurrency = (amount, currency) => {
 export default function OrderSuccess() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [branding] = useBranding()
   const [orderData, setOrderData] = useState(null)
   const [showConfetti, setShowConfetti] = useState(true)
   const invoiceRef = useRef(null)
+  const brandName = branding.storeName || branding.companyName || branding.appName || DEFAULT_BRANDING.storeName
+  const logoSrc = resolvePanelBrandLogo(branding, { fallback: `${import.meta.env.BASE_URL}magnetic-commerce.png` })
 
   useEffect(() => {
     const state = location.state
@@ -150,8 +155,8 @@ export default function OrderSuccess() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
               <div style={{ background: '#fff', borderRadius: 10, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <img
-                  src="/BSBackgroundremoved.png"
-                  alt="BuySial"
+                  src={logoSrc}
+                  alt={brandName}
                   style={{ height: 32, objectFit: 'contain', display: 'block' }}
                   onError={(e) => { e.target.parentElement.style.display = 'none' }}
                 />

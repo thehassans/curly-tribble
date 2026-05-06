@@ -2,18 +2,20 @@ import PDFDocument from 'pdfkit'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { DEFAULT_BRANDING } from '../modules/utils/branding.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+const BRAND_NAME = DEFAULT_BRANDING.companyName
 
 // Helper to get logo path
 function getLogoPath(){
   const candidates = [
-    path.resolve(process.cwd(), 'backend/assets/BuySial2.png'),
-    path.resolve(process.cwd(), 'assets/BuySial2.png'),
-    path.resolve(process.cwd(), 'BuySial2.png'),
-    path.resolve(process.cwd(), '../frontend/public/BuySial2.png'),
-    path.resolve(process.cwd(), 'frontend/public/BuySial2.png'),
+    path.resolve(process.cwd(), 'backend/assets/magnetic-commerce.png'),
+    path.resolve(process.cwd(), 'assets/magnetic-commerce.png'),
+    path.resolve(process.cwd(), 'magnetic-commerce.png'),
+    path.resolve(process.cwd(), '../frontend/public/magnetic-commerce.png'),
+    path.resolve(process.cwd(), 'frontend/public/magnetic-commerce.png'),
   ]
   for (const p of candidates){ 
     try{ 
@@ -63,7 +65,7 @@ export async function generateDriverMonthlyReportPDF(data) {
         bufferPages: true,
         info: {
           Title: 'Driver Monthly Report',
-          Author: 'BuySial Commerce',
+          Author: BRAND_NAME,
           Subject: 'Driver Performance Report'
         }
       })

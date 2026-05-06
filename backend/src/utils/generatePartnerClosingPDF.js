@@ -4,11 +4,11 @@ import path from 'path'
 
 function getLogoPath() {
   const candidates = [
-    path.resolve(process.cwd(), 'backend/assets/BuySial2.png'),
-    path.resolve(process.cwd(), 'assets/BuySial2.png'),
-    path.resolve(process.cwd(), 'BuySial2.png'),
-    path.resolve(process.cwd(), '../frontend/public/BuySial2.png'),
-    path.resolve(process.cwd(), 'frontend/public/BuySial2.png'),
+    path.resolve(process.cwd(), 'backend/assets/magnetic-commerce.png'),
+    path.resolve(process.cwd(), 'assets/magnetic-commerce.png'),
+    path.resolve(process.cwd(), 'magnetic-commerce.png'),
+    path.resolve(process.cwd(), '../frontend/public/magnetic-commerce.png'),
+    path.resolve(process.cwd(), 'frontend/public/magnetic-commerce.png'),
   ]
   for (const file of candidates) {
     try {

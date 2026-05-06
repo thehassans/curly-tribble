@@ -1,13 +1,25 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { analyzePassageCitability, analyzeEntityCoOccurrence } from '../../utils/geoAeoOptimizer';
+import { DEFAULT_BRANDING } from '../../util/branding.js';
+import { useBranding } from '../../util/useBranding.js';
 
 export default function GeoPage() {
+  const [branding] = useBranding();
+  const defaultBrandName = branding.storeName || branding.companyName || branding.appName || DEFAULT_BRANDING.storeName;
   const [contentToAnalyze, setContentToAnalyze] = useState('');
-  const [targetBrand, setTargetBrand] = useState('Buysial');
+  const [targetBrand, setTargetBrand] = useState(defaultBrandName);
   
   const [passageResults, setPassageResults] = useState([]);
   const [entityResults, setEntityResults] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  useEffect(() => {
+    setTargetBrand((current) => {
+      const next = String(current || '').trim();
+      if (!next) return defaultBrandName;
+      return current;
+    });
+  }, [defaultBrandName]);
 
   const handleAnalyzeGeo = async () => {
     if (!contentToAnalyze) return;
@@ -55,7 +67,7 @@ export default function GeoPage() {
             <div className="flex gap-4">
               <input 
                 type="text"
-                placeholder="Target Brand (e.g. Buysial)"
+                placeholder={`Target Brand (e.g. ${defaultBrandName})`}
                 className="flex-1 p-3 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-gray-900"
                 value={targetBrand}
                 onChange={e => setTargetBrand(e.target.value)}

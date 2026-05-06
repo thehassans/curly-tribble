@@ -2,6 +2,7 @@ import express from 'express'
 import crypto from 'crypto'
 import { auth, allowRoles } from '../middleware/auth.js'
 import ShopifyIntegration from '../models/ShopifyIntegration.js'
+import { DEFAULT_BRANDING } from '../utils/branding.js'
 import { encrypt, decrypt } from '../../util/encryption.js'
 
 const router = express.Router()
@@ -251,7 +252,7 @@ router.get('/install', async (req, res) => {
       // Already authenticated - redirect to app UI
       const appUrl = host 
         ? `https://${shopDomain}/admin/apps/${config.clientId}` 
-        : `${process.env.FRONTEND_URL || 'https://buysial.com'}/dropshipper/shopify-connected?shop=${encodeURIComponent(shopDomain)}&success=true`
+        : `${process.env.FRONTEND_URL || DEFAULT_BRANDING.websiteUrl}/dropshipper/shopify-connected?shop=${encodeURIComponent(shopDomain)}&success=true`
       return res.redirect(appUrl)
     }
     */
@@ -270,7 +271,7 @@ router.get('/install', async (req, res) => {
     }
     
     // Build OAuth URL
-    const redirectUri = `${process.env.API_BASE || 'https://buysial.com'}/api/shopify/callback`
+    const redirectUri = `${process.env.API_BASE || DEFAULT_BRANDING.websiteUrl}/api/shopify/callback`
     const scopes = config.scopes || 'read_products,write_products,read_inventory,write_inventory'
     
     const authUrl = `https://${shopDomain}/admin/oauth/authorize?` +
@@ -350,7 +351,7 @@ router.get('/callback', async (req, res) => {
     )
 
     // Register Webhooks (Critical for compliance)
-    const apiBase = process.env.API_BASE || 'https://buysial.com'
+    const apiBase = process.env.API_BASE || DEFAULT_BRANDING.websiteUrl
     const webhookTopics = [
       { topic: 'orders/create', address: `${apiBase}/api/shopify/webhooks/orders/create` },
       { topic: 'orders/fulfilled', address: `${apiBase}/api/shopify/webhooks/orders/fulfilled` },
@@ -394,7 +395,7 @@ router.get('/callback', async (req, res) => {
     }
     
     // Standalone redirect
-    const successUrl = `${process.env.FRONTEND_URL || 'https://buysial.com'}/dropshipper/shopify-connected?shop=${encodeURIComponent(shop)}&success=true`
+    const successUrl = `${process.env.FRONTEND_URL || DEFAULT_BRANDING.websiteUrl}/dropshipper/shopify-connected?shop=${encodeURIComponent(shop)}&success=true`
     res.redirect(successUrl)
     
   } catch (err) {
@@ -456,7 +457,7 @@ router.get('/connect-url', auth, allowRoles('dropshipper'), async (req, res) => 
       })
     }
     
-    const apiBase = process.env.API_BASE || 'https://buysial.com'
+    const apiBase = process.env.API_BASE || DEFAULT_BRANDING.websiteUrl
     const connectUrl = `${apiBase}/api/shopify/install?shop=${encodeURIComponent(shopDomain)}&dropshipperId=${req.user._id}`
     
     res.json({ url: connectUrl })

@@ -2,18 +2,20 @@ import PDFDocument from 'pdfkit'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { DEFAULT_BRANDING } from '../modules/utils/branding.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+const BRAND_NAME = DEFAULT_BRANDING.companyName
 
 // Helper to get logo path
 function getLogoPath(){
   const candidates = [
-    path.resolve(process.cwd(), 'backend/assets/BuySial2.png'),
-    path.resolve(process.cwd(), 'assets/BuySial2.png'),
-    path.resolve(process.cwd(), 'BuySial2.png'),
-    path.resolve(process.cwd(), '../frontend/public/BuySial2.png'),
-    path.resolve(process.cwd(), 'frontend/public/BuySial2.png'),
+    path.resolve(process.cwd(), 'backend/assets/magnetic-commerce.png'),
+    path.resolve(process.cwd(), 'assets/magnetic-commerce.png'),
+    path.resolve(process.cwd(), 'magnetic-commerce.png'),
+    path.resolve(process.cwd(), '../frontend/public/magnetic-commerce.png'),
+    path.resolve(process.cwd(), 'frontend/public/magnetic-commerce.png'),
   ]
   for (const p of candidates){ 
     try{ 
@@ -314,7 +316,7 @@ export async function generateSettlementPDF(data) {
       
       // === FOOTER ===
       doc.fontSize(7).font('Helvetica').fillColor('#94a3b8')
-      doc.text('CONFIDENTIAL DOCUMENT | BuySial Commerce', margin, pageHeight - 35, { align: 'center' })
+      doc.text(`CONFIDENTIAL DOCUMENT | ${BRAND_NAME}`, margin, pageHeight - 35, { align: 'center' })
       doc.fontSize(6).fillColor('#cbd5e1')
       doc.text(`Generated: ${new Date().toLocaleString('en-US', {dateStyle: 'medium', timeStyle: 'short'})}`, margin, pageHeight - 35, { align: 'center' })
 
@@ -630,7 +632,7 @@ export async function generateAcceptedSettlementPDF(data) {
       
       // === FOOTER ===
       doc.fontSize(7).font('Helvetica').fillColor('#10b981')
-      doc.text('ACCEPTED & VERIFIED DOCUMENT | BuySial Commerce', margin, pageHeight - 35, { align: 'center' })
+      doc.text(`ACCEPTED & VERIFIED DOCUMENT | ${BRAND_NAME}`, margin, pageHeight - 35, { align: 'center' })
       doc.fontSize(6).fillColor('#86efac')
       doc.text(`Accepted: ${new Date(data.acceptedDate || Date.now()).toLocaleString('en-US', {dateStyle: 'medium', timeStyle: 'short'})}`, margin, pageHeight - 35, { align: 'center' })
 

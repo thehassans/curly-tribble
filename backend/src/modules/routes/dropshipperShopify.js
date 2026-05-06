@@ -4,6 +4,7 @@ import ShopifyListing from '../models/ShopifyListing.js'
 import Product from '../models/Product.js'
 import { encrypt, decrypt } from '../../util/encryption.js'
 import { auth, allowRoles } from '../middleware/auth.js'
+import { DEFAULT_BRANDING } from '../utils/branding.js'
 
 const router = express.Router()
 
@@ -267,20 +268,20 @@ async function createShopifyProduct({ shopDomain, accessToken, product, retailPr
     const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args))
     const url = `https://${shopDomain}/admin/api/2024-01/products.json`
 
-    const API_BASE = process.env.API_BASE || 'https://buysial.com'
+    const API_BASE = process.env.API_BASE || DEFAULT_BRANDING.websiteUrl
 
-    // Map BuySial product to Shopify format
+    // Map platform product to Shopify format
     const shopifyProductData = {
       product: {
         title: product.name,
         body_html: description,
-        vendor: 'BuySial',
+        vendor: DEFAULT_BRANDING.companyName,
         product_type: product.category || 'General',
         status: 'active',
         variants: [
           {
             price: retailPrice.toString(),
-            sku: product.sku || `BUYSIAL-${product._id}`,
+            sku: product.sku || `STORE-${product._id}`,
             inventory_management: null,
             inventory_policy: 'continue'
           }

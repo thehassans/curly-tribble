@@ -2,15 +2,17 @@ import PDFDocument from 'pdfkit'
 import fs from 'fs'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import { DEFAULT_BRANDING } from '../modules/utils/branding.js'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+const BRAND_NAME = DEFAULT_BRANDING.companyName
 
 function getLogoPath() {
   const possiblePaths = [
-    path.join(process.cwd(), 'public', 'BuySial2.png'),
-    path.join(process.cwd(), 'frontend', 'public', 'BuySial2.png'),
-    path.join(__dirname, '..', '..', '..', 'frontend', 'public', 'BuySial2.png'),
+    path.join(process.cwd(), 'public', 'magnetic-commerce.png'),
+    path.join(process.cwd(), 'frontend', 'public', 'magnetic-commerce.png'),
+    path.join(__dirname, '..', '..', '..', 'frontend', 'public', 'magnetic-commerce.png'),
   ]
   for (const p of possiblePaths) {
     try {
@@ -69,7 +71,7 @@ export async function generateAgentCommissionReceiptPDF(data) {
         margin: 50,
         info: {
           Title: 'Commission Payment Receipt',
-          Author: 'BuySial Commerce',
+          Author: BRAND_NAME,
           Subject: 'Agent Commission Receipt'
         }
       })

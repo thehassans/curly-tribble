@@ -1,19 +1,21 @@
 import fs from 'fs'
 import path from 'path'
 import PDFDocument from 'pdfkit'
+import { DEFAULT_BRANDING } from './branding.js'
 
 // Ensure a directory exists
 function ensureDir(p){
   if (!fs.existsSync(p)) fs.mkdirSync(p, { recursive: true })
 }
+const BRAND_NAME = DEFAULT_BRANDING.companyName
 
 // Try to load a brand logo from backend assets
 function getLogoPath(){
   const candidates = [
-    path.resolve(process.cwd(), 'backend/assets/BuySial2.png'),
-    path.resolve(process.cwd(), 'assets/BuySial2.png'),
-    path.resolve(process.cwd(), 'BuySial2.png'),
-    path.resolve(process.cwd(), '../frontend/public/BuySial2.png'),
+    path.resolve(process.cwd(), 'backend/assets/magnetic-commerce.png'),
+    path.resolve(process.cwd(), 'assets/magnetic-commerce.png'),
+    path.resolve(process.cwd(), 'magnetic-commerce.png'),
+    path.resolve(process.cwd(), '../frontend/public/magnetic-commerce.png'),
   ]
   for (const p of candidates){ try{ if (fs.existsSync(p)) return p }catch{} }
   return null
@@ -58,7 +60,7 @@ export async function generateInvoicePDF(orderDoc, opts={}){
       cursorX = 48 + 56 + 12
     }catch{}
   }
-  doc.fill('#ffffff').font('Helvetica-Bold').fontSize(22).text('BuySial', cursorX, 52)
+  doc.fill('#ffffff').font('Helvetica-Bold').fontSize(22).text(BRAND_NAME, cursorX, 52)
   doc.font('Helvetica').fontSize(12).fillColor('#cbd5e1').text('Invoice', cursorX, 80)
 
   // Invoice meta (right)

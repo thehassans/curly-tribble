@@ -5,8 +5,10 @@ import { trackPageView, trackCheckoutComplete } from '../../utils/analytics'
 import Header from '../../components/layout/Header'
 import { COUNTRY_LIST } from '../../utils/constants'
 import { apiGet, apiPost } from '../../api'
+import { DEFAULT_BRANDING } from '../../util/branding.js'
 import { COUNTRY_TO_CURRENCY } from '../../utils/constants'
 import { clearCartItems, readCartItems } from '../../utils/cartStorage'
+import { useBranding } from '../../util/useBranding.js'
 
 // Moyasar Form Script URL
 const MOYASAR_SCRIPT_URL = 'https://cdn.moyasar.com/mpf/1.14.0/moyasar.js'
@@ -17,8 +19,10 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false)
   const [step, setStep] = useState(1) // 1: Customer Info, 2: Payment, 3: Confirmation
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [branding] = useBranding()
   const navigate = useNavigate()
   const toast = useToast()
+  const storefrontName = branding.storeName || branding.companyName || branding.appName || DEFAULT_BRANDING.storeName
 
   // Customer Information
   const [customerInfo, setCustomerInfo] = useState({
@@ -352,7 +356,7 @@ export default function Checkout() {
           } : undefined,
           apple_pay: paymentInfo.method === 'applepay' ? {
             country: 'SA',
-            label: 'BuySial Store',
+            label: storefrontName,
             validate_merchant_url: '/api/moyasar/applepay/session'
           } : undefined,
           on_completed: async (payment) => {

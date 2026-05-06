@@ -396,7 +396,7 @@ export default function DriverLayout() {
                 return (
                   <img
                     src={src}
-                    alt="BuySial"
+                    alt="Brand logo"
                     style={{ height: 36, width: 'auto', objectFit: 'contain' }}
                   />
                 )

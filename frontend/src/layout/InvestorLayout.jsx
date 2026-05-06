@@ -94,7 +94,7 @@ export default function InvestorLayout() {
           <div style={{display:'flex', alignItems:'center', gap:12}}>
             <img 
               src={`${import.meta.env.BASE_URL}BSBackgroundremoved.png`} 
-              alt="BuySial" 
+              alt="Brand logo" 
               style={{height:32, width:'auto', objectFit:'contain'}} 
             />
             <div style={{display:'flex', alignItems:'center', gap:6}}>
@@ -125,7 +125,7 @@ export default function InvestorLayout() {
           <div style={{display:'flex', alignItems:'center', gap:12}}>
             <img 
               src={`${import.meta.env.BASE_URL}BSBackgroundremoved.png`} 
-              alt="BuySial" 
+              alt="Brand logo" 
               style={{height:40, width:'auto', objectFit:'contain', marginRight: 8}} 
             />
             <div className="il-user-badge">

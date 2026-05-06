@@ -435,8 +435,6 @@ function CustomDomainRouter({ children }) {
     try {
       const hostname = window.location.hostname.toLowerCase()
       if (
-        hostname === 'buysial.com' ||
-        hostname === 'www.buysial.com' ||
         hostname === 'magnetic-ict.com' ||
         hostname === 'www.magnetic-ict.com' ||
         hostname === 'commerce.magnetic-ict.com' ||
@@ -461,8 +459,6 @@ function CustomDomainRouter({ children }) {
 
         // Skip check for first-party platform domains and localhost
         if (
-          hostname === 'buysial.com' ||
-          hostname === 'www.buysial.com' ||
           hostname === 'magnetic-ict.com' ||
           hostname === 'www.magnetic-ict.com' ||
           hostname === 'commerce.magnetic-ict.com' ||

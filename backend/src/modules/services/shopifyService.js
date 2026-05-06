@@ -1,6 +1,7 @@
 import axios from "axios";
 import Product from "../models/Product.js";
 import Setting from "../models/Setting.js";
+import { DEFAULT_BRANDING } from "../utils/branding.js";
 
 /**
  * Get Shopify configuration from settings
@@ -57,7 +58,7 @@ function convertProductToShopifyFormat(product, imagePath) {
   let imageUrl = null;
   if (product.imagePath) {
     // Assuming images are served at https://yourdomain.com/uploads/...
-    const baseUrl = process.env.BASE_URL || "https://buysial.com";
+    const baseUrl = process.env.BASE_URL || DEFAULT_BRANDING.websiteUrl;
     imageUrl = `${baseUrl}${product.imagePath}`;
   }
 
@@ -65,7 +66,7 @@ function convertProductToShopifyFormat(product, imagePath) {
     product: {
       title: product.name,
       body_html: product.description || "",
-      vendor: product.brand || "BuySial",
+      vendor: product.brand || DEFAULT_BRANDING.companyName,
       product_type: product.category || "Other",
       tags: (product.tags || []).join(","),
       published: true,

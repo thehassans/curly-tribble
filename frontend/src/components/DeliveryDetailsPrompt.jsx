@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Capacitor } from '@capacitor/core'
 
-const SEEN_KEY = '__buysial_delivery_prompt_seen__'
-const DRAFT_KEY = '__buysial_delivery_draft__'
+const SEEN_KEY = '__delivery_prompt_seen__'
+const DRAFT_KEY = '__delivery_draft__'
+const DELIVERY_DRAFT_EVENT = 'deliveryDraftUpdated'
 
 function isNativeApp() {
   try {
@@ -70,7 +71,7 @@ export default function DeliveryDetailsPrompt() {
     }
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(payload))
-      window.dispatchEvent(new CustomEvent('buysialDeliveryDraftUpdated', { detail: payload }))
+      window.dispatchEvent(new CustomEvent(DELIVERY_DRAFT_EVENT, { detail: payload }))
     } catch {}
     closeAndRemember()
   }

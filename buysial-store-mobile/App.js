@@ -16,7 +16,7 @@ import * as SplashScreen from 'expo-splash-screen';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-const SITE_URL = 'https://buysial.com';
+const SITE_URL = 'https://commerce.magnetic-ict.com';
 const BRAND_LOGO = require('./assets/splash-icon.png');
 
 export default function App() {
@@ -97,7 +97,7 @@ export default function App() {
       {isLoading && !hasError && (
         <View style={styles.splash}>
           <Image source={BRAND_LOGO} style={styles.splashLogo} resizeMode="contain" />
-          <Text style={styles.splashTitle}>BuySial</Text>
+          <Text style={styles.splashTitle}>Magnetic</Text>
           <Text style={styles.splashSub}>Premium Shopping</Text>
           <ActivityIndicator size="small" color="#f97316" style={{ marginTop: 24 }} />
         </View>

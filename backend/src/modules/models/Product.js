@@ -19,20 +19,6 @@ const StockByCountrySchema = new mongoose.Schema(
   { _id: false, strict: false }
 );
 
-const ProductShopSchema = new mongoose.Schema(
-  {
-    shopId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Shop",
-      required: true,
-    },
-    shopBuyingPrice: { type: Number, required: true, min: 0 },
-    assignedAt: { type: Date, default: Date.now },
-    assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  },
-  { _id: false }
-);
-
 const ProductSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
@@ -58,7 +44,6 @@ const ProductSchema = new mongoose.Schema(
       position: { type: Number, default: 0 }
     }], // Ordered sequence of images and video
     purchasePrice: { type: Number, default: 0 },
-    shops: { type: [ProductShopSchema], default: [] },
     category: {
       type: String,
       default: "Other",
@@ -135,7 +120,7 @@ const ProductSchema = new mongoose.Schema(
       lastError: { type: String, default: "" },
     },
     // Premium E-commerce Features
-    sellByBuysial: { type: Boolean, default: false },
+    sellByStore: { type: Boolean, default: false },
     isBestSelling: { type: Boolean, default: false },
     isFeatured: { type: Boolean, default: false },
     isTrending: { type: Boolean, default: false },
@@ -181,10 +166,10 @@ const ProductSchema = new mongoose.Schema(
 );
 
 // Performance indexes for faster queries
-ProductSchema.index({ displayOnWebsite: 1, createdAt: -1 });
+ProductSchema.index({ createdBy: 1, createdAt: -1 });
+ProductSchema.index({ category: 1, createdAt: -1 });
 ProductSchema.index({ category: 1, displayOnWebsite: 1 });
 ProductSchema.index({ inStock: 1, displayOnWebsite: 1 });
 ProductSchema.index({ name: 'text' });
-ProductSchema.index({ "shops.shopId": 1 });
 
 export default mongoose.model("Product", ProductSchema);
