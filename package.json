@@ -4,6 +4,7 @@
   "private": true,
   "description": "BuySial Shopify Integration",
   "scripts": {
+    "start": "node app.js",
     "shopify": "shopify"
   }
 }
