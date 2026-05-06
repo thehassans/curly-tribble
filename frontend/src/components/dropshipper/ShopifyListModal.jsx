@@ -205,6 +205,7 @@ export default function ShopifyListModal({ product, onClose, onSuccess, currency
                   </span>
                 </div>
               </div>
+              </div>
               
               {/* Pricing Grid */}
               <div style={{ display: 'grid', gap: 16 }}>
