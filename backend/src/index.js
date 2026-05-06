@@ -4,45 +4,11 @@ import cors from "cors";
 import morgan from "morgan";
 import http from "http";
 import { connectDB, getDbConnectionMeta } from "./modules/config/db.js";
-import mongoose from "mongoose";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
-import Product from "./modules/models/Product.js";
 import { initSocket, getIO } from "./modules/config/socket.js";
 import { DEFAULT_BRANDING } from "./modules/utils/branding.js";
-import productsRoutes from "./modules/routes/products.js";
-import authRoutes from "./modules/routes/auth.js";
-import userRoutes from "./modules/routes/users.js";
-import ordersRoutes from "./modules/routes/orders.js";
-import warehouseRoutes from "./modules/routes/warehouse.js";
-import managerStockRoutes from "./modules/routes/managerStock.js";
-import financeRoutes from "./modules/routes/finance.js";
-import supportRoutes from "./modules/routes/support.js";
-import settingsRoutes from "./modules/routes/settings.js";
-import notificationsRoutes from "./modules/routes/notifications.js";
-import ecommerceRoutes from "./modules/routes/ecommerce.js";
-import reportsRoutes from "./modules/routes/reports.js";
-import geocodeRoutes from "./modules/routes/geocode.js";
-import partnerRoutes from "./modules/routes/partners.js";
-import shopifyRoutes from "./modules/routes/shopify.js";
-import websiteSettingsRoutes from "./modules/routes/websiteSettings.js";
-import dropshipperRoutes from "./modules/routes/dropshippers.js";
-import dropshipperShopifyRoutes from "./modules/routes/dropshipperShopify.js";
-import settingsShopifyRoutes from "./modules/routes/settingsShopify.js";
-import shopifyOAuthRoutes from "./modules/routes/shopifyOAuth.js";
-import reviewsRoutes from "./modules/routes/reviews.js";
-import commissionersRoutes from "./modules/routes/commissioners.js";
-import referencesRoutes from "./modules/routes/references.js";
-import confirmersRoutes from "./modules/routes/confirmers.js";
-import couponsRoutes from "./modules/routes/coupons.js";
-import moyasarRoutes from "./modules/routes/moyasar.js";
-import categoriesRoutes from "./modules/routes/categories.js";
-import brandsRoutes from "./modules/routes/brands.js";
-import exploreMoreRoutes from "./modules/routes/exploreMore.js";
-import waRoutes from "./modules/routes/wa.js";
-import { bootstrapSuperAdminFromEnv } from "./modules/services/bootstrapSuperAdmin.js";
-
 
 dotenv.config();
 
@@ -81,7 +47,11 @@ server.timeout = 900000; // 15 min request timeout
 server.headersTimeout = 910000; // Slightly higher than timeout
 server.requestTimeout = 900000; // 15 min for entire request
 
-initSocket(server);
+try {
+  initSocket(server);
+} catch (socketErr) {
+  console.error("[api] Socket init failed:", socketErr?.message || socketErr);
+}
 
 // Initialize Firebase Admin SDK for push notifications (lazy, non-blocking)
 import('./modules/config/firebase.js')
@@ -150,7 +120,10 @@ app.use((req, res, next) => {
 
 app.get("/api/health", (_req, res) => {
   const db = getDbConnectionMeta();
-  const io = getIO();
+  let io = null;
+  try {
+    io = getIO();
+  } catch {}
   const socketHealth = io
     ? {
         connected: io.engine.clientsCount,
@@ -179,37 +152,69 @@ function requireDbReady(req, res, next) {
   });
 }
 
-app.use("/api/auth", requireDbReady, authRoutes);
-app.use("/api/users", requireDbReady, userRoutes);
-app.use("/api/orders", requireDbReady, ordersRoutes);
-app.use("/api/manager-stock", requireDbReady, managerStockRoutes);
-app.use("/api/products", requireDbReady, productsRoutes);
-app.use("/api/warehouse", requireDbReady, warehouseRoutes);
-app.use("/api/finance", requireDbReady, financeRoutes);
-app.use("/api/support", requireDbReady, supportRoutes);
-app.use("/api/settings", requireDbReady, settingsRoutes);
-app.use("/api/notifications", requireDbReady, notificationsRoutes);
-app.use("/api/reports", requireDbReady, reportsRoutes);
-app.use("/api/geocode", requireDbReady, geocodeRoutes);
-app.use("/api/partners", requireDbReady, partnerRoutes);
-app.use("/api/ecommerce", requireDbReady, ecommerceRoutes);
-app.use("/api/shopify", requireDbReady, shopifyRoutes);
-app.use("/api/settings/shopify", requireDbReady, settingsShopifyRoutes);
-app.use("/api/settings/shopify", requireDbReady, shopifyOAuthRoutes); // OAuth app config routes
-app.use("/api/settings/website", requireDbReady, websiteSettingsRoutes);
-app.use("/api/dropshippers", requireDbReady, dropshipperRoutes);
-app.use("/api/dropshippers/shopify", requireDbReady, dropshipperShopifyRoutes);
-app.use("/api/shopify", requireDbReady, shopifyOAuthRoutes);
-app.use("/api/reviews", requireDbReady, reviewsRoutes);
-app.use("/api/commissioners", requireDbReady, commissionersRoutes);
-app.use("/api/confirmer", requireDbReady, confirmersRoutes);
-app.use("/api/coupons", requireDbReady, couponsRoutes);
-app.use("/api/references", requireDbReady, referencesRoutes);
-app.use("/api/moyasar", requireDbReady, moyasarRoutes);
-app.use("/api/categories", requireDbReady, categoriesRoutes);
-app.use("/api/brands", requireDbReady, brandsRoutes);
-app.use("/api/explore-more", exploreMoreRoutes);
-app.use("/api/wa", waRoutes);
+function createRouteUnavailableHandler(label) {
+  return (_req, res) => {
+    return res.status(503).json({
+      error: `${label} routes unavailable`,
+      code: "ROUTE_UNAVAILABLE",
+    });
+  };
+}
+
+const routeDefinitions = [
+  { label: "auth", paths: ["/api/auth"], needsDb: true, importer: () => import("./modules/routes/auth.js") },
+  { label: "users", paths: ["/api/users"], needsDb: true, importer: () => import("./modules/routes/users.js") },
+  { label: "orders", paths: ["/api/orders"], needsDb: true, importer: () => import("./modules/routes/orders.js") },
+  { label: "manager-stock", paths: ["/api/manager-stock"], needsDb: true, importer: () => import("./modules/routes/managerStock.js") },
+  { label: "products", paths: ["/api/products"], needsDb: true, importer: () => import("./modules/routes/products.js") },
+  { label: "warehouse", paths: ["/api/warehouse"], needsDb: true, importer: () => import("./modules/routes/warehouse.js") },
+  { label: "finance", paths: ["/api/finance"], needsDb: true, importer: () => import("./modules/routes/finance.js") },
+  { label: "support", paths: ["/api/support"], needsDb: true, importer: () => import("./modules/routes/support.js") },
+  { label: "settings", paths: ["/api/settings"], needsDb: true, importer: () => import("./modules/routes/settings.js") },
+  { label: "notifications", paths: ["/api/notifications"], needsDb: true, importer: () => import("./modules/routes/notifications.js") },
+  { label: "reports", paths: ["/api/reports"], needsDb: true, importer: () => import("./modules/routes/reports.js") },
+  { label: "geocode", paths: ["/api/geocode"], needsDb: true, importer: () => import("./modules/routes/geocode.js") },
+  { label: "partners", paths: ["/api/partners"], needsDb: true, importer: () => import("./modules/routes/partners.js") },
+  { label: "ecommerce", paths: ["/api/ecommerce"], needsDb: true, importer: () => import("./modules/routes/ecommerce.js") },
+  { label: "shopify", paths: ["/api/shopify"], needsDb: true, importer: () => import("./modules/routes/shopify.js") },
+  { label: "settings-shopify", paths: ["/api/settings/shopify"], needsDb: true, importer: () => import("./modules/routes/settingsShopify.js") },
+  { label: "shopify-oauth", paths: ["/api/settings/shopify", "/api/shopify"], needsDb: true, importer: () => import("./modules/routes/shopifyOAuth.js") },
+  { label: "website-settings", paths: ["/api/settings/website"], needsDb: true, importer: () => import("./modules/routes/websiteSettings.js") },
+  { label: "dropshippers", paths: ["/api/dropshippers"], needsDb: true, importer: () => import("./modules/routes/dropshippers.js") },
+  { label: "dropshipper-shopify", paths: ["/api/dropshippers/shopify"], needsDb: true, importer: () => import("./modules/routes/dropshipperShopify.js") },
+  { label: "reviews", paths: ["/api/reviews"], needsDb: true, importer: () => import("./modules/routes/reviews.js") },
+  { label: "commissioners", paths: ["/api/commissioners"], needsDb: true, importer: () => import("./modules/routes/commissioners.js") },
+  { label: "confirmer", paths: ["/api/confirmer"], needsDb: true, importer: () => import("./modules/routes/confirmers.js") },
+  { label: "coupons", paths: ["/api/coupons"], needsDb: true, importer: () => import("./modules/routes/coupons.js") },
+  { label: "references", paths: ["/api/references"], needsDb: true, importer: () => import("./modules/routes/references.js") },
+  { label: "moyasar", paths: ["/api/moyasar"], needsDb: true, importer: () => import("./modules/routes/moyasar.js") },
+  { label: "categories", paths: ["/api/categories"], needsDb: true, importer: () => import("./modules/routes/categories.js") },
+  { label: "brands", paths: ["/api/brands"], needsDb: true, importer: () => import("./modules/routes/brands.js") },
+  { label: "explore-more", paths: ["/api/explore-more"], needsDb: false, importer: () => import("./modules/routes/exploreMore.js") },
+  { label: "wa", paths: ["/api/wa"], needsDb: false, importer: () => import("./modules/routes/wa.js") },
+];
+
+async function registerCoreRoutes() {
+  for (const routeDef of routeDefinitions) {
+    try {
+      const mod = await routeDef.importer();
+      const router = mod?.default || mod;
+      if (!router) {
+        throw new Error("Route module did not export a router");
+      }
+      const middleware = routeDef.needsDb ? [requireDbReady, router] : [router];
+      for (const routePath of routeDef.paths) {
+        app.use(routePath, ...middleware);
+      }
+      console.log(`[api] Mounted ${routeDef.label} routes`);
+    } catch (routeErr) {
+      console.error(`[api] Failed to mount ${routeDef.label} routes:`, routeErr?.message || routeErr);
+      for (const routePath of routeDef.paths) {
+        app.use(routePath, createRouteUnavailableHandler(routeDef.label));
+      }
+    }
+  }
+}
 
 // Serve uploaded product images from a robustly resolved directory
 function resolveUploadsDir() {
@@ -480,6 +485,7 @@ app.get("/sitemap.xml", async (req, res) => {
 
   let products = []
   try {
+    const { default: Product } = await import("./modules/models/Product.js")
     products = await Product.find({
       displayOnWebsite: true,
       $or: [{ noIndex: { $exists: false } }, { noIndex: false }],
@@ -565,6 +571,9 @@ app.get("*", (req, res, next) => {
 // Start HTTP server immediately; connect to DB in background so endpoints are reachable during DB spin-up
 server.listen(PORT, () => {
   console.log(`API running on port ${PORT}`);
+  registerCoreRoutes().catch((err) => {
+    console.error("Failed to register core routes:", err?.message || err);
+  });
   // Register optional routes in background
   registerOptionalRoutes().catch(() => {});
 });
@@ -582,6 +591,7 @@ connectDB()
     console.log("Database connected");
 
     try {
+      const { bootstrapSuperAdminFromEnv } = await import("./modules/services/bootstrapSuperAdmin.js");
       await bootstrapSuperAdminFromEnv();
     } catch (bootstrapErr) {
       console.error(
