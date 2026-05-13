@@ -334,8 +334,8 @@ export default function ProductCatalog() {
     return sp.get('brand') || 'all'
   })
   const [selectedCountry, setSelectedCountry] = useState(() => {
-    try { return localStorage.getItem('selected_country') || 'GB' } catch { return 'GB' }
-  }) // Default to KSA
+    try { return localStorage.getItem('selected_country') || 'BD' } catch { return 'BD' }
+  }) // Default to Bangladesh
 
   // Listen for country changes from header
   useEffect(() => {

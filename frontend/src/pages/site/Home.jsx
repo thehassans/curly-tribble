@@ -53,10 +53,10 @@ export default function Home(){
     textColor: '#ffffff'
   })
   const [selectedCountry, setSelectedCountry] = useState(() => {
-    try { return localStorage.getItem('selected_country') || 'GB' } catch { return 'GB' }
+    try { return localStorage.getItem('selected_country') || 'BD' } catch { return 'BD' }
   })
-  const currentFlag = COUNTRY_LIST.find(c => c.code === selectedCountry)?.flag || '🇬🇧'
-  const currentCountryName = COUNTRY_LIST.find(c => c.code === selectedCountry)?.name || 'UK'
+  const currentFlag = COUNTRY_LIST.find(c => c.code === selectedCountry)?.flag || '🇩'
+  const currentCountryName = COUNTRY_LIST.find(c => c.code === selectedCountry)?.name || 'Bangladesh'
   const brandName = branding.companyName || branding.appName || DEFAULT_BRANDING.companyName
   const storeName = branding.storeName || brandName
   const mobileBrandLogo = resolveBrandAsset(branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
@@ -305,41 +305,38 @@ export default function Home(){
         <Header onCartClick={() => setIsCartOpen(true)} />
       </div>
 
-      <div className="lg:hidden sticky top-0 z-40 bg-white/96 backdrop-blur-xl border-b border-slate-200/80 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
-        <div className="px-3 pt-3 pb-2 flex items-center gap-3">
-          <Link to="/" className="flex items-center gap-2.5 min-w-0" aria-label={`${brandName} home`}>
-            <img src={mobileBrandLogo} alt={brandName} style={{ width: 42, height: 42, borderRadius: 14, objectFit: 'cover', flexShrink: 0, boxShadow: '0 8px 20px rgba(15,23,42,0.10)' }} />
+      <div className="lg:hidden sticky top-0 z-40" style={{ background: 'rgba(255,255,255,0.98)', backdropFilter: 'blur(24px) saturate(200%)', WebkitBackdropFilter: 'blur(24px) saturate(200%)', borderBottom: '1px solid rgba(0,0,0,0.05)', boxShadow: '0 4px 28px rgba(0,0,0,0.07), 0 1px 0 rgba(0,0,0,0.04)' }}>
+        <div style={{ height: 2, background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 45%, #ec4899 100%)' }} />
+        <div style={{ padding: '10px 14px 10px', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, textDecoration: 'none' }} aria-label={`${brandName} home`}>
+            <img src={mobileBrandLogo} alt={brandName} style={{ width: 46, height: 46, borderRadius: 16, objectFit: 'cover', flexShrink: 0, boxShadow: '0 6px 18px rgba(99,102,241,0.18), 0 2px 6px rgba(0,0,0,0.08)' }} />
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.03em', color: '#0f172a', lineHeight: 1.05 }}>{storeName}</div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: '#64748b', lineHeight: 1.1, whiteSpace: 'nowrap' }}>Premium mobile shopping</div>
+              <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: '-0.03em', color: '#0f172a', lineHeight: 1.1 }}>{storeName}</div>
             </div>
           </Link>
 
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
             <button
               onClick={() => setMobileSearchOpen(true)}
-              className="w-10 h-10 rounded-full flex items-center justify-center"
-              style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}
+              style={{ width: 40, height: 40, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0 }}
               aria-label="Open search"
             >
-              <svg className="w-[18px] h-[18px]" style={{ color: '#334155' }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
+              <svg width="18" height="18" style={{ color: '#475569' }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" /></svg>
             </button>
             <button
               onClick={() => navigate('/cart')}
-              className="w-10 h-10 rounded-full flex items-center justify-center relative"
-              style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}
+              style={{ width: 40, height: 40, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', border: '1px solid #e2e8f0', cursor: 'pointer', position: 'relative', transition: 'all 0.2s', flexShrink: 0 }}
               aria-label="Open cart"
             >
-              <svg className="w-[18px] h-[18px]" style={{ color: '#334155' }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-              {cartCount > 0 && <span className="absolute -top-1 -right-1 bg-orange-500 text-white text-[9px] font-bold rounded-full min-w-[16px] h-[16px] flex items-center justify-center px-0.5">{cartCount > 99 ? '99+' : cartCount}</span>}
+              <svg width="18" height="18" style={{ color: '#475569' }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+              {cartCount > 0 && <span style={{ position: 'absolute', top: -4, right: -4, background: 'linear-gradient(135deg, #f97316, #ef4444)', color: 'white', fontSize: 9, fontWeight: 700, borderRadius: 999, minWidth: 17, height: 17, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 3px', boxShadow: '0 2px 6px rgba(249,115,22,0.4)' }}>{cartCount > 99 ? '99+' : cartCount}</span>}
             </button>
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="w-10 h-10 rounded-full flex items-center justify-center"
-              style={{ background: '#f8fafc', border: '1px solid #e2e8f0' }}
+              style={{ width: 40, height: 40, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'all 0.2s', flexShrink: 0 }}
               aria-label="Open menu"
             >
-              <svg className="w-[18px] h-[18px]" style={{ color: '#334155' }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <svg width="18" height="18" style={{ color: '#475569' }} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <line x1="4" y1="7" x2="20" y2="7" /><line x1="4" y1="12" x2="20" y2="12" /><line x1="4" y1="17" x2="20" y2="17" />
               </svg>
             </button>

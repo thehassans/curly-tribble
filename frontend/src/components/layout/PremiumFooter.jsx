@@ -131,12 +131,12 @@ export default function PremiumFooter() {
     })()
   }, [])
 
-  let countryFlag = '🇬🇧'
-  let countryLabel = 'UK'
+  let countryFlag = '🇩'
+  let countryLabel = 'Bangladesh'
   try {
-    const code = localStorage.getItem('selected_country') || 'GB'
+    const code = localStorage.getItem('selected_country') || 'BD'
     const map = {
-      GB: ['🇬🇧', 'UK'], US: ['🇺🇸', 'USA'], AE: ['🇦🇪', 'UAE'], SA: ['🇸🇦', 'Saudi Arabia'],
+      BD: ['🇧🇩', 'Bangladesh'], GB: ['🇬🇧', 'UK'], US: ['🇺🇸', 'USA'], AE: ['🇦🇪', 'UAE'], SA: ['🇸🇦', 'Saudi Arabia'],
       OM: ['🇴🇲', 'Oman'], BH: ['🇧🇭', 'Bahrain'], IN: ['🇮🇳', 'India'], KW: ['🇰🇼', 'Kuwait'],
       QA: ['🇶🇦', 'Qatar'], JO: ['🇯🇴', 'Jordan'], PK: ['🇵🇰', 'Pakistan'], CA: ['🇨🇦', 'Canada'],
       AU: ['🇦🇺', 'Australia'],

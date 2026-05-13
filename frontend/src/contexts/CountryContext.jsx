@@ -26,11 +26,11 @@ export function CountryProvider({ children }) {
       }
       const saved = localStorage.getItem('selected_country')
       if (saved) return saved
-      localStorage.setItem('selected_country', 'GB')
+      localStorage.setItem('selected_country', 'BD')
       localStorage.setItem('country_auto_defaulted', 'true')
-      return 'GB'
+      return 'BD'
     } catch {
-      return 'GB'
+      return 'BD'
     }
   })
   const [autoDetected, setAutoDetected] = useState(false)
@@ -80,7 +80,7 @@ export function CountryProvider({ children }) {
     const wasAutoDefaulted = (() => {
       try { return localStorage.getItem('country_auto_defaulted') === 'true' } catch { return false }
     })()
-    if (wasAutoDefaulted && saved && saved !== 'GB') {
+    if (wasAutoDefaulted && saved && saved !== 'BD') {
       try { localStorage.removeItem('country_auto_defaulted') } catch {}
       return
     }
@@ -134,7 +134,7 @@ export function CountryProvider({ children }) {
     window.dispatchEvent(new CustomEvent('countryChanged', { detail: { code } }))
   }, [])
 
-  const currency = COUNTRY_TO_CURRENCY[country] || 'SAR'
+  const currency = COUNTRY_TO_CURRENCY[country] || 'BDT'
   const flag = COUNTRY_TO_FLAG[country] || '🌍'
 
   return (
@@ -158,12 +158,12 @@ export function useCountry() {
   if (!context) {
     // Fallback for components outside provider
     const fallbackCountry = (() => {
-      try { return localStorage.getItem('selected_country') || 'GB' } catch { return 'GB' }
+      try { return localStorage.getItem('selected_country') || 'BD' } catch { return 'BD' }
     })()
     return {
       country: fallbackCountry,
       setCountry: () => {},
-      currency: COUNTRY_TO_CURRENCY[fallbackCountry] || 'SAR',
+      currency: COUNTRY_TO_CURRENCY[fallbackCountry] || 'BDT',
       flag: '🌍',
       autoDetected: false,
       countries: COUNTRY_LIST,

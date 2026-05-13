@@ -16,8 +16,8 @@ export default function ShoppingCart({ isOpen, onClose }) {
   const toast = useToast()
   const navigate = useNavigate()
   const [form, setForm] = useState(() => {
-    let c = 'GB'
-    try { c = localStorage.getItem('selected_country') || 'GB' } catch {}
+    let c = 'BD'
+    try { c = localStorage.getItem('selected_country') || 'BD' } catch {}
     return { name:'', phone:'', country: c, city:'', cityOther:'', area:'', address:'', details:'' }
   })
   const [ccyCfg, setCcyCfg] = useState(null)

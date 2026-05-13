@@ -151,7 +151,7 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
     window.dispatchEvent(new CustomEvent('countryChanged', { detail: country }))
   }
 
-  const currentCountry = COUNTRY_LIST.find(c => c.code === selectedCountry) || COUNTRY_LIST.find(c => c.code === 'SA') || COUNTRY_LIST[0]
+  const currentCountry = COUNTRY_LIST.find(c => c.code === selectedCountry) || COUNTRY_LIST.find(c => c.code === 'BD') || COUNTRY_LIST[0]
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen)
@@ -469,26 +469,37 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
 
       <style>{`
         .ecommerce-header {
-          background: white;
-          border-bottom: 1px solid #e5e7eb;
+          background: rgba(255, 255, 255, 0.98);
+          border-bottom: 1px solid rgba(0, 0, 0, 0.05);
           position: sticky;
           top: 0;
           z-index: 100;
-          box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+          box-shadow: 0 4px 28px rgba(0, 0, 0, 0.07), 0 1px 0 rgba(0, 0, 0, 0.04);
           padding-top: env(safe-area-inset-top, 0px);
-          backdrop-filter: blur(14px);
-          -webkit-backdrop-filter: blur(14px);
+          backdrop-filter: blur(24px) saturate(200%);
+          -webkit-backdrop-filter: blur(24px) saturate(200%);
+        }
+
+        .ecommerce-header::after {
+          content: '';
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 2px;
+          background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 45%, #ec4899 100%);
+          opacity: 0.7;
         }
 
         .header-container {
-          max-width: 1200px;
+          max-width: 1280px;
           margin: 0 auto;
-          padding: 0 20px;
+          padding: 0 28px;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          height: 90px;
-          gap: 16px;
+          height: 80px;
+          gap: 20px;
           min-width: 0;
         }
 
@@ -524,10 +535,17 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
         }
 
         .logo-img {
-          height: 72px;
+          height: 58px;
           width: auto;
-          max-width: min(36vw, 220px);
+          max-width: min(32vw, 200px);
           object-fit: contain;
+          filter: drop-shadow(0 2px 8px rgba(99, 102, 241, 0.12));
+          transition: filter 0.25s, transform 0.25s;
+        }
+
+        .logo:hover .logo-img {
+          filter: drop-shadow(0 4px 14px rgba(99, 102, 241, 0.22));
+          transform: translateY(-1px);
         }
 
         .header-center {
@@ -538,31 +556,38 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
 
         .main-nav {
           display: flex;
-          gap: 32px;
+          gap: 36px;
         }
 
         .nav-link {
           text-decoration: none;
-          color: #374151;
+          color: #1e293b;
           font-weight: 500;
-          font-size: 15px;
+          font-size: 14px;
+          letter-spacing: 0.01em;
           transition: color 0.2s;
           position: relative;
+          padding-bottom: 3px;
+        }
+
+        .nav-link::after {
+          content: '';
+          position: absolute;
+          bottom: -2px;
+          left: 0;
+          right: 100%;
+          height: 2px;
+          background: linear-gradient(90deg, #6366f1, #8b5cf6);
+          border-radius: 1px;
+          transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .nav-link:hover {
-          color: #007bff;
+          color: #6366f1;
         }
 
         .nav-link:hover::after {
-          content: '';
-          position: absolute;
-          bottom: -8px;
-          left: 0;
           right: 0;
-          height: 2px;
-          background: #007bff;
-          border-radius: 1px;
         }
 
         .header-right {
@@ -587,23 +612,28 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
           align-items: center;
           gap: 6px;
           padding: 8px 14px;
-          background: transparent;
-          border: 1px solid #e5e7eb;
-          border-radius: 10px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 12px;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           font-size: 13px;
-        }
-
-        .deliver-label {
-          color: #9ca3af;
-          font-size: 11px;
           font-weight: 500;
         }
 
+        .deliver-label {
+          color: #94a3b8;
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+
         .country-btn:hover {
-          background: #f3f4f6;
-          border-color: #d1d5db;
+          background: #f1f5f9;
+          border-color: #cbd5e1;
+          box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+          transform: translateY(-1px);
         }
 
         .country-flag {
@@ -612,8 +642,9 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
         }
 
         .country-name {
-          font-weight: 500;
-          color: #374151;
+          font-weight: 600;
+          color: #1e293b;
+          font-size: 13px;
         }
 
         .country-arrow {
@@ -627,17 +658,18 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
 
         .country-dropdown {
           position: absolute;
-          top: calc(100% + 8px);
+          top: calc(100% + 10px);
           right: 0;
-          min-width: 180px;
+          min-width: 280px;
           max-height: 400px;
           overflow-y: auto;
-          background: white;
-          border: 1px solid #e5e7eb;
-          border-radius: 12px;
-          box-shadow: 0 10px 40px rgba(0,0,0,0.12);
+          background: rgba(255, 255, 255, 0.98);
+          backdrop-filter: blur(20px);
+          -webkit-backdrop-filter: blur(20px);
+          border: 1px solid rgba(0, 0, 0, 0.07);
+          border-radius: 16px;
+          box-shadow: 0 16px 48px rgba(0, 0, 0, 0.14), 0 4px 12px rgba(0, 0, 0, 0.06);
           padding: 8px;
-          min-width: 280px;
           z-index: 100;
         }
 
@@ -659,7 +691,7 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
         }
 
         .country-option.active {
-          background: #f0f9ff;
+          background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(139, 92, 246, 0.04));
         }
 
         .country-option .country-name {
@@ -667,7 +699,7 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
         }
 
         .country-option .check-icon {
-          color: #3b82f6;
+          color: #6366f1;
         }
 
         .search-btn,
@@ -677,18 +709,19 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
           border: none;
           padding: 10px;
           cursor: pointer;
-          border-radius: 8px;
-          color: #6b7280;
-          transition: all 0.2s;
+          border-radius: 12px;
+          color: #475569;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
           position: relative;
         }
 
         .search-btn:hover,
         .wishlist-btn:hover,
         .cart-btn:hover {
-          background: #f3f4f6;
-          color: #374151;
-          transform: translateY(-1px);
+          background: #f1f5f9;
+          color: #1e293b;
+          transform: translateY(-1.5px);
+          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
         }
 
         .wishlist-count {
@@ -759,20 +792,21 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
           align-items: center;
           gap: 6px;
           text-decoration: none;
-          padding: 10px 16px;
-          border-radius: 8px;
-          font-weight: 500;
+          padding: 9px 16px;
+          border-radius: 10px;
+          font-weight: 600;
           font-size: 14px;
-          color: #374151;
-          border: 1px solid #d1d5db;
-          background: white;
-          transition: all 0.2s;
+          color: #1e293b;
+          border: 1px solid #e2e8f0;
+          background: #f8fafc;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .dashboard-btn:hover {
-          background: #f9fafb;
-          border-color: #9ca3af;
+          background: #f1f5f9;
+          border-color: #cbd5e1;
           transform: translateY(-1px);
+          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
         }
 
         .user-menu {
@@ -793,11 +827,11 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
           color: #dc2626;
           border: 1px solid #fecaca;
           padding: 8px 14px;
-          border-radius: 8px;
+          border-radius: 10px;
           font-size: 13px;
-          font-weight: 500;
+          font-weight: 600;
           cursor: pointer;
-          transition: all 0.2s;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .logout-btn:hover {
@@ -808,36 +842,38 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
         .login-btn,
         .register-btn {
           text-decoration: none;
-          padding: 10px 18px;
-          border-radius: 8px;
-          font-weight: 500;
+          padding: 9px 18px;
+          border-radius: 10px;
+          font-weight: 600;
           font-size: 14px;
-          transition: all 0.2s;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          letter-spacing: 0.01em;
         }
 
         .login-btn {
-          color: #374151;
-          border: 1px solid #d1d5db;
-          background: white;
+          color: #1e293b;
+          border: 1px solid #e2e8f0;
+          background: #f8fafc;
         }
 
         .login-btn:hover {
-          background: #f9fafb;
-          border-color: #9ca3af;
+          background: #f1f5f9;
+          border-color: #cbd5e1;
           transform: translateY(-1px);
+          box-shadow: 0 3px 10px rgba(0, 0, 0, 0.07);
         }
 
         .register-btn {
-          background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
           color: white;
-          border: 1px solid #007bff;
+          border: 1px solid transparent;
+          box-shadow: 0 2px 10px rgba(99, 102, 241, 0.3);
         }
 
         .register-btn:hover {
-          background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
-          border-color: #0056b3;
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+          transform: translateY(-1.5px);
+          box-shadow: 0 6px 18px rgba(99, 102, 241, 0.4);
         }
 
         /* Glass Search Overlay */
@@ -1019,14 +1055,15 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
         }
 
         .mobile-register-btn {
-          background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
           color: white;
-          border: 1px solid #007bff;
+          border: 1px solid transparent;
+          box-shadow: 0 2px 10px rgba(99, 102, 241, 0.25);
         }
 
         .mobile-register-btn:hover {
-          background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
-          border-color: #0056b3;
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+          box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
         }
 
         .mobile-dashboard-btn {
@@ -1036,16 +1073,18 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
           gap: 8px;
           text-decoration: none;
           padding: 12px 16px;
-          border-radius: 8px;
-          font-weight: 500;
-          background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+          border-radius: 10px;
+          font-weight: 600;
+          background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
           color: white;
-          border: 1px solid #007bff;
-          transition: all 0.2s;
+          border: 1px solid transparent;
+          box-shadow: 0 2px 10px rgba(99, 102, 241, 0.25);
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .mobile-dashboard-btn:hover {
-          background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+          background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+          box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
         }
 
         .mobile-user-info {

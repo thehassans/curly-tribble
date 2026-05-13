@@ -6,9 +6,9 @@ import { COUNTRY_TO_CURRENCY } from './constants'
 
 function getCurrency() {
   try {
-    const country = localStorage.getItem('selected_country') || 'GB'
-    return COUNTRY_TO_CURRENCY[country] || 'GBP'
-  } catch { return 'GBP' }
+    const country = localStorage.getItem('selected_country') || 'BD'
+    return COUNTRY_TO_CURRENCY[country] || 'BDT'
+  } catch { return 'BDT' }
 }
 
 // ─── Platform-specific safe callers ─────────────────────────────────────────

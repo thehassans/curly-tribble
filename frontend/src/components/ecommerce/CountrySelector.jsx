@@ -63,7 +63,7 @@ export default function CountrySelector({ selectedCountry, onCountryChange }) {
 
   // Use available countries list (filtered by products) or fallback to full list
   const countryList = availableCountries.length > 0 ? availableCountries : COUNTRY_LIST
-  const currentCountry = countryList.find(c => c.code === selectedCountry) || countryList.find(c => c.code === 'SA') || countryList[0]
+  const currentCountry = countryList.find(c => c.code === selectedCountry) || countryList.find(c => c.code === 'BD') || countryList[0]
 
   return (
     <div className="relative" ref={dropdownRef}>

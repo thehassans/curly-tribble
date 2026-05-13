@@ -199,11 +199,11 @@ export default function Register() {
   const toast = useToast()
   const defaultCountry = (() => {
     try {
-      const code = localStorage.getItem('selected_country') || 'GB'
+      const code = localStorage.getItem('selected_country') || 'BD'
       const match = COUNTRY_LIST.find((c) => String(c.code) === String(code))
-      return match?.name || 'UK'
+      return match?.name || 'Bangladesh'
     } catch {
-      return 'UK'
+      return 'Bangladesh'
     }
   })()
   const [formData, setFormData] = useState({

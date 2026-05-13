@@ -10,7 +10,7 @@ const DELIVERY_DRAFT_EVENT = 'deliveryDraftUpdated'
 export default function Checkout(){
   const navigate = useNavigate()
   const [cart, setCart] = useState(() => readCartItems())
-  const [country, setCountry] = useState(()=> localStorage.getItem('selected_country') || 'GB')
+  const [country, setCountry] = useState(()=> localStorage.getItem('selected_country') || 'BD')
   const [form, setForm] = useState({ name:'', phone:'', city:'', area:'', address:'', details:'' })
   const [submitting, setSubmitting] = useState(false)
   const phoneCode = COUNTRY_TO_CODE[country] || '+966'
@@ -18,10 +18,10 @@ export default function Checkout(){
   useEffect(() => {
     const sync = () => {
       try {
-        const sc = localStorage.getItem('selected_country') || 'GB'
+        const sc = localStorage.getItem('selected_country') || 'BD'
         setCountry(sc)
       } catch {
-        setCountry('GB')
+        setCountry('BD')
       }
     }
     sync()

@@ -46,8 +46,8 @@ export default function CartPage() {
     return () => { alive = false }
   }, [])
   const [form, setForm] = useState(() => {
-    let c = 'GB'
-    try { c = localStorage.getItem('selected_country') || 'GB' } catch {}
+    let c = 'BD'
+    try { c = localStorage.getItem('selected_country') || 'BD' } catch {}
     return { name:'', phone:'', country: c, city:'', cityOther:'', area:'', address:'', details:'' }
   })
   const [ccyCfg, setCcyCfg] = useState(null)

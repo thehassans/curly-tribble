@@ -22,7 +22,7 @@ export default function Categories() {
   const [loading, setLoading] = useState(true)
   const [expandedCat, setExpandedCat] = useState(null)
   const [selectedCountry, setSelectedCountry] = useState(() => {
-    try { return localStorage.getItem('selected_country') || 'GB' } catch { return 'GB' }
+    try { return localStorage.getItem('selected_country') || 'BD' } catch { return 'BD' }
   })
 
   useEffect(() => {

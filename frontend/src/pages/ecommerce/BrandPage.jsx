@@ -13,10 +13,10 @@ function resolveImg(u) {
 }
 
 const CURRENCY_MAP = {
-  AE: 'AED', OM: 'OMR', SA: 'SAR', BH: 'BHD', IN: 'INR',
+  BD: 'BDT', AE: 'AED', OM: 'OMR', SA: 'SAR', BH: 'BHD', IN: 'INR',
   KW: 'KWD', QA: 'QAR', PK: 'PKR', US: 'USD', GB: 'GBP', CA: 'CAD', AU: 'AUD',
 }
-const CURRENCY_SYM = { SAR: '﷼', AED: 'AED ', OMR: 'OMR ', USD: '$', GBP: '£', EUR: '€', KWD: 'KD ', QAR: 'QR ', BHD: 'BD ', INR: '₹', PKR: '₨ ' }
+const CURRENCY_SYM = { BDT: '৳', SAR: '﷼', AED: 'AED ', OMR: 'OMR ', USD: '$', GBP: '£', EUR: '€', KWD: 'KD ', QAR: 'QR ', BHD: 'BD ', INR: '₹', PKR: '₨ ' }
 
 const SORT_OPTS = [
   { label: 'Newest', fn: (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0) },
@@ -37,10 +37,10 @@ export default function BrandPage() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const loadedRef = useRef(false)
 
-  const [currency] = useState(() => CURRENCY_MAP[localStorage.getItem('selected_country') || 'GB'] || 'SAR')
+  const [currency] = useState(() => CURRENCY_MAP[localStorage.getItem('selected_country') || 'BD'] || 'BDT')
   const sym = CURRENCY_SYM[currency] || currency + ' '
   const selectedCountry = useMemo(() => {
-    try { return localStorage.getItem('selected_country') || 'GB' } catch { return 'GB' }
+    try { return localStorage.getItem('selected_country') || 'BD' } catch { return 'BD' }
   }, [])
 
   // 1. Resolve brand from public brands list
@@ -70,7 +70,7 @@ export default function BrandPage() {
     ;(async () => {
       try {
         // Fetch up to 500 products — filter strictly by brand name
-        const country = localStorage.getItem('selected_country') || 'GB'
+        const country = localStorage.getItem('selected_country') || 'BD'
         const res = await apiGet(`/api/products/public?limit=500&country=${encodeURIComponent(country)}`)
         if (!alive) return
         const raw = Array.isArray(res?.products) ? res.products : []
