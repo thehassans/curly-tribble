@@ -1,6 +1,7 @@
 import Setting from "../models/Setting.js";
 
 export const DEFAULT_COUNTRY_REGISTRY = [
+  { code: "BD", name: "Bangladesh", aliases: [], flag: "🇧🇩", dial: "+880", currency: "BDT", currencySymbol: "৳", enabled: true, order: 0 },
   { code: "SA", name: "KSA", aliases: ["Saudi Arabia", "SA"], flag: "🇸🇦", dial: "+966", currency: "SAR", currencySymbol: "﷼", enabled: true, order: 1 },
   { code: "AE", name: "UAE", aliases: ["United Arab Emirates"], flag: "🇦🇪", dial: "+971", currency: "AED", currencySymbol: "د.إ", enabled: true, order: 2 },
   { code: "OM", name: "Oman", aliases: [], flag: "🇴🇲", dial: "+968", currency: "OMR", currencySymbol: "ر.ع.", enabled: true, order: 3 },
@@ -17,6 +18,7 @@ export const DEFAULT_COUNTRY_REGISTRY = [
 ];
 
 const CURRENCY_SYMBOLS = {
+  BDT: "৳",
   AED: "د.إ",
   SAR: "﷼",
   OMR: "ر.ع.",

@@ -59,6 +59,7 @@ export default function InhouseProducts() {
   const siteUrl = (branding.websiteUrl || DEFAULT_BRANDING.websiteUrl || '').replace(/\/$/, '')
   const brandName = branding.storeName || branding.companyName || branding.appName || DEFAULT_BRANDING.storeName
   const COUNTRY_OPTS = [
+    { key: 'Bangladesh', name: 'Bangladesh', flag: '🇧🇩' },
     { key: 'UAE', name: 'UAE', flag: '🇦🇪' },
     { key: 'Oman', name: 'Oman', flag: '🇴🇲' },
     { key: 'KSA', name: 'KSA', flag: '🇸🇦' },
@@ -102,6 +103,7 @@ export default function InhouseProducts() {
     displayOnWebsite: true,
     isForMobile: false,
     displayOnShopify: false,
+    stockBangladesh: 0,
     stockUAE: 0,
     stockOman: 0,
     stockKSA: 0,
@@ -145,6 +147,7 @@ export default function InhouseProducts() {
   const [stockPopup, setStockPopup] = useState({
     open: false,
     product: null,
+    stockBangladesh: 0,
     stockUAE: 0,
     stockOman: 0,
     stockKSA: 0,
@@ -688,6 +691,7 @@ export default function InhouseProducts() {
     setStockPopup({
       open: true,
       product: p,
+      stockBangladesh: p.stockByCountry?.Bangladesh ?? 0,
       stockUAE: p.stockByCountry?.UAE ?? 0,
       stockOman: p.stockByCountry?.Oman ?? 0,
       stockKSA: p.stockByCountry?.KSA ?? 0,
@@ -718,6 +722,7 @@ export default function InhouseProducts() {
     try {
       await apiPatch(`/api/products/${p.product._id}`, {
         inStock: p.inStock,
+        stockBangladesh: p.stockBangladesh,
         stockUAE: p.stockUAE,
         stockOman: p.stockOman,
         stockKSA: p.stockKSA,
@@ -1206,6 +1211,7 @@ export default function InhouseProducts() {
     fd.append('displayOnWebsite', String(!!form.displayOnWebsite))
     fd.append('isForMobile', String(!!form.isForMobile))
     fd.append('displayOnShopify', String(!!form.displayOnShopify))
+    fd.append('stockBangladesh', String(form.stockBangladesh))
     fd.append('stockUAE', String(form.stockUAE))
     fd.append('stockOman', String(form.stockOman))
     fd.append('stockKSA', String(form.stockKSA))
@@ -1301,6 +1307,7 @@ export default function InhouseProducts() {
       displayOnWebsite: false,
       isForMobile: false,
       displayOnShopify: false,
+      stockBangladesh: 0,
       stockUAE: 0,
       stockOman: 0,
       stockKSA: 0,
@@ -1437,6 +1444,7 @@ export default function InhouseProducts() {
       displayOnWebsite: !!p.displayOnWebsite,
       isForMobile: !!p.isForMobile,
       displayOnShopify: !!p.displayOnShopify,
+      stockBangladesh: p.stockByCountry?.Bangladesh || 0,
       stockUAE: p.stockByCountry?.UAE || 0,
       stockOman: p.stockByCountry?.Oman || 0,
       stockKSA: p.stockByCountry?.KSA || 0,
@@ -1502,6 +1510,7 @@ export default function InhouseProducts() {
       fd.append('displayOnWebsite', String(!!editForm.displayOnWebsite))
       fd.append('isForMobile', String(!!editForm.isForMobile))
       fd.append('displayOnShopify', String(!!editForm.displayOnShopify))
+      fd.append('stockBangladesh', String(editForm.stockBangladesh))
       fd.append('stockUAE', String(editForm.stockUAE))
       fd.append('stockOman', String(editForm.stockOman))
       fd.append('stockKSA', String(editForm.stockKSA))
@@ -3136,6 +3145,17 @@ export default function InhouseProducts() {
               style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}
             >
               <label className="field">
+                <div>🇧🇩 Bangladesh</div>
+                <input
+                  type="number"
+                  value={stockPopup.stockBangladesh}
+                  min={0}
+                  onChange={(e) =>
+                    setStockPopup((s) => ({ ...s, stockBangladesh: Number(e.target.value || 0) }))
+                  }
+                />
+              </label>
+              <label className="field">
                 <div>UAE</div>
                 <input
                   type="number"
@@ -3755,6 +3775,7 @@ export default function InhouseProducts() {
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             <span className="badge success">In Stock</span>
                             {[
+                              { k: 'Bangladesh', v: p.stockByCountry?.Bangladesh ?? 0 },
                               { k: 'UAE', v: p.stockByCountry?.UAE ?? 0 },
                               { k: 'Oman', v: p.stockByCountry?.Oman ?? 0 },
                               { k: 'KSA', v: p.stockByCountry?.KSA ?? 0 },
@@ -4127,6 +4148,21 @@ export default function InhouseProducts() {
                       gap: 12,
                     }}
                   >
+                    {editForm.availableCountries.includes('Bangladesh') && (
+                      <div>
+                        <div className="label" style={{ opacity: 0.8 }}>
+                          🇧🇩 Bangladesh
+                        </div>
+                        <input
+                          className="input"
+                          type="number"
+                          min="0"
+                          name="stockBangladesh"
+                          value={editForm.stockBangladesh}
+                          onChange={onEditChange}
+                        />
+                      </div>
+                    )}
                     {editForm.availableCountries.includes('UAE') && (
                       <div>
                         <div className="label" style={{ opacity: 0.8 }}>

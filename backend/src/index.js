@@ -600,6 +600,32 @@ connectDB()
       );
     }
 
+    // MIGRATION: Ensure Bangladesh is in the countries registry
+    try {
+      const { default: Setting } = await import("./modules/models/Setting.js");
+      const { DEFAULT_COUNTRY_REGISTRY, normalizeCountryRegistry } = await import("./modules/utils/countries.js");
+      const doc = await Setting.findOne({ key: "countries" });
+      const existing = Array.isArray(doc?.value?.countries) ? doc.value.countries : (Array.isArray(doc?.value) ? doc.value : null);
+      if (existing) {
+        const hasBD = existing.some((c) => String(c?.code || "").toUpperCase() === "BD");
+        if (!hasBD) {
+          const bdEntry = DEFAULT_COUNTRY_REGISTRY.find((c) => c.code === "BD");
+          const merged = normalizeCountryRegistry([bdEntry, ...existing]);
+          doc.value = { countries: merged, updatedAt: new Date() };
+          await doc.save();
+          console.log("[MIGRATION] ✅ Bangladesh added to countries registry");
+        } else {
+          console.log("[MIGRATION] Bangladesh already in countries registry");
+        }
+      } else if (!doc) {
+        const countries = normalizeCountryRegistry(DEFAULT_COUNTRY_REGISTRY);
+        await new Setting({ key: "countries", category: "general", description: "Shared country registry", value: { countries, updatedAt: new Date() } }).save();
+        console.log("[MIGRATION] ✅ Countries registry seeded with Bangladesh");
+      }
+    } catch (migrErr) {
+      console.error("[MIGRATION] Countries migration failed (continuing):", migrErr?.message);
+    }
+
     // AUTO-CLEANUP: Delete corrupted remittances (one-time fix for calculation bug)
     try {
       const mongoose = (await import("mongoose")).default;

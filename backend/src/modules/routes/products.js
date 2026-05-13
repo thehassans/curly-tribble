@@ -73,6 +73,7 @@ function normalizePublicCountryValue(input) {
   const raw = String(input || '').trim()
   if (!raw) return null
   const upper = raw.toUpperCase()
+  if (upper === 'BD' || upper === 'BANGLADESH') return 'Bangladesh'
   if (upper === 'SA' || upper === 'KSA' || upper === 'SAUDI ARABIA' || upper === 'SAUDI') return 'KSA'
   if (upper === 'UAE' || upper === 'UNITED ARAB EMIRATES' || upper === 'AE' || upper === 'ARE') return 'UAE'
   if (upper === 'OM' || upper === 'OMAN') return 'Oman'
@@ -693,7 +694,7 @@ const uploadMemory = multer({
 // Create product (admin; user; manager with permission)
 router.post('/', auth, allowRoles('admin','user','manager'), upload.any(), async (req, res) => {
   try {
-    const { name, price, dropshippingPrice, stockQty, purchasePrice, category, subcategory, madeInCountry, description, overview, specifications, descriptionBlocks, stockUAE, stockOman, stockKSA, stockBahrain, stockIndia, stockKuwait, stockQatar, stockPakistan, stockJordan, stockUSA, stockUK, stockCanada, stockAustralia, sku, whatsappNumber, variants } = req.body || {}
+    const { name, price, dropshippingPrice, stockQty, purchasePrice, category, subcategory, madeInCountry, description, overview, specifications, descriptionBlocks, stockBangladesh, stockUAE, stockOman, stockKSA, stockBahrain, stockIndia, stockKuwait, stockQatar, stockPakistan, stockJordan, stockUSA, stockUK, stockCanada, stockAustralia, sku, whatsappNumber, variants } = req.body || {}
     if (!name || price == null) return res.status(400).json({ message: 'Name and price are required' })
     
     let ownerId = req.user.id
@@ -793,7 +794,8 @@ router.post('/', auth, allowRoles('admin','user','manager'), upload.any(), async
     }
     
     // per-country stock
-    const sbc = { UAE:0, Oman:0, KSA:0, Bahrain:0, India:0, Kuwait:0, Qatar:0, Pakistan:0, Jordan:0, USA:0, UK:0, Canada:0, Australia:0 }
+    const sbc = { Bangladesh:0, UAE:0, Oman:0, KSA:0, Bahrain:0, India:0, Kuwait:0, Qatar:0, Pakistan:0, Jordan:0, USA:0, UK:0, Canada:0, Australia:0 }
+    sbc.Bangladesh = safeNum(stockBangladesh)
     sbc.UAE = safeNum(stockUAE)
     sbc.Oman = safeNum(stockOman)
     sbc.KSA = safeNum(stockKSA)
@@ -1842,7 +1844,7 @@ router.patch('/:id', auth, allowRoles('admin','user','manager'), upload.any(), a
     return out
   }
   
-  const { name, price, dropshippingPrice, stockQty, purchasePrice, category, subcategory, madeInCountry, description, inStock, stockUAE, stockOman, stockKSA, stockBahrain, stockIndia, stockKuwait, stockQatar, stockPakistan, stockJordan, stockUSA, stockUK, stockCanada, stockAustralia, sku, whatsappNumber, variants } = req.body || {}
+  const { name, price, dropshippingPrice, stockQty, purchasePrice, category, subcategory, madeInCountry, description, inStock, stockBangladesh, stockUAE, stockOman, stockKSA, stockBahrain, stockIndia, stockKuwait, stockQatar, stockPakistan, stockJordan, stockUSA, stockUK, stockCanada, stockAustralia, sku, whatsappNumber, variants } = req.body || {}
   let variantsRawForLater = null
   if (name != null) { trackChange('name', prod.name, String(name).trim()); prod.name = String(name).trim() }
   if (sku != null) {
@@ -1956,7 +1958,8 @@ router.patch('/:id', auth, allowRoles('admin','user','manager'), upload.any(), a
     prod.displayOnShopify = (req.body.displayOnShopify === true || String(req.body.displayOnShopify).toLowerCase() === 'true')
   }
   // per-country stock updates
-  const sbc = { ...(prod.stockByCountry || { UAE:0, Oman:0, KSA:0, Bahrain:0, India:0, Kuwait:0, Qatar:0, Pakistan:0, Jordan:0, USA:0, UK:0, Canada:0, Australia:0 }) }
+  const sbc = { ...(prod.stockByCountry || { Bangladesh:0, UAE:0, Oman:0, KSA:0, Bahrain:0, India:0, Kuwait:0, Qatar:0, Pakistan:0, Jordan:0, USA:0, UK:0, Canada:0, Australia:0 }) }
+  if (stockBangladesh != null) sbc.Bangladesh = Math.max(0, Number(stockBangladesh))
   if (stockUAE != null) sbc.UAE = Math.max(0, Number(stockUAE))
   if (stockOman != null) sbc.Oman = Math.max(0, Number(stockOman))
   if (stockKSA != null) sbc.KSA = Math.max(0, Number(stockKSA))
@@ -1972,7 +1975,7 @@ router.patch('/:id', auth, allowRoles('admin','user','manager'), upload.any(), a
   if (stockAustralia != null) sbc.Australia = Math.max(0, Number(stockAustralia))
   prod.stockByCountry = sbc
   // if client didn't send stockQty explicitly, recompute from per-country
-  if (stockQty == null && (stockUAE != null || stockOman != null || stockKSA != null || stockBahrain != null || stockIndia != null || stockKuwait != null || stockQatar != null || stockPakistan != null || stockJordan != null || stockUSA != null || stockUK != null || stockCanada != null || stockAustralia != null)){
+  if (stockQty == null && (stockBangladesh != null || stockUAE != null || stockOman != null || stockKSA != null || stockBahrain != null || stockIndia != null || stockKuwait != null || stockQatar != null || stockPakistan != null || stockJordan != null || stockUSA != null || stockUK != null || stockCanada != null || stockAustralia != null)){
     prod.stockQty = Object.values(sbc).reduce((sum, val) => sum + val, 0)
   }
   const files = Array.isArray(req.files) ? req.files : []

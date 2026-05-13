@@ -11,6 +11,7 @@ export default function SubmitOrder() {
     typeof window !== 'undefined' ? window.innerWidth <= 768 : false
   )
   const COUNTRY_OPTS = [
+    { key: 'BD', name: 'Bangladesh', code: '+880', flag: '🇧🇩' },
     { key: 'UAE', name: 'UAE', code: '+971', flag: '🇦🇪' },
     { key: 'OM', name: 'Oman', code: '+968', flag: '🇴🇲' },
     { key: 'KSA', name: 'KSA', code: '+966', flag: '🇸🇦' },
@@ -25,7 +26,7 @@ export default function SubmitOrder() {
     { key: 'CA', name: 'Canada', code: '+1', flag: '🇨🇦' },
     { key: 'AU', name: 'Australia', code: '+61', flag: '🇦🇺' },
   ]
-  const DEFAULT_COUNTRY = COUNTRY_OPTS[2] // KSA
+  const DEFAULT_COUNTRY = COUNTRY_OPTS[0] // Bangladesh
   const [form, setForm] = useState({
     customerName: '',
     customerPhone: '',

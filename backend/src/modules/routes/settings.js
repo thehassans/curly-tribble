@@ -59,6 +59,7 @@ function defaultCurrencyConfig() {
     anchor: "AED",
     perAED: {
       AED: 1,
+      BDT: 30.15,
       SAR: 1,
       QAR: 1,
       BHD: 0.10,
@@ -74,7 +75,7 @@ function defaultCurrencyConfig() {
       AUD: 0.42,
       EUR: 0.25,
     },
-    enabled: ["AED", "SAR", "QAR", "BHD", "OMR", "KWD", "USD", "CNY", "INR", "PKR", "JOD", "GBP", "CAD", "AUD", "EUR"],
+    enabled: ["BDT", "AED", "SAR", "QAR", "BHD", "OMR", "KWD", "USD", "CNY", "INR", "PKR", "JOD", "GBP", "CAD", "AUD", "EUR"],
     updatedAt: new Date(),
   };
 }
