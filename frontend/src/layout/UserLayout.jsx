@@ -13,6 +13,27 @@ import { io } from 'socket.io-client'
 import { useBranding } from '../util/useBranding.js'
 import { getThemeMode, setThemeMode, subscribeThemeMode } from '../util/themeMode.js'
 
+function ImpersonationBanner() {
+  const isImpersonating = !!sessionStorage.getItem('admin_token_backup')
+  const me = (() => { try { return JSON.parse(localStorage.getItem('me') || '{}') } catch { return {} } })()
+  if (!isImpersonating) return null
+  function backToAdmin() {
+    const token = sessionStorage.getItem('admin_token_backup')
+    const meData = sessionStorage.getItem('admin_me_backup')
+    sessionStorage.removeItem('admin_token_backup')
+    sessionStorage.removeItem('admin_me_backup')
+    if (token) localStorage.setItem('token', token)
+    if (meData) localStorage.setItem('me', meData)
+    window.location.href = '/admin/users'
+  }
+  return (
+    <div style={{ background: '#1e1b4b', color: '#c7d2fe', fontSize: 12, fontWeight: 500, padding: '7px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
+      <span>Viewing as <strong style={{ color: '#a5b4fc' }}>{me.firstName} {me.lastName} ({me.email || me.role})</strong></span>
+      <button onClick={backToAdmin} style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid #4338ca', background: '#312e81', color: '#c7d2fe', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>↩ Back to Admin</button>
+    </div>
+  )
+}
+
 export default function UserLayout() {
   const navigate = useNavigate()
   const [closed, setClosed] = useState(() =>
@@ -1619,6 +1640,7 @@ export default function UserLayout() {
         premium
       />
       <div className={`main ${closed ? 'full' : ''}`}>
+        <ImpersonationBanner />
         <div
           className="topbar premium"
           style={{

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiGet, apiUpload, clearApiCache } from '../../api.js'
+import { apiGet, apiPost, apiUpload, clearApiCache } from '../../api.js'
 import PasswordInput from '../../components/PasswordInput.jsx'
 import PhoneInput from 'react-phone-number-input'
 import { getCountries, getCountryCallingCode } from 'libphonenumber-js'
@@ -68,6 +68,26 @@ export default function AdminUsers() {
   const navigate = useNavigate()
   const [users, setUsers] = useState([])
   const [view, setView] = useState('list')
+  const [impersonating, setImpersonating] = useState(null)
+
+  async function loginAs(userId) {
+    setImpersonating(userId)
+    try {
+      const data = await apiPost(`/api/users/${userId}/impersonate`, {})
+      // Save current admin session so we can restore it later
+      const adminToken = localStorage.getItem('token')
+      const adminMe = localStorage.getItem('me')
+      if (adminToken) sessionStorage.setItem('admin_token_backup', adminToken)
+      if (adminMe) sessionStorage.setItem('admin_me_backup', adminMe)
+      localStorage.setItem('token', data.token)
+      localStorage.setItem('me', JSON.stringify(data.user))
+      window.location.href = '/user'
+    } catch (e) {
+      alert(e?.message || 'Failed to login as user')
+    } finally {
+      setImpersonating(null)
+    }
+  }
 
   async function load() {
     try {
@@ -316,6 +336,13 @@ export default function AdminUsers() {
                   style={{ height: 30, padding: '0 14px', borderRadius: 7, border: '1px solid var(--border)', background: 'none', color: 'var(--fg)', fontSize: 12, fontWeight: 500, cursor: 'pointer', flexShrink: 0 }}
                 >
                   Manage
+                </button>
+                <button
+                  onClick={() => loginAs(u._id)}
+                  disabled={impersonating === u._id}
+                  style={{ height: 30, padding: '0 14px', borderRadius: 7, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 12, fontWeight: 500, cursor: impersonating === u._id ? 'not-allowed' : 'pointer', flexShrink: 0, opacity: impersonating === u._id ? 0.7 : 1 }}
+                >
+                  {impersonating === u._id ? '…' : 'Login as'}
                 </button>
               </div>
             )
