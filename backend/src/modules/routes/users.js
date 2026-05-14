@@ -9,7 +9,6 @@ import Setting from "../models/Setting.js";
 import { auth, allowRoles } from "../middleware/auth.js";
 import jwt from "jsonwebtoken";
 import { getIO } from "../config/socket.js";
-import { DEFAULT_BRANDING } from "../utils/branding.js";
 // Lazy WhatsApp import to avoid startup crashes when WA is disabled or deps missing
 async function getWA() {
   const enabled = process.env.ENABLE_WA !== "false";
