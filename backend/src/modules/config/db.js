@@ -89,17 +89,19 @@ export function getDbConnectionMeta() {
 
 async function connectWithRetry(uri) {
   while (mongoose.connection.readyState !== 1) {
+    // Re-read URI each attempt so Plesk env var updates take effect without restart
+    const currentUri = process.env.MONGO_URI || uri
     attemptCount += 1
     lastAttemptAt = new Date().toISOString()
     const opts = getMongoOptions()
     console.log('[mongo] connecting...', {
-      uri: maskUri(uri),
+      uri: maskUri(currentUri),
       dbName: opts.dbName || '(from URI)',
       family: opts.family || 'auto',
       attempt: attemptCount,
     })
     try {
-      await mongoose.connect(uri, opts)
+      await mongoose.connect(currentUri, opts)
       const con = mongoose.connection
       const host = con.host || (con.client && con.client.s.options && con.client.s.options.srvHost) || 'unknown-host'
       lastErrorMessage = ''
