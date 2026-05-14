@@ -2,7 +2,6 @@ import express from 'express'
 import { auth, allowRoles } from '../middleware/auth.js'
 import Notification from '../models/Notification.js'
 import User from '../models/User.js'
-import { sendPush } from '../config/firebase.js'
 import { DEFAULT_BRANDING } from '../utils/branding.js'
 import { getIO } from '../config/socket.js'
 

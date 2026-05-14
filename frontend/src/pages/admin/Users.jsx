@@ -88,9 +88,7 @@ export default function AdminUsers() {
     const [customDomain, setCustomDomain] = useState('')
     const [branding, setBranding] = useState(() => normalizeBranding(DEFAULT_BRANDING))
     const [headerFile, setHeaderFile] = useState(null)
-    const [loginFile, setLoginFile] = useState(null)
     const [darkFile, setDarkFile] = useState(null)
-    const [faviconFile, setFaviconFile] = useState(null)
     const [businessCountries, setBusinessCountries] = useState([])
     const [baseCurrency, setBaseCurrency] = useState('AED')
     const [loading, setLoading] = useState(false)
@@ -113,9 +111,7 @@ export default function AdminUsers() {
     }, [])
 
     const headerPreview = headerFile ? URL.createObjectURL(headerFile) : resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
-    const loginPreview = loginFile ? URL.createObjectURL(loginFile) : resolveBrandAsset(branding.loginLogo || branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
     const darkPreview = darkFile ? URL.createObjectURL(darkFile) : resolveBrandAsset(branding.darkLogo || branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
-    const faviconPreview = faviconFile ? URL.createObjectURL(faviconFile) : resolveBrandAsset(branding.favicon, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
 
     async function submit() {
       if (!firstName || !email || !password) { setError('First name, email and password are required'); return }
@@ -130,9 +126,7 @@ export default function AdminUsers() {
         fd.append('baseCurrency', baseCurrency)
         fd.append('businessCountries', JSON.stringify(businessCountries))
         if (headerFile) fd.append('header', headerFile)
-        if (loginFile) fd.append('login', loginFile)
         if (darkFile) fd.append('dark', darkFile)
-        if (faviconFile) fd.append('favicon', faviconFile)
         QUICK_FIELDS.forEach(f => fd.append(f.key, branding[f.key] || ''))
         await apiUpload('/api/users', fd)
         clearApiCache('/api/users')
@@ -237,11 +231,9 @@ export default function AdminUsers() {
         {/* Branding */}
         <div style={{ display: 'grid', gap: 16 }}>
           <SectionHeading>Branding</SectionHeading>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 14 }}>
-            <UploadField label="Header Logo" preview={headerPreview} file={headerFile} onChange={setHeaderFile} />
-            <UploadField label="Login Logo" preview={loginPreview} file={loginFile} onChange={setLoginFile} />
-            <UploadField label="Dark Logo" preview={darkPreview} file={darkFile} onChange={setDarkFile} />
-            <UploadField label="Favicon" preview={faviconPreview} file={faviconFile} onChange={setFaviconFile} accept="image/png,image/svg+xml,image/x-icon,.ico" />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
+            <UploadField label="Header Light Logo" preview={headerPreview} file={headerFile} onChange={setHeaderFile} />
+            <UploadField label="Header Dark Logo" preview={darkPreview} file={darkFile} onChange={setDarkFile} />
           </div>
         </div>
 
