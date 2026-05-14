@@ -7,10 +7,10 @@ $envContent = @"
 # Database Configuration
 # ----------------------
 # MongoDB Atlas Connection (Production Database)
-MONGO_URI=mongodb+srv://Vercel-Admin-buysialsite:nl9hUXZxEZOyY0yJ@buysialsite.p0usujr.mongodb.net/?retryWrites=true&w=majority&appName=buysialsite
+MONGO_URI=mongodb+srv://mixduniya206_db_user:DzaoHVEFbUPmvkdP@buysialcommerce.vp4a5r8.mongodb.net/?retryWrites=true&w=majority&appName=Buysialcommerce
 
 # Explicit database name
-DB_NAME=Vercel-Admin-buysialsite
+DB_NAME=Buysialcommerce
 
 # Disable in-memory database (IMPORTANT - set to false for production)
 USE_MEMORY_DB=false
@@ -49,7 +49,7 @@ LOG_LEVEL=info
 $envContent | Out-File -FilePath ".env" -Encoding UTF8 -NoNewline
 
 Write-Host "✅ .env file created successfully!" -ForegroundColor Green
-Write-Host "MongoDB URI configured for: Vercel-Admin-buysialsite database" -ForegroundColor Cyan
+Write-Host "MongoDB URI configured for: Buysialcommerce database" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "⚠️  IMPORTANT: Update JWT_SECRET before deploying to production!" -ForegroundColor Yellow
 Write-Host "Run: node -e `"console.log(require('crypto').randomBytes(32).toString('hex'))`"" -ForegroundColor Gray
