@@ -950,55 +950,17 @@ export default function UserOrders() {
 
   return (
     <div className="section" style={{ display: 'grid', gap: 12 }}>
-      <div
-        className="page-header"
-        style={{ animation: 'fadeInUp 0.6s ease-out', marginBottom: '20px' }}
-      >
+      <div className="page-header">
         <div>
-          <div
-            style={{
-              fontSize: 'clamp(30px, 4vw, 42px)',
-              fontWeight: 900,
-              letterSpacing: '-1px',
-              marginBottom: '12px',
-              background:
-                'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 25%, #ec4899 50%, #f59e0b 75%, #10b981 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              filter: 'drop-shadow(0 2px 8px rgba(59, 130, 246, 0.3))',
-              lineHeight: '1.2',
-            }}
-          >
-            📦 Orders
-          </div>
-          <div
-            style={{
-              fontSize: '16px',
-              fontWeight: 500,
-              color: 'var(--text-muted)',
-              letterSpacing: '0.3px',
-              background: 'linear-gradient(90deg, #3b82f6 0%, #10b981 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              opacity: 0.9,
-            }}
-          >
-            Manage drivers and track shipments
-          </div>
+          <div className="page-title">Orders</div>
+          <div className="page-subtitle">Manage drivers and track shipments</div>
         </div>
       </div>
 
       {/* Filtered Summary */}
-      <div
-        className="card hover-lift"
-        style={{ display: 'grid', gap: 12, animation: 'scaleIn 0.5s ease-out 0.1s backwards' }}
-      >
+      <div className="card" style={{ display: 'grid', gap: 12 }}>
         <div className="card-header">
-          <div className="card-title" style={{ fontSize: '20px', fontWeight: 800 }}>
-            Filtered Summary
-          </div>
+          <div className="card-title">Filtered Summary</div>
         </div>
         <div
           className="section"
@@ -1008,160 +970,33 @@ export default function UserOrders() {
             gap: 12,
           }}
         >
-          <div
-            className="stat-card stagger-item gradient-blue"
-            style={{ animationDelay: '0.15s', padding: 16 }}
-          >
-            <div
-              style={{
-                fontSize: 13,
-                opacity: 0.95,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                marginBottom: 8,
-              }}
-            >
-              Total Orders
-            </div>
-            <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-1px' }}>
-              {visibleOrderTotal}
-            </div>
+          <div className="stat-card gradient-blue">
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 6 }}>Total Orders</div>
+            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px' }}>{visibleOrderTotal}</div>
           </div>
-          <div
-            className="stat-card stagger-item gradient-green"
-            style={{ animationDelay: '0.2s', padding: 16 }}
-          >
-            <div
-              style={{
-                fontSize: 13,
-                opacity: 0.95,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                marginBottom: 8,
-              }}
-            >
-              Total Qty
-            </div>
-            <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-1px' }}>
-              {summary?.totalQty ?? '-'}
-            </div>
+          <div className="stat-card gradient-green">
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 6 }}>Total Qty</div>
+            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px' }}>{summary?.totalQty ?? '-'}</div>
           </div>
-          <div
-            className="stat-card stagger-item gradient-purple"
-            style={{ animationDelay: ' 0.25s', padding: 16 }}
-          >
-            <div
-              style={{
-                fontSize: 13,
-                opacity: 0.95,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                marginBottom: 8,
-              }}
-            >
-              Delivered (Orders)
-            </div>
-            <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-1px' }}>
-              {summary?.deliveredOrders ?? '-'}
-            </div>
+          <div className="stat-card gradient-purple">
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 6 }}>Delivered (Orders)</div>
+            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px' }}>{summary?.deliveredOrders ?? '-'}</div>
           </div>
-          <div
-            className="stat-card stagger-item gradient-orange"
-            style={{ animationDelay: '0.3s', padding: 16 }}
-          >
-            <div
-              style={{
-                fontSize: 13,
-                opacity: 0.95,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                marginBottom: 8,
-              }}
-            >
-              Delivered (Qty)
-            </div>
-            <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '-1px' }}>
-              {summary?.deliveredQty ?? '-'}
-            </div>
+          <div className="stat-card gradient-orange">
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 6 }}>Delivered (Qty)</div>
+            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px' }}>{summary?.deliveredQty ?? '-'}</div>
           </div>
-          {/* Profit/Loss Cards */}
-          <div
-            className="stat-card stagger-item"
-            style={{
-              animationDelay: '0.35s',
-              background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-              padding: 16,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 13,
-                opacity: 0.95,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                marginBottom: 8,
-              }}
-            >
-              Total Profit (AED)
-            </div>
-            <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-1px' }}>
-              {summary?.totalProfit ? `+${summary.totalProfit.toFixed(2)}` : '0.00'}
-            </div>
+          <div className="stat-card gradient-green">
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 6 }}>Total Profit (AED)</div>
+            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', color: '#10b981' }}>{summary?.totalProfit ? `+${summary.totalProfit.toFixed(2)}` : '0.00'}</div>
           </div>
-          <div
-            className="stat-card stagger-item"
-            style={{
-              animationDelay: '0.4s',
-              background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
-              padding: 16,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 13,
-                opacity: 0.95,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                marginBottom: 8,
-              }}
-            >
-              Total Loss (AED)
-            </div>
-            <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-1px' }}>
-              {summary?.totalLoss ? `-${summary.totalLoss.toFixed(2)}` : '0.00'}
-            </div>
+          <div className="stat-card gradient-red">
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 6 }}>Total Loss (AED)</div>
+            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', color: '#ef4444' }}>{summary?.totalLoss ? `-${summary.totalLoss.toFixed(2)}` : '0.00'}</div>
           </div>
-          <div
-            className="stat-card stagger-item"
-            style={{
-              animationDelay: '0.45s',
-              background: summary?.netProfit >= 0 
-                ? 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)'
-                : 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
-              padding: 16,
-            }}
-          >
-            <div
-              style={{
-                fontSize: 13,
-                opacity: 0.95,
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                marginBottom: 8,
-              }}
-            >
-              Net Profit (AED)
-            </div>
-            <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-1px' }}>
-              {summary?.netProfit ? `${summary.netProfit >= 0 ? '+' : ''}${summary.netProfit.toFixed(2)}` : '0.00'}
-            </div>
+          <div className="stat-card gradient-purple">
+            <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 6 }}>Net Profit (AED)</div>
+            <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px', color: summary?.netProfit >= 0 ? '#10b981' : '#ef4444' }}>{summary?.netProfit ? `${summary.netProfit >= 0 ? '+' : ''}${summary.netProfit.toFixed(2)}` : '0.00'}</div>
           </div>
           {(() => {
             const c = String(country || '').trim()
@@ -1169,29 +1004,9 @@ export default function UserOrders() {
             const map = summary?.amountByCurrency || {}
             if (cur && map[cur] != null) {
               return (
-                <div
-                  className="stat-card stagger-item"
-                  style={{
-                    animationDelay: '0.5s',
-                    background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
-                    padding: 16,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 13,
-                      opacity: 0.95,
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: 8,
-                    }}
-                  >
-                    Amount ({cur})
-                  </div>
-                  <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-1px' }}>
-                    {fmtCurrency(map[cur] || 0, cur)}
-                  </div>
+                <div className="stat-card gradient-blue">
+                  <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 6 }}>Amount ({cur})</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px' }}>{fmtCurrency(map[cur] || 0, cur)}</div>
                 </div>
               )
             }
@@ -1199,46 +1014,20 @@ export default function UserOrders() {
             return order
               .filter((k) => Number((summary?.amountByCurrency || {})[k] || 0) > 0)
               .slice(0, 7)
-              .map((k, idx) => (
-                <div
-                  key={k}
-                  className="stat-card stagger-item"
-                  style={{
-                    animationDelay: `${0.5 + idx * 0.05}s`,
-                    background: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
-                    padding: 16,
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: 13,
-                      opacity: 0.95,
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: 8,
-                    }}
-                  >
-                    Amount ({k})
-                  </div>
-                  <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: '-1px' }}>
-                    {fmtCurrency((summary?.amountByCurrency || {})[k] || 0, k)}
-                  </div>
+              .map((k) => (
+                <div key={k} className="stat-card gradient-blue">
+                  <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--muted)', marginBottom: 6 }}>Amount ({k})</div>
+                  <div style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.5px' }}>{fmtCurrency((summary?.amountByCurrency || {})[k] || 0, k)}</div>
                 </div>
               ))
           })()}
         </div>
       </div>
 
-      {/* Filters (manager-like) */}
-      <div
-        className="card hover-lift"
-        style={{ display: 'grid', gap: 10, animation: 'scaleIn 0.5s ease-out 0.15s backwards' }}
-      >
+      {/* Filters */}
+      <div className="card" style={{ display: 'grid', gap: 10 }}>
         <div className="card-header">
-          <div className="card-title" style={{ fontSize: '18px', fontWeight: 800 }}>
-            Filters
-          </div>
+          <div className="card-title">Filters</div>
         </div>
         <div
           className="section"
