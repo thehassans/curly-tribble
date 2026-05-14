@@ -253,6 +253,11 @@ const UserSchema = new mongoose.Schema(
       reportFooterText: { type: String, default: "" },
       websiteUrl: { type: String, default: "" },
     },
+    // Workspace business configuration (set during workspace creation)
+    workspaceSettings: {
+      baseCurrency: { type: String, default: "AED", trim: true },
+      businessCountries: { type: [String], default: [] },
+    },
     // Custom domain for e-commerce site (e.g., yourstore.com)
     customDomain: { type: String, default: "", trim: true },
     // Firebase Cloud Messaging tokens for push notifications (multiple devices)

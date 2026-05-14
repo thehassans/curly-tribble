@@ -7,6 +7,23 @@ import { getCountries, getCountryCallingCode } from 'libphonenumber-js'
 import { DEFAULT_BRANDING, normalizeBranding, resolveBrandAsset } from '../../util/branding.js'
 import 'react-phone-number-input/style.css'
 
+const WORKSPACE_COUNTRIES = [
+  { code: 'BD', name: 'Bangladesh', flag: '🇧🇩', currency: 'BDT', currencySymbol: '৳' },
+  { code: 'SA', name: 'KSA',        flag: '🇸🇦', currency: 'SAR', currencySymbol: '﷼' },
+  { code: 'AE', name: 'UAE',        flag: '🇦🇪', currency: 'AED', currencySymbol: 'د.إ' },
+  { code: 'OM', name: 'Oman',       flag: '🇴🇲', currency: 'OMR', currencySymbol: 'ر.ع.' },
+  { code: 'BH', name: 'Bahrain',    flag: '🇧🇭', currency: 'BHD', currencySymbol: 'BD' },
+  { code: 'KW', name: 'Kuwait',     flag: '🇰🇼', currency: 'KWD', currencySymbol: 'KD' },
+  { code: 'QA', name: 'Qatar',      flag: '🇶🇦', currency: 'QAR', currencySymbol: 'QR' },
+  { code: 'IN', name: 'India',      flag: '🇮🇳', currency: 'INR', currencySymbol: '₹' },
+  { code: 'PK', name: 'Pakistan',   flag: '🇵🇰', currency: 'PKR', currencySymbol: 'Rs' },
+  { code: 'JO', name: 'Jordan',     flag: '🇯🇴', currency: 'JOD', currencySymbol: 'JD' },
+  { code: 'US', name: 'USA',        flag: '🇺🇸', currency: 'USD', currencySymbol: '$' },
+  { code: 'GB', name: 'UK',         flag: '🇬🇧', currency: 'GBP', currencySymbol: '£' },
+  { code: 'CA', name: 'Canada',     flag: '🇨🇦', currency: 'CAD', currencySymbol: 'C$' },
+  { code: 'AU', name: 'Australia',  flag: '🇦🇺', currency: 'AUD', currencySymbol: 'A$' },
+]
+
 const QUICK_FIELDS = [
   { key: 'title', label: 'Workspace Title', placeholder: 'My E-Commerce' },
   { key: 'companyName', label: 'Company Name', placeholder: 'My Company' },
@@ -74,8 +91,22 @@ export default function AdminUsers() {
     const [loginFile, setLoginFile] = useState(null)
     const [darkFile, setDarkFile] = useState(null)
     const [faviconFile, setFaviconFile] = useState(null)
+    const [businessCountries, setBusinessCountries] = useState([])
+    const [baseCurrency, setBaseCurrency] = useState('AED')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
+
+    function toggleCountry(name) {
+      setBusinessCountries(prev => {
+        const next = prev.includes(name) ? prev.filter(c => c !== name) : [...prev, name]
+        // Auto-set base currency from the first selected country
+        if (!prev.includes(name) && prev.length === 0) {
+          const entry = WORKSPACE_COUNTRIES.find(c => c.name === name)
+          if (entry) setBaseCurrency(entry.currency)
+        }
+        return next
+      })
+    }
 
     const countryOptions = useMemo(() => {
       try { return getCountries().map(c => ({ code: c, label: `${c} (+${getCountryCallingCode(c)})` })) } catch { return [] }
@@ -96,6 +127,8 @@ export default function AdminUsers() {
         fd.append('phone', phone || ''); fd.append('country', country)
         fd.append('password', password); fd.append('role', 'user')
         fd.append('customDomain', customDomain)
+        fd.append('baseCurrency', baseCurrency)
+        fd.append('businessCountries', JSON.stringify(businessCountries))
         if (headerFile) fd.append('header', headerFile)
         if (loginFile) fd.append('login', loginFile)
         if (darkFile) fd.append('dark', darkFile)
@@ -143,6 +176,48 @@ export default function AdminUsers() {
               <PhoneInput international country={country || undefined} defaultCountry={country || undefined} value={phone} onChange={setPhone} placeholder="+880 1234 567890" style={inputStyle} />
             </Field>
           </div>
+        </div>
+
+        {/* Business */}
+        <div style={{ display: 'grid', gap: 16 }}>
+          <SectionHeading>Business</SectionHeading>
+          <div style={{ display: 'grid', gap: 10 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)' }}>Business Countries</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {WORKSPACE_COUNTRIES.map(c => {
+                const active = businessCountries.includes(c.name)
+                return (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => toggleCountry(c.name)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 6, padding: '7px 13px',
+                      borderRadius: 999, fontSize: 13, fontWeight: 500, cursor: 'pointer',
+                      border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+                      background: active ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'var(--panel-2)',
+                      color: active ? 'var(--accent)' : 'var(--fg)',
+                      transition: 'all 0.12s',
+                    }}
+                  >
+                    <span>{c.flag}</span>
+                    <span>{c.name}</span>
+                    {active && <span style={{ fontSize: 11, opacity: 0.7 }}>{c.currency}</span>}
+                  </button>
+                )
+              })}
+            </div>
+            {businessCountries.length === 0 && (
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>Select at least one country where this workspace will operate</div>
+            )}
+          </div>
+          <Field label="Base Currency">
+            <select style={inputStyle} value={baseCurrency} onChange={e => setBaseCurrency(e.target.value)}>
+              {WORKSPACE_COUNTRIES.map(c => (
+                <option key={c.currency} value={c.currency}>{c.flag} {c.currency} — {c.name} ({c.currencySymbol})</option>
+              ))}
+            </select>
+          </Field>
         </div>
 
         {/* Workspace */}

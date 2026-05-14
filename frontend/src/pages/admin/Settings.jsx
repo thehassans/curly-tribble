@@ -3,6 +3,23 @@ import { useSearchParams } from 'react-router-dom'
 import { apiGet, apiUploadPatch, clearApiCache } from '../../api.js'
 import { DEFAULT_BRANDING, normalizeBranding, resolveBrandAsset } from '../../util/branding.js'
 
+const WORKSPACE_COUNTRIES = [
+  { code: 'BD', name: 'Bangladesh', flag: '🇧🇩', currency: 'BDT', currencySymbol: '৳' },
+  { code: 'SA', name: 'KSA',        flag: '🇸🇦', currency: 'SAR', currencySymbol: '﷼' },
+  { code: 'AE', name: 'UAE',        flag: '🇦🇪', currency: 'AED', currencySymbol: 'د.إ' },
+  { code: 'OM', name: 'Oman',       flag: '🇴🇲', currency: 'OMR', currencySymbol: 'ر.ع.' },
+  { code: 'BH', name: 'Bahrain',    flag: '🇧🇭', currency: 'BHD', currencySymbol: 'BD' },
+  { code: 'KW', name: 'Kuwait',     flag: '🇰🇼', currency: 'KWD', currencySymbol: 'KD' },
+  { code: 'QA', name: 'Qatar',      flag: '🇶🇦', currency: 'QAR', currencySymbol: 'QR' },
+  { code: 'IN', name: 'India',      flag: '🇮🇳', currency: 'INR', currencySymbol: '₹' },
+  { code: 'PK', name: 'Pakistan',   flag: '🇵🇰', currency: 'PKR', currencySymbol: 'Rs' },
+  { code: 'JO', name: 'Jordan',     flag: '🇯🇴', currency: 'JOD', currencySymbol: 'JD' },
+  { code: 'US', name: 'USA',        flag: '🇺🇸', currency: 'USD', currencySymbol: '$' },
+  { code: 'GB', name: 'UK',         flag: '🇬🇧', currency: 'GBP', currencySymbol: '£' },
+  { code: 'CA', name: 'Canada',     flag: '🇨🇦', currency: 'CAD', currencySymbol: 'C$' },
+  { code: 'AU', name: 'Australia',  flag: '🇦🇺', currency: 'AUD', currencySymbol: 'A$' },
+]
+
 const TEXT_FIELDS = [
   { key: 'title', label: 'Workspace Title', placeholder: 'My E-Commerce' },
   { key: 'appName', label: 'Short Name', placeholder: 'MyApp' },
@@ -45,6 +62,8 @@ export default function AdminSettings() {
   const [loginFile, setLoginFile] = useState(null)
   const [darkFile, setDarkFile] = useState(null)
   const [faviconFile, setFaviconFile] = useState(null)
+  const [baseCurrency, setBaseCurrency] = useState('AED')
+  const [businessCountries, setBusinessCountries] = useState([])
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const requestedOwnerId = String(searchParams.get('ownerId') || '').trim()
@@ -70,6 +89,8 @@ export default function AdminSettings() {
     setBusinessName(selectedUser.businessName || '')
     setCustomDomain(selectedUser.customDomain || '')
     setBranding(normalizeBranding({ ...DEFAULT_BRANDING, ...(selectedUser.workspaceBranding || {}) }))
+    setBaseCurrency(selectedUser.workspaceSettings?.baseCurrency || 'AED')
+    setBusinessCountries(Array.isArray(selectedUser.workspaceSettings?.businessCountries) ? selectedUser.workspaceSettings.businessCountries : [])
     setHeaderFile(null); setLoginFile(null); setDarkFile(null); setFaviconFile(null)
   }, [selectedUser])
 
@@ -85,6 +106,8 @@ export default function AdminSettings() {
     try {
       const fd = new FormData()
       fd.append('businessName', businessName); fd.append('customDomain', customDomain)
+      fd.append('baseCurrency', baseCurrency)
+      fd.append('businessCountries', JSON.stringify(businessCountries))
       if (headerFile) fd.append('header', headerFile)
       if (loginFile) fd.append('login', loginFile)
       if (darkFile) fd.append('dark', darkFile)
@@ -155,6 +178,30 @@ export default function AdminSettings() {
         {/* Main: settings form */}
         {selectedUser ? (
           <form onSubmit={saveWorkspace} style={{ display: 'grid', gap: 24 }}>
+
+            {/* Business */}
+            <div style={{ display: 'grid', gap: 14, padding: '20px 20px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--panel)' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>Business</div>
+              <div style={{ display: 'grid', gap: 8 }}>
+                <span style={lbl}>Business Countries</span>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7 }}>
+                  {WORKSPACE_COUNTRIES.map(c => {
+                    const active = businessCountries.includes(c.name)
+                    return (
+                      <button key={c.code} type="button" onClick={() => setBusinessCountries(prev => prev.includes(c.name) ? prev.filter(x => x !== c.name) : [...prev, c.name])}
+                        style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 500, cursor: 'pointer', border: active ? '1px solid var(--accent)' : '1px solid var(--border)', background: active ? 'color-mix(in srgb, var(--accent) 12%, transparent)' : 'var(--panel-2)', color: active ? 'var(--accent)' : 'var(--fg)' }}>
+                        <span>{c.flag}</span><span>{c.name}</span>{active && <span style={{ fontSize: 10, opacity: 0.7 }}>{c.currency}</span>}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <div><label style={lbl}>Base Currency</label>
+                <select style={inp} value={baseCurrency} onChange={e => setBaseCurrency(e.target.value)}>
+                  {WORKSPACE_COUNTRIES.map(c => <option key={c.currency} value={c.currency}>{c.flag} {c.currency} — {c.name} ({c.currencySymbol})</option>)}
+                </select>
+              </div>
+            </div>
 
             {/* Identity */}
             <div style={{ display: 'grid', gap: 14, padding: '20px 20px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--panel)' }}>

@@ -1295,12 +1295,23 @@ router.post("/", auth, allowRoles("admin", "user"), workspaceBrandingUpload.fiel
     commissionerProfile,
     businessName,
     customDomain,
+    baseCurrency,
+    businessCountries,
   } = req.body;
   if (!firstName || !lastName || !email || !password)
     return res.status(400).json({ message: "Missing required fields" });
   const exists = await User.findOne({ email });
   if (exists) return res.status(400).json({ message: "Email already in use" });
   const createdBy = req.user?.id;
+
+  // Parse business countries (may come as JSON string or array)
+  let parsedBusinessCountries = [];
+  try {
+    if (Array.isArray(businessCountries)) parsedBusinessCountries = businessCountries.map(String).filter(Boolean);
+    else if (typeof businessCountries === "string" && businessCountries.startsWith("[")) parsedBusinessCountries = JSON.parse(businessCountries).map(String).filter(Boolean);
+    else if (typeof businessCountries === "string" && businessCountries) parsedBusinessCountries = [businessCountries];
+  } catch { parsedBusinessCountries = []; }
+
   const userData = {
     firstName,
     lastName,
@@ -1312,6 +1323,10 @@ router.post("/", auth, allowRoles("admin", "user"), workspaceBrandingUpload.fiel
     createdBy,
     businessName: String(businessName || "").trim(),
     customDomain: String(customDomain || "").trim().toLowerCase(),
+    workspaceSettings: {
+      baseCurrency: String(baseCurrency || "AED").trim().toUpperCase() || "AED",
+      businessCountries: parsedBusinessCountries,
+    },
   };
   const workspaceBrandingInput = buildWorkspaceBrandingPayload(req);
   userData.workspaceBranding = buildWorkspaceBrandingSeed({
@@ -2286,7 +2301,7 @@ router.patch(
     try {
       const { id } = req.params;
       const target = await User.findById(id).select(
-        "_id role createdBy firstName lastName businessName customDomain workspaceBranding"
+        "_id role createdBy firstName lastName businessName customDomain workspaceBranding workspaceSettings"
       );
       if (!target) return res.status(404).json({ message: "User not found" });
       const allowed =
@@ -2317,6 +2332,17 @@ router.patch(
         workspaceBranding: workspaceBrandingInput,
       });
 
+      // Parse workspaceSettings updates
+      let nextBaseCurrency = String(target.workspaceSettings?.baseCurrency || "AED");
+      let nextBusinessCountries = Array.isArray(target.workspaceSettings?.businessCountries) ? target.workspaceSettings.businessCountries : [];
+      if (req.body?.baseCurrency) nextBaseCurrency = String(req.body.baseCurrency).trim().toUpperCase() || nextBaseCurrency;
+      try {
+        const bc = req.body?.businessCountries;
+        if (Array.isArray(bc)) nextBusinessCountries = bc.map(String).filter(Boolean);
+        else if (typeof bc === "string" && bc.startsWith("[")) nextBusinessCountries = JSON.parse(bc).map(String).filter(Boolean);
+        else if (typeof bc === "string" && bc) nextBusinessCountries = [bc];
+      } catch {}
+
       const updated = await User.findByIdAndUpdate(
         id,
         {
@@ -2324,6 +2350,8 @@ router.patch(
             businessName: nextBusinessName,
             customDomain: nextDomain,
             workspaceBranding,
+            "workspaceSettings.baseCurrency": nextBaseCurrency,
+            "workspaceSettings.businessCountries": nextBusinessCountries,
           },
         },
         { new: true, projection: "-password" }
