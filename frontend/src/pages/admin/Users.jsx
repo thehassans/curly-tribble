@@ -214,8 +214,14 @@ export default function AdminUsers() {
 
       {/* User list */}
       {users.length === 0 ? (
-        <div style={{ padding: '48px 0', textAlign: 'center', color: 'var(--muted)', fontSize: 14 }}>
-          No workspaces yet. Create the first one.
+        <div style={{ padding: '48px 0', textAlign: 'center' }}>
+          <div style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>No workspaces yet</div>
+          <button
+            onClick={() => setView('create')}
+            style={{ height: 38, padding: '0 22px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
+          >
+            Create first workspace
+          </button>
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 1 }}>

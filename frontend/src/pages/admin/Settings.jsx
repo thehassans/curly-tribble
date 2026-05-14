@@ -4,38 +4,31 @@ import { apiGet, apiUploadPatch, clearApiCache } from '../../api.js'
 import { DEFAULT_BRANDING, normalizeBranding, resolveBrandAsset } from '../../util/branding.js'
 
 const TEXT_FIELDS = [
-  { key: 'title', label: 'Workspace Title', placeholder: 'Magnetic E-Commerce' },
-  { key: 'appName', label: 'Short Brand Name', placeholder: 'Magnetic' },
-  { key: 'companyName', label: 'Company Name', placeholder: 'Magnetic E-Commerce' },
-  { key: 'portalName', label: 'Portal Name', placeholder: 'Magnetic E-Commerce Admin' },
-  { key: 'storeName', label: 'Storefront Name', placeholder: 'Magnetic E-Commerce' },
-  { key: 'staffLoginSubtitle', label: 'Staff Login Subtitle', placeholder: 'Sign in to your workspace' },
-  { key: 'footerText', label: 'Footer Text', placeholder: 'Powered by Magnetic E-Commerce' },
-  { key: 'reportSignature', label: 'Report Signature', placeholder: 'Magnetic E-Commerce' },
-  { key: 'reportFooterText', label: 'Report Footer Text', placeholder: 'All Rights Reserved' },
-  { key: 'websiteUrl', label: 'Website URL', placeholder: 'https://commerce.magnetic-ict.com' },
+  { key: 'title', label: 'Workspace Title', placeholder: 'My E-Commerce' },
+  { key: 'appName', label: 'Short Name', placeholder: 'MyApp' },
+  { key: 'companyName', label: 'Company Name', placeholder: 'My Company' },
+  { key: 'portalName', label: 'Portal Name', placeholder: 'My Admin' },
+  { key: 'storeName', label: 'Storefront Name', placeholder: 'My Store' },
+  { key: 'staffLoginSubtitle', label: 'Login Subtitle', placeholder: 'Sign in to your workspace' },
+  { key: 'footerText', label: 'Footer Text', placeholder: 'Powered by …' },
+  { key: 'reportSignature', label: 'Report Signature', placeholder: 'My Company' },
+  { key: 'reportFooterText', label: 'Report Footer', placeholder: 'All Rights Reserved' },
+  { key: 'websiteUrl', label: 'Website URL', placeholder: 'https://commerce.example.com' },
 ]
+
+const inp = { width: '100%', padding: '8px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-2)', color: 'var(--fg)', fontSize: 13, outline: 'none', boxSizing: 'border-box' }
+const lbl = { fontSize: 11, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 5, display: 'block' }
 
 function UploadField({ label, preview, accept, file, onChange }) {
   return (
-    <div className="theme-card" style={{ padding: 18, display: 'grid', gap: 12 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
-        <div>
-          <div style={{ fontWeight: 700, color: 'var(--fg)' }}>{label}</div>
-          <div style={{ fontSize: 12, color: 'var(--muted)' }}>{file ? file.name : 'Upload a new asset if you want to replace the current one.'}</div>
+    <div style={{ display: 'grid', gap: 7 }}>
+      <span style={lbl}>{label}</span>
+      <label style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--panel-2)', cursor: 'pointer', position: 'relative' }}>
+        <div style={{ width: 32, height: 32, borderRadius: 7, border: '1px solid var(--border)', background: 'var(--panel)', display: 'grid', placeItems: 'center', overflow: 'hidden', flexShrink: 0 }}>
+          <img src={preview} alt={label} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
         </div>
-        <div style={{ width: 56, height: 56, borderRadius: 16, border: '1px solid var(--border)', background: '#fff', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
-          <img src={preview} alt={label} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-        </div>
-      </div>
-      <label className="btn secondary" style={{ position: 'relative', justifyContent: 'center' }}>
-        Choose File
-        <input
-          type="file"
-          accept={accept}
-          style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }}
-          onChange={(e) => onChange(e.target.files?.[0] || null)}
-        />
+        <span style={{ fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file ? file.name : 'Choose file…'}</span>
+        <input type="file" accept={accept} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} onChange={e => onChange(e.target.files?.[0] || null)} />
       </label>
     </div>
   )
@@ -59,184 +52,145 @@ export default function AdminSettings() {
   async function loadUsers() {
     const { users: rows = [] } = await apiGet('/api/users?role=user', { skipCache: true })
     setUsers(rows)
-    if (requestedOwnerId && rows.some((item) => item?._id === requestedOwnerId)) {
-      setSelectedId(requestedOwnerId)
-      return
-    }
+    if (requestedOwnerId && rows.some(r => r?._id === requestedOwnerId)) { setSelectedId(requestedOwnerId); return }
     if (!selectedId && rows[0]?._id) setSelectedId(rows[0]._id)
   }
 
-  useEffect(() => {
-    loadUsers().catch(() => {})
-  }, [requestedOwnerId])
+  useEffect(() => { loadUsers().catch(() => {}) }, [requestedOwnerId])
 
-  const selectedUser = useMemo(() => users.find((item) => item._id === selectedId) || null, [users, selectedId])
+  useEffect(() => {
+    if (requestedOwnerId && requestedOwnerId !== selectedId && users.some(r => r?._id === requestedOwnerId))
+      setSelectedId(requestedOwnerId)
+  }, [requestedOwnerId, selectedId, users])
+
+  const selectedUser = useMemo(() => users.find(r => r._id === selectedId) || null, [users, selectedId])
 
   useEffect(() => {
     if (!selectedUser) return
     setBusinessName(selectedUser.businessName || '')
     setCustomDomain(selectedUser.customDomain || '')
     setBranding(normalizeBranding({ ...DEFAULT_BRANDING, ...(selectedUser.workspaceBranding || {}) }))
-    setHeaderFile(null)
-    setLoginFile(null)
-    setDarkFile(null)
-    setFaviconFile(null)
+    setHeaderFile(null); setLoginFile(null); setDarkFile(null); setFaviconFile(null)
   }, [selectedUser])
 
   const headerPreview = headerFile ? URL.createObjectURL(headerFile) : resolveBrandAsset(branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
   const loginPreview = loginFile ? URL.createObjectURL(loginFile) : resolveBrandAsset(branding.loginLogo || branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
-  const darkPreview = darkFile ? URL.createObjectURL(darkFile) : resolveBrandAsset(branding.darkLogo || branding.headerLogo || branding.loginLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
+  const darkPreview = darkFile ? URL.createObjectURL(darkFile) : resolveBrandAsset(branding.darkLogo || branding.headerLogo, `${import.meta.env.BASE_URL}magnetic-commerce.png`)
   const faviconPreview = faviconFile ? URL.createObjectURL(faviconFile) : resolveBrandAsset(branding.favicon, `${import.meta.env.BASE_URL}magneticcommerce-favicon.png`)
-
-  useEffect(() => {
-    if (requestedOwnerId && requestedOwnerId !== selectedId && users.some((item) => item?._id === requestedOwnerId)) {
-      setSelectedId(requestedOwnerId)
-    }
-  }, [requestedOwnerId, selectedId, users])
-
-  useEffect(() => {
-    return () => {
-      try { if (headerFile) URL.revokeObjectURL(headerPreview) } catch {}
-      try { if (loginFile) URL.revokeObjectURL(loginPreview) } catch {}
-      try { if (darkFile) URL.revokeObjectURL(darkPreview) } catch {}
-      try { if (faviconFile) URL.revokeObjectURL(faviconPreview) } catch {}
-    }
-  }, [headerFile, loginFile, darkFile, faviconFile, headerPreview, loginPreview, darkPreview, faviconPreview])
 
   async function saveWorkspace(e) {
     e.preventDefault()
     if (!selectedUser?._id) return
-    setSaving(true)
-    setMessage('')
+    setSaving(true); setMessage('')
     try {
       const fd = new FormData()
-      fd.append('businessName', businessName)
-      fd.append('customDomain', customDomain)
+      fd.append('businessName', businessName); fd.append('customDomain', customDomain)
       if (headerFile) fd.append('header', headerFile)
       if (loginFile) fd.append('login', loginFile)
       if (darkFile) fd.append('dark', darkFile)
       if (faviconFile) fd.append('favicon', faviconFile)
-      for (const field of TEXT_FIELDS) fd.append(field.key, branding[field.key] || '')
+      for (const f of TEXT_FIELDS) fd.append(f.key, branding[f.key] || '')
       const res = await apiUploadPatch(`/api/users/${selectedUser._id}/workspace`, fd)
       clearApiCache('/api/users')
-      setUsers((prev) => prev.map((item) => (item._id === selectedUser._id ? res.user : item)))
-      setMessage('Workspace settings updated')
-      setHeaderFile(null)
-      setLoginFile(null)
-      setDarkFile(null)
-      setFaviconFile(null)
+      setUsers(prev => prev.map(r => r._id === selectedUser._id ? res.user : r))
+      setMessage('Saved')
+      setHeaderFile(null); setLoginFile(null); setDarkFile(null); setFaviconFile(null)
     } catch (err) {
-      setMessage(err?.message || 'Failed to update workspace')
-    } finally {
-      setSaving(false)
-    }
+      setMessage(err?.message || 'Failed to save')
+    } finally { setSaving(false) }
   }
 
   return (
-    <div className="container" style={{ display: 'grid', gap: 20 }}>
-      <div className="page-header" style={{ marginBottom: 0 }}>
-        <div>
-          <div className="page-title gradient heading-blue">Admin Settings</div>
-          <div className="page-subtitle">Manage each user workspace, branding, light and dark logos, favicon, and custom domain from one place.</div>
-        </div>
+    <div style={{ display: 'grid', gap: 24 }}>
+
+      {/* Heading */}
+      <div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--fg)', letterSpacing: '-0.02em' }}>Settings</div>
+        <div style={{ fontSize: 13, color: 'var(--muted)', marginTop: 3 }}>Manage workspace branding, domain, and identity</div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 340px) minmax(0, 1fr)', gap: 20, alignItems: 'start' }}>
-        <div className="theme-card" style={{ padding: 20, display: 'grid', gap: 16, position: 'sticky', top: 20 }}>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: 18 }}>Workspace Directory</div>
-            <div style={{ color: 'var(--muted)', fontSize: 13 }}>Pick a business workspace to manage branding and storefront identity.</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 300px) minmax(0, 1fr)', gap: 20, alignItems: 'start' }}>
+
+        {/* Sidebar: workspace selector */}
+        <div style={{ display: 'grid', gap: 8, position: 'sticky', top: 20 }}>
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', paddingBottom: 8, borderBottom: '1px solid var(--border)' }}>
+            Workspaces
           </div>
-          <div style={{ display: 'grid', gap: 10 }}>
-            {users.map((user) => {
-              const active = user._id === selectedId
-              const brand = normalizeBranding({ ...DEFAULT_BRANDING, ...(user.workspaceBranding || {}) })
-              const preview = resolveBrandAsset(brand.headerLogo || brand.loginLogo, `${import.meta.env.BASE_URL}magnetic-logo.svg`)
-              return (
-                <button
-                  key={user._id}
-                  type="button"
-                  onClick={() => setSelectedId(user._id)}
-                  className="theme-card"
-                  style={{
-                    padding: 14,
-                    textAlign: 'left',
-                    display: 'grid',
-                    gap: 10,
-                    border: active ? '1px solid #f59e0b' : '1px solid var(--border)',
-                    background: active ? 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(17,24,39,0.02))' : 'var(--panel)',
-                    boxShadow: active ? '0 18px 40px rgba(245,158,11,0.12)' : 'var(--shadow-sm)',
-                    cursor: 'pointer',
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 14, border: '1px solid var(--border)', background: '#fff', display: 'grid', placeItems: 'center', overflow: 'hidden' }}>
-                      <img src={preview} alt={brand.companyName} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 700 }}>{user.businessName || `${user.firstName || ''} ${user.lastName || ''}`.trim() || brand.companyName}</div>
-                      <div style={{ color: 'var(--muted)', fontSize: 12 }}>{user.email}</div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    <span className="btn secondary" style={{ padding: '4px 10px', minHeight: 0 }}>{brand.storeName}</span>
-                    {user.customDomain ? <span className="btn secondary" style={{ padding: '4px 10px', minHeight: 0 }}>{user.customDomain}</span> : null}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
+          {users.length === 0 && (
+            <div style={{ fontSize: 13, color: 'var(--muted)', padding: '12px 0' }}>No workspaces yet.</div>
+          )}
+          {users.map(u => {
+            const active = u._id === selectedId
+            const name = u.businessName || `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Workspace'
+            return (
+              <button
+                key={u._id}
+                type="button"
+                onClick={() => setSelectedId(u._id)}
+                style={{
+                  width: '100%', textAlign: 'left', padding: '10px 12px', borderRadius: 9, cursor: 'pointer',
+                  border: active ? '1px solid var(--accent)' : '1px solid var(--border)',
+                  background: active ? 'color-mix(in srgb, var(--accent) 8%, transparent)' : 'var(--panel)',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}
+              >
+                <div style={{
+                  width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+                  background: active ? 'color-mix(in srgb, var(--accent) 20%, transparent)' : 'var(--panel-2)',
+                  border: '1px solid var(--border)',
+                  display: 'grid', placeItems: 'center', fontSize: 12, fontWeight: 700,
+                  color: active ? 'var(--accent)' : 'var(--muted)',
+                }}>
+                  {name[0].toUpperCase()}
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: active ? 'var(--accent)' : 'var(--fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.email}</div>
+                </div>
+              </button>
+            )
+          })}
         </div>
 
-        <form onSubmit={saveWorkspace} className="theme-card" style={{ padding: 24, display: 'grid', gap: 18 }}>
-          {selectedUser ? (
-            <>
-              <div style={{ display: 'grid', gap: 6 }}>
-                <div style={{ fontWeight: 800, fontSize: 20 }}>{selectedUser.businessName || `${selectedUser.firstName || ''} ${selectedUser.lastName || ''}`.trim() || 'Workspace Settings'}</div>
-                <div style={{ color: 'var(--muted)', fontSize: 13 }}>These settings control the storefront logo, favicon, titles, login copy, and workspace identity for this user.</div>
-              </div>
+        {/* Main: settings form */}
+        {selectedUser ? (
+          <form onSubmit={saveWorkspace} style={{ display: 'grid', gap: 24 }}>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
-                <div>
-                  <div className="label">Business Name</div>
-                  <input className="input" value={businessName} onChange={(e) => setBusinessName(e.target.value)} placeholder="Magnetic E-Commerce" />
-                </div>
-                <div>
-                  <div className="label">Custom Domain</div>
-                  <input className="input" value={customDomain} onChange={(e) => setCustomDomain(e.target.value)} placeholder="commerce.magnetic-ict.com" />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 14 }}>
-                <UploadField label="Header Logo" preview={headerPreview} accept="image/*" file={headerFile} onChange={setHeaderFile} />
-                <UploadField label="Login Logo" preview={loginPreview} accept="image/*" file={loginFile} onChange={setLoginFile} />
-                <UploadField label="Dark Mode Logo" preview={darkPreview} accept="image/*" file={darkFile} onChange={setDarkFile} />
-                <UploadField label="Favicon" preview={faviconPreview} accept="image/png,image/svg+xml,image/x-icon,.ico" file={faviconFile} onChange={setFaviconFile} />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 14 }}>
-                {TEXT_FIELDS.map((field) => (
-                  <div key={field.key}>
-                    <div className="label">{field.label}</div>
-                    <input
-                      className="input"
-                      value={branding[field.key] || ''}
-                      onChange={(e) => setBranding((prev) => ({ ...prev, [field.key]: e.target.value }))}
-                      placeholder={field.placeholder}
-                    />
-                  </div>
+            {/* Identity */}
+            <div style={{ display: 'grid', gap: 14, padding: '20px 20px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--panel)' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>Identity</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+                <div><label style={lbl}>Business Name</label><input style={inp} value={businessName} onChange={e => setBusinessName(e.target.value)} placeholder="My Company" /></div>
+                <div><label style={lbl}>Custom Domain</label><input style={inp} value={customDomain} onChange={e => setCustomDomain(e.target.value)} placeholder="commerce.example.com" /></div>
+                {TEXT_FIELDS.map(f => (
+                  <div key={f.key}><label style={lbl}>{f.label}</label><input style={inp} value={branding[f.key] || ''} onChange={e => setBranding(p => ({ ...p, [f.key]: e.target.value }))} placeholder={f.placeholder} /></div>
                 ))}
               </div>
+            </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <div style={{ color: message.includes('updated') ? '#059669' : 'var(--muted)', fontWeight: 600 }}>{message || 'Select a workspace and save when you are ready.'}</div>
-                <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Workspace Settings'}</button>
+            {/* Branding assets */}
+            <div style={{ display: 'grid', gap: 14, padding: '20px 20px', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--panel)' }}>
+              <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--muted)', paddingBottom: 10, borderBottom: '1px solid var(--border)' }}>Branding Assets</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+                <UploadField label="Header Logo" preview={headerPreview} accept="image/*" file={headerFile} onChange={setHeaderFile} />
+                <UploadField label="Login Logo" preview={loginPreview} accept="image/*" file={loginFile} onChange={setLoginFile} />
+                <UploadField label="Dark Logo" preview={darkPreview} accept="image/*" file={darkFile} onChange={setDarkFile} />
+                <UploadField label="Favicon" preview={faviconPreview} accept="image/png,image/svg+xml,image/x-icon,.ico" file={faviconFile} onChange={setFaviconFile} />
               </div>
-            </>
-          ) : (
-            <div style={{ color: 'var(--muted)' }}>No workspaces found yet.</div>
-          )}
-        </form>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <span style={{ fontSize: 13, color: message === 'Saved' ? '#10b981' : '#ef4444', fontWeight: 500 }}>{message}</span>
+              <button type="submit" disabled={saving} style={{ height: 36, padding: '0 20px', borderRadius: 8, border: 'none', background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}>
+                {saving ? 'Saving…' : 'Save Changes'}
+              </button>
+            </div>
+
+          </form>
+        ) : (
+          <div style={{ padding: '32px 0', color: 'var(--muted)', fontSize: 13 }}>Select a workspace to edit settings.</div>
+        )}
       </div>
     </div>
   )
