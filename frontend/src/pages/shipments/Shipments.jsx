@@ -152,10 +152,8 @@ export default function Shipments(){
       {/* Header */}
       <div style={{display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:16}}>
         <div>
-          <h1 style={{fontSize:28, fontWeight:800, margin:0, background:'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent'}}>
-            📦 Inventory Management
-          </h1>
-          <p style={{margin:'4px 0 0', opacity:0.7, fontSize:14}}>Manage your product stock across all countries</p>
+          <h1 className="page-title" style={{margin:0}}>Inventory Management</h1>
+          <p className="page-subtitle" style={{margin:'4px 0 0'}}>Manage your product stock across all countries</p>
         </div>
       </div>
 

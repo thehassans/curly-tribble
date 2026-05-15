@@ -58,22 +58,10 @@ export default function AgentHistory() {
             ← Back
           </button>
           <div>
-            <div
-              style={{
-                fontSize: 32,
-                fontWeight: 900,
-                letterSpacing: '-0.5px',
-                background: 'linear-gradient(135deg, #06b6d4 0%, #0ea5e9 50%, #8b5cf6 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-              }}
-            >
-              📋 Agent Commission History
-            </div>
+            <div className="page-title">Agent Commission History</div>
             {agentName && (
-              <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>
-                Payment records for <strong style={{ color: '#8b5cf6' }}>{agentName}</strong>
+              <div className="page-subtitle">
+                Payment records for <strong>{agentName}</strong>
               </div>
             )}
           </div>

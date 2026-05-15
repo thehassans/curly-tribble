@@ -236,38 +236,8 @@ export default function AgentAmounts() {
         style={{ animation: 'fadeInUp 0.6s ease-out', marginBottom: '20px' }}
       >
         <div>
-          <div
-            style={{
-              fontSize: '42px',
-              fontWeight: 900,
-              letterSpacing: '-1px',
-              marginBottom: '12px',
-              background:
-                'linear-gradient(135deg, #10b981 0%, #22c55e 25%, #14b8a6 50%, #06b6d4 75%, #0ea5e9 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              filter: 'drop-shadow(0 2px 8px rgba(16, 185, 129, 0.3))',
-              lineHeight: '1.2',
-            }}
-          >
-            💼 Agent Amounts
-          </div>
-          <div
-            style={{
-              fontSize: '16px',
-              fontWeight: 500,
-              color: 'var(--text-muted)',
-              letterSpacing: '0.3px',
-              background: 'linear-gradient(90deg, #10b981 0%, #06b6d4 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              opacity: 0.9,
-            }}
-          >
-            Monitor agent earnings from submitted orders
-          </div>
+          <div className="page-title">Agent Amounts</div>
+          <div className="page-subtitle">Monitor agent earnings from submitted orders</div>
         </div>
       </div>
       {err && <div className="error">{err}</div>}
@@ -349,11 +319,8 @@ export default function AgentAmounts() {
           <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6 }}>Remaining to pay</div>
         </div>
         <div
-          className="stat-card stagger-item"
-          style={{
-            animationDelay: '0.35s',
-            background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
-          }}
+          className="stat-card stagger-item gradient-green"
+          style={{ animationDelay: '0.35s' }}
         >
           <div
             style={{
@@ -404,59 +371,12 @@ export default function AgentAmounts() {
           >
             <thead>
               <tr>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    textAlign: 'left',
-                    borderRight: '1px solid var(--border)',
-                    color: '#8b5cf6',
-                  }}
-                >
-                  Agent
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    textAlign: 'center',
-                    borderRight: '1px solid var(--border)',
-                    color: '#6366f1',
-                  }}
-                >
-                  Orders Submitted
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    textAlign: 'center',
-                    borderRight: '1px solid var(--border)',
-                    color: '#22c55e',
-                  }}
-                >
-                  Orders Delivered
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    textAlign: 'right',
-                    borderRight: '1px solid var(--border)',
-                    color: '#3b82f6',
-                  }}
-                >
-                  Upcoming Comm.
-                </th>
-                <th
-                  style={{
-                    padding: '10px 12px',
-                    textAlign: 'right',
-                    borderRight: '1px solid var(--border)',
-                    color: '#ef4444',
-                  }}
-                >
-                  Balance
-                </th>
-                <th style={{ padding: '10px 12px', textAlign: 'center', color: '#8b5cf6' }}>
-                  Actions
-                </th>
+                <th style={{ padding: '10px 12px', textAlign: 'left', borderRight: '1px solid var(--border)', color: 'var(--muted)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Agent</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center', borderRight: '1px solid var(--border)', color: 'var(--muted)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Orders Submitted</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center', borderRight: '1px solid var(--border)', color: 'var(--muted)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Orders Delivered</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right', borderRight: '1px solid var(--border)', color: 'var(--muted)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Upcoming Comm.</th>
+                <th style={{ padding: '10px 12px', textAlign: 'right', borderRight: '1px solid var(--border)', color: 'var(--muted)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Balance</th>
+                <th style={{ padding: '10px 12px', textAlign: 'center', color: 'var(--muted)', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Actions</th>
               </tr>
             </thead>
             <tbody>

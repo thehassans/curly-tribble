@@ -356,38 +356,8 @@ export default function DriverAmounts() {
         style={{ animation: 'fadeInUp 0.6s ease-out', marginBottom: '20px' }}
       >
         <div>
-          <div
-            style={{
-              fontSize: '42px',
-              fontWeight: 900,
-              letterSpacing: '-1px',
-              marginBottom: '12px',
-              background:
-                'linear-gradient(135deg, #3b82f6 0%, #6366f1 25%, #8b5cf6 50%, #a855f7 75%, #d946ef 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              filter: 'drop-shadow(0 2px 8px rgba(59, 130, 246, 0.3))',
-              lineHeight: '1.2',
-            }}
-          >
-            🚚 Driver Amounts
-          </div>
-          <div
-            style={{
-              fontSize: '16px',
-              fontWeight: 500,
-              color: 'var(--text-muted)',
-              letterSpacing: '0.3px',
-              background: 'linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              opacity: 0.9,
-            }}
-          >
-            Monitor driver deliveries and commission details
-          </div>
+          <div className="page-title">Driver Amounts</div>
+          <div className="page-subtitle">Monitor driver deliveries and commission details</div>
         </div>
       </div>
       {err && <div className="error">{err}</div>}
@@ -397,9 +367,8 @@ export default function DriverAmounts() {
         <div
           className="card"
           style={{
-            border: '2px solid #22c55e',
-            background:
-              'linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(16, 185, 129, 0.04) 100%)',
+            border: '1px solid var(--border)',
+            background: 'var(--panel)',
           }}
         >
           <div className="card-header" style={{ borderBottom: '1px solid rgba(34, 197, 94, 0.35)' }}>

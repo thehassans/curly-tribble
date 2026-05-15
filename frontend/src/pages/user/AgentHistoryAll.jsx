@@ -56,22 +56,8 @@ export default function AgentHistoryAll() {
       {/* Header */}
       <div className="page-header" style={{ animation: 'fadeInUp 0.5s ease-out' }}>
         <div>
-          <div
-            style={{
-              fontSize: 36,
-              fontWeight: 900,
-              letterSpacing: '-0.5px',
-              background: 'linear-gradient(135deg, #06b6d4 0%, #8b5cf6 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}
-          >
-            📋 Agent Commission History
-          </div>
-          <div style={{ fontSize: 14, color: 'var(--text-muted)', marginTop: 4 }}>
-            All commission payments across all agents
-          </div>
+          <div className="page-title">Agent Commission History</div>
+          <div className="page-subtitle">All commission payments across all agents</div>
         </div>
         <button
           className="btn secondary"

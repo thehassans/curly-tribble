@@ -18,6 +18,7 @@ img.emoji {
   --panel-2: #ffffff;
   --border: #e2e8f0;
   --btn: #111827;
+  --btn-fg: #ffffff;
   --btn-secondary: #e5e7eb;
   --btn-danger: #dc2626;
   --input-bg: #ffffff;
@@ -223,8 +224,9 @@ img.emoji {
   --sidebar-border: #1a1a1a;
   --nav-active-bg: #141414;
   --nav-active-fg: #e6e6e6;
-  /* Buttons retain brand color for contrast */
-  --btn: #2563eb;
+  /* Buttons — light on dark background */
+  --btn: #e2e8f0;
+  --btn-fg: #0f172a;
   --btn-secondary: #1f1f1f;
   --btn-danger: #dc2626;
   /* Inputs */
@@ -1633,7 +1635,7 @@ a {
 .btn {
   background: var(--btn);
   border: 1px solid transparent;
-  color: white;
+  color: var(--btn-fg, #ffffff) !important;
   padding: 9px 16px;
   border-radius: 8px;
   cursor: pointer;
@@ -1818,8 +1820,8 @@ a {
   --heading-end: var(--fg);
 }
 .heading-purple {
-  --heading-start: #8b5cf6;
-  --heading-end: #7c3aed;
+  --heading-start: var(--fg);
+  --heading-end: var(--fg);
 }
 .heading-green {
   --heading-start: var(--fg);
@@ -1830,13 +1832,13 @@ a {
   --heading-end: var(--fg);
 }
 .heading-pink {
-  --heading-start: #fb7185;
-  --heading-end: #ec4899;
+  --heading-start: var(--fg);
+  --heading-end: var(--fg);
 }
 /* Brand (button green) */
 .heading-brand {
-  --heading-start: #34d399;
-  --heading-end: var(--btn);
+  --heading-start: var(--fg);
+  --heading-end: var(--fg);
 }
 
 /* Global Responsive Utilities */
@@ -3497,10 +3499,11 @@ a {
 
 @layer components {
   .btn {
-    @apply inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium text-white transition hover:brightness-105 focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium transition focus:ring-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60;
   }
   .btn {
     background: var(--btn) !important;
+    color: var(--btn-fg, #ffffff) !important;
   }
   .btn:focus {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--btn) 30%, transparent) !important;

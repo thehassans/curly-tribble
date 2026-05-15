@@ -352,38 +352,8 @@ export default function ManagerFinances() {
         style={{ animation: 'fadeInUp 0.6s ease-out', marginBottom: '20px' }}
       >
         <div>
-          <div
-            style={{
-              fontSize: '42px',
-              fontWeight: 900,
-              letterSpacing: '-1px',
-              marginBottom: '12px',
-              background:
-                'linear-gradient(135deg, #8b5cf6 0%, #a855f7 25%, #c026d3 50%, #d946ef 75%, #ec4899 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              filter: 'drop-shadow(0 2px 8px rgba(139, 92, 246, 0.3))',
-              lineHeight: '1.2',
-            }}
-          >
-            🏦 Manager Finances
-          </div>
-          <div
-            style={{
-              fontSize: '16px',
-              fontWeight: 500,
-              color: 'var(--text-muted)',
-              letterSpacing: '0.3px',
-              background: 'linear-gradient(90deg, #8b5cf6 0%, #ec4899 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              opacity: 0.9,
-            }}
-          >
-            Monitor driver→manager and manager→company remittances
-          </div>
+          <div className="page-title">Manager Finances</div>
+          <div className="page-subtitle">Monitor driver→manager and manager→company remittances</div>
         </div>
       </div>
       {err && <div className="error">{err}</div>}
