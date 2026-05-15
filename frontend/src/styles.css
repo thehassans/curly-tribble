@@ -17,7 +17,7 @@ img.emoji {
   --panel: #ffffff;
   --panel-2: #ffffff;
   --border: #e2e8f0;
-  --btn: #00a884;
+  --btn: #111827;
   --btn-secondary: #e5e7eb;
   --btn-danger: #dc2626;
   --input-bg: #ffffff;
@@ -1634,9 +1634,17 @@ a {
   background: var(--btn);
   border: 1px solid transparent;
   color: white;
-  padding: 10px 14px;
+  padding: 9px 16px;
   border-radius: 8px;
   cursor: pointer;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: -0.01em;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.btn:not(:disabled):hover {
+  opacity: 0.88;
+  transform: translateY(-1px);
 }
 .btn.secondary {
   background: var(--btn-secondary);
@@ -1658,11 +1666,9 @@ a {
   opacity: 0.6;
   cursor: not-allowed;
 }
-.btn:not(:disabled):hover {
-  filter: brightness(1.03);
-}
 .btn:not(:disabled):active {
-  transform: translateY(0.5px);
+  transform: translateY(0);
+  opacity: 0.95;
 }
 .chip {
   display: inline-flex;

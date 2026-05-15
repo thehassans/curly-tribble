@@ -162,6 +162,7 @@ router.post(
           ...(user.role === 'partner' ? { assignedCountry: user.assignedCountry, assignedCountries: user.assignedCountries } : {}),
           ...(user.role === 'seo_manager' && Array.isArray(user.seoCountries) ? { seoCountries: user.seoCountries } : {}),
           ...(user.role === 'manager' && user.managerPermissions ? { managerPermissions: user.managerPermissions } : {}),
+          ...(user.workspaceSettings ? { workspaceSettings: user.workspaceSettings } : {}),
         },
       });
     } catch (err) {

@@ -1657,87 +1657,10 @@ export default function UserLayout() {
         >
           <div className="flex items-center gap-3" style={{ flex: '1 1 280px', minWidth: 0 }}>
             {!isCompact && (
-              <div
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '8px 20px',
-                  borderRadius: '12px',
-                  background:
-                    'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%)',
-                  border: '1px solid rgba(139, 92, 246, 0.2)',
-                  boxShadow:
-                    '0 4px 12px rgba(139, 92, 246, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-                  backdropFilter: 'blur(10px)',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                }}
-              >
-                {/* Premium Crown Icon */}
-                <span
-                  aria-hidden
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '8px',
-                    background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-                    boxShadow: '0 2px 8px rgba(251, 191, 36, 0.3)',
-                    flexShrink: 0,
-                  }}
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M2 20h20v-8L18 4l-4 6-4-6-4 8z" />
-                    <path d="M6 20v-8" />
-                    <path d="M10 20v-8" />
-                    <path d="M14 20v-8" />
-                    <path d="M18 20v-8" />
-                  </svg>
-                </span>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                  <span
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 50%, #fbbf24 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
-                    }}
-                  >
-                    Owner
-                  </span>
-                  <span
-                    style={{
-                      fontSize: '15px',
-                      fontWeight: 700,
-                      letterSpacing: '-0.02em',
-                      background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a855f7 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    {`Welcome ${me.firstName || ''} ${me.lastName || ''}`.trim()}
-                  </span>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, padding: '6px 14px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--panel)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)' }}>Owner</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{`Welcome ${me.firstName || ''} ${me.lastName || ''}`.trim()}</span>
                 </div>
               </div>
             )}
@@ -1755,217 +1678,22 @@ export default function UserLayout() {
             }}
           >
             {/* Quick Access Links */}
-            <button
-              onClick={() => navigate('/user/orders')}
-              title="Orders"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 14px',
-                background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.15) 100%)',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                borderRadius: '10px',
-                color: '#3b82f6',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                flex: '0 0 auto',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.25) 0%, rgba(37, 99, 235, 0.25) 100%)'
-                e.currentTarget.style.transform = 'translateY(-1px)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(37, 99, 235, 0.15) 100%)'
-                e.currentTarget.style.transform = 'translateY(0)'
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-              </svg>
+            <button onClick={() => navigate('/user/orders')} title="Orders" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--fg)', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
               Orders
             </button>
-            <button
-              onClick={() => navigate('/user/products')}
-              title="Products"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 14px',
-                background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)',
-                border: '1px solid rgba(168, 85, 247, 0.3)',
-                borderRadius: '10px',
-                color: '#a855f7',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'all 0.2s ease',
-                flex: '0 0 auto',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(139, 92, 246, 0.25) 100%)'
-                e.currentTarget.style.transform = 'translateY(-1px)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%)'
-                e.currentTarget.style.transform = 'translateY(0)'
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
-                <line x1="12" y1="22.08" x2="12" y2="12" />
-              </svg>
+            <button onClick={() => navigate('/user/products')} title="Products" style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 13px', background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 9, color: 'var(--fg)', fontSize: 12, fontWeight: 600, cursor: 'pointer', flexShrink: 0 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
               Products
             </button>
-            {/* Premium Theme Toggle Switch */}
+            {/* Minimal Theme Toggle */}
             <button
               type="button"
-              onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+              onClick={() => { const next = theme === 'dark' ? 'light' : 'dark'; setTheme(setThemeMode(next)) }}
               title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
-              aria-label={theme === 'light' ? 'Dark mode' : 'Light mode'}
-              style={{
-                position: 'relative',
-                width: '70px',
-                height: '34px',
-                background:
-                  theme === 'dark'
-                    ? 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)'
-                    : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
-                borderRadius: '17px',
-                border: theme === 'dark' ? '2px solid #334155' : '2px solid #cbd5e1',
-                cursor: 'pointer',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                boxShadow:
-                  theme === 'dark'
-                    ? 'inset 0 2px 4px rgba(0,0,0,0.3), 0 2px 8px rgba(0,0,0,0.2)'
-                    : 'inset 0 2px 4px rgba(0,0,0,0.1), 0 2px 8px rgba(0,0,0,0.1)',
-                padding: 0,
-                overflow: 'hidden',
-                flex: '0 0 auto',
-                flexShrink: 0,
-              }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 34, height: 34, borderRadius: 9, border: '1px solid var(--border)', background: 'var(--panel)', color: 'var(--fg)', cursor: 'pointer', flexShrink: 0, fontSize: 15 }}
             >
-              {/* Background Icons */}
-              <div
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '0 8px',
-                }}
-              >
-                {/* Sun Icon (left) */}
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={theme === 'light' ? '#0f172a' : '#64748b'}
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{
-                    transition: 'all 0.3s ease',
-                    opacity: theme === 'light' ? 0.3 : 0.5,
-                  }}
-                >
-                  <circle cx="12" cy="12" r="5" />
-                  <line x1="12" y1="1" x2="12" y2="3" />
-                  <line x1="12" y1="21" x2="12" y2="23" />
-                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                  <line x1="1" y1="12" x2="3" y2="12" />
-                  <line x1="21" y1="12" x2="23" y2="12" />
-                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                </svg>
-                {/* Moon Icon (right) */}
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={theme === 'dark' ? '#f1f5f9' : '#94a3b8'}
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{
-                    transition: 'all 0.3s ease',
-                    opacity: theme === 'dark' ? 0.3 : 0.5,
-                  }}
-                >
-                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                </svg>
-              </div>
-              {/* Sliding Circle */}
-              <div
-                style={{
-                  position: 'absolute',
-                  top: '3px',
-                  left: theme === 'dark' ? 'calc(100% - 31px)' : '3px',
-                  width: '28px',
-                  height: '28px',
-                  background:
-                    theme === 'dark'
-                      ? 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)'
-                      : 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
-                  borderRadius: '50%',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  boxShadow:
-                    theme === 'dark'
-                      ? '0 2px 8px rgba(59, 130, 246, 0.4), 0 0 16px rgba(59, 130, 246, 0.2)'
-                      : '0 2px 8px rgba(251, 191, 36, 0.4), 0 0 16px rgba(251, 191, 36, 0.2)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {/* Active Icon */}
-                {theme === 'dark' ? (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                  </svg>
-                ) : (
-                  <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="#ffffff"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="12" cy="12" r="5" />
-                    <line x1="12" y1="1" x2="12" y2="3" />
-                    <line x1="12" y1="21" x2="12" y2="23" />
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                    <line x1="1" y1="12" x2="3" y2="12" />
-                    <line x1="21" y1="12" x2="23" y2="12" />
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                  </svg>
-                )}
-              </div>
+              {theme === 'dark' ? '☀️' : '🌙'}
             </button>
             {/* Notifications dropdown component */}
             <NotificationsDropdown />
@@ -2007,11 +1735,15 @@ export default function UserLayout() {
                 </DropdownMenuItem>
               </DropdownMenuGroup>
               <DropdownMenuSeparator className="mx-0 my-2 bg-[color:var(--border)]" />
-              <div className="rounded-2xl border border-[color:var(--border)] bg-[color:var(--panel-2)]/60 p-4">
-                <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.5px] text-[color:var(--muted)]">
-                  Theme
+              <div style={{ padding: '10px 12px', borderRadius: 14, border: '1px solid var(--border)', background: 'var(--panel-2)' }}>
+                <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--muted)', marginBottom: 8 }}>Theme</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {[{ key: 'light', label: 'Light', icon: '☀️' }, { key: 'dark', label: 'Dark', icon: '🌙' }].map(opt => (
+                    <button key={opt.key} type="button" onClick={() => setTheme(setThemeMode(opt.key))} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, padding: '7px 10px', borderRadius: 9, border: theme === opt.key ? '1px solid var(--accent)' : '1px solid var(--border)', background: theme === opt.key ? 'color-mix(in srgb, var(--accent) 10%, transparent)' : 'transparent', color: theme === opt.key ? 'var(--accent)' : 'var(--muted)', fontSize: 12, fontWeight: 600, cursor: 'pointer', transition: 'all 0.15s' }}>
+                      <span style={{ fontSize: 13 }}>{opt.icon}</span> {opt.label}
+                    </button>
+                  ))}
                 </div>
-                <ThemeModeSelector compact value={theme} onChange={(next) => setTheme(setThemeMode(next))} />
               </div>
               <DropdownMenuSeparator className="mx-0 my-2 bg-[color:var(--border)]" />
               <DropdownMenuItem

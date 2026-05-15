@@ -328,7 +328,21 @@ export default function DashboardPremium({ mode = 'user' } = {}) {
 
   const yearOptions = useMemo(() => Array.from({ length: 5 }, (_, index) => currentYear() - index), [])
   const monthNames = useMemo(() => ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'], [])
-  const countryMetaOptions = useMemo(() => countryMetaList(), [COUNTRY_LIST.length])
+  const allCountryMetaOptions = useMemo(() => countryMetaList(), [COUNTRY_LIST.length])
+  const countryMetaOptions = useMemo(() => {
+    try {
+      const me = JSON.parse(localStorage.getItem('me') || '{}')
+      const bc = me?.workspaceSettings?.businessCountries
+      if (Array.isArray(bc) && bc.length > 0) {
+        const bcSet = new Set(bc.map(c => String(c).trim().toUpperCase()))
+        const filtered = allCountryMetaOptions.filter(item =>
+          bcSet.has(item.code) || bcSet.has(item.label.toUpperCase()) || (item.match || []).some(m => bcSet.has(String(m).toUpperCase()))
+        )
+        return filtered.length > 0 ? filtered : allCountryMetaOptions
+      }
+    } catch {}
+    return allCountryMetaOptions
+  }, [allCountryMetaOptions])
 
   async function loadDashboard() {
     setLoading(true)

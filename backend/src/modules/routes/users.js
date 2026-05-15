@@ -4547,6 +4547,7 @@ router.post("/:id/impersonate", auth, allowRoles("admin", "user"), async (req, r
         firstName: targetUser.firstName,
         lastName: targetUser.lastName,
         email: targetUser.email,
+        ...(targetUser.workspaceSettings ? { workspaceSettings: targetUser.workspaceSettings } : {}),
       },
     });
   } catch (err) {
