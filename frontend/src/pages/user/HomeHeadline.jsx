@@ -22,7 +22,7 @@ export default function HomeHeadline() {
     enabled: true,
     badge: 'Premium Shopping',
     title: 'Discover premium products, delivered fast',
-    subtitle: 'Curated collections, trusted quality, and seamless shopping across the Gulf.',
+    subtitle: 'Curated collections, trusted quality, and seamless shopping across the global marketplace.',
     chip1: '',
     chip2: '',
     chip3: '',

@@ -45,7 +45,7 @@ export default function Home(){
     enabled: true,
     badge: 'Premium Shopping',
     title: 'Discover premium products, delivered fast',
-    subtitle: 'Curated collections, trusted quality, and seamless shopping across the Gulf.',
+    subtitle: 'Curated collections, trusted quality, and seamless shopping across the global marketplace.',
     chips: [],
     speed: 18,
     bg1: '#111827',

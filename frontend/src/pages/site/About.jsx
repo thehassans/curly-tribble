@@ -29,7 +29,7 @@ export default function About() {
               About <span className="bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">{brandName}</span>
             </h1>
             <p className="text-xl md:text-2xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-              Revolutionizing e-commerce across the Gulf region with quality products, 
+              Revolutionizing e-commerce across the global marketplace with quality products, 
               competitive prices, and a powerful dropshipping platform.
             </p>
           </div>
@@ -62,7 +62,7 @@ export default function About() {
                 Building the Future of <span className="text-orange-500">E-Commerce</span>
               </h2>
               <p className="text-lg text-gray-600 leading-relaxed mb-6">
-                {brandName} started with a simple vision: make quality products accessible to everyone across the Gulf region. 
+                {brandName} started with a simple vision: make quality products accessible to everyone across the global marketplace. 
                 Today, we've grown into a comprehensive platform serving thousands of customers and businesses.
               </p>
               <p className="text-lg text-gray-600 leading-relaxed">

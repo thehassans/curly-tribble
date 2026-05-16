@@ -174,7 +174,7 @@ function StatsAndCategories({ categoryCount = 0, categoryCounts = {}, selectedCa
               Discover quality products at unbeatable prices
             </h2>
             <p className="text-base sm:text-lg text-gray-600">
-              Your trusted marketplace for wholesale and retail shopping across the Gulf region
+              Your trusted marketplace for wholesale and retail shopping across the global marketplace
             </p>
           </div>
 
