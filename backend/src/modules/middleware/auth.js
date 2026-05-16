@@ -70,7 +70,12 @@ export async function auth(req, res, next) {
 
 export function allowRoles(...roles) {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    if (!req.user) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    // 'admin' is a superuser — always allowed regardless of listed roles
+    if (req.user.role === 'admin') return next();
+    if (!roles.includes(req.user.role)) {
       return res.status(403).json({ message: 'Forbidden' });
     }
     next();
