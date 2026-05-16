@@ -168,7 +168,7 @@ const ProductCardMini = memo(function ProductCardMini({ product, selectedCountry
   }, [product?._id])
 
   const COUNTRY_TO_CURRENCY = {
-    'AE': 'AED', 'OM': 'OMR', 'SA': 'SAR', 'BH': 'BHD', 'IN': 'INR', 'KW': 'KWD', 'QA': 'QAR',
+    'BD': 'BDT', 'AE': 'AED', 'OM': 'OMR', 'SA': 'SAR', 'BH': 'BHD', 'IN': 'INR', 'KW': 'KWD', 'QA': 'QAR',
     'PK': 'PKR', 'JO': 'JOD', 'US': 'USD', 'GB': 'GBP', 'CA': 'CAD', 'AU': 'AUD',
   }
 

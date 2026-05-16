@@ -24,7 +24,7 @@ export default function ProductCard({ product, onAddToCart, selectedCountry = 'S
   useEffect(()=>{ let alive=true; getCurrencyConfig().then(cfg=>{ if(alive) setCcyCfg(cfg) }).catch(()=>{}); return ()=>{alive=false} },[])
 
   const COUNTRY_TO_CURRENCY = {
-    'AE': 'AED', 'OM': 'OMR', 'SA': 'SAR', 'BH': 'BHD', 'IN': 'INR', 'KW': 'KWD', 'QA': 'QAR',
+    'BD': 'BDT', 'AE': 'AED', 'OM': 'OMR', 'SA': 'SAR', 'BH': 'BHD', 'IN': 'INR', 'KW': 'KWD', 'QA': 'QAR',
     'PK': 'PKR', 'JO': 'JOD', 'US': 'USD', 'GB': 'GBP', 'CA': 'CAD', 'AU': 'AUD',
   }
 
