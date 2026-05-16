@@ -96,10 +96,13 @@ export function mediaUrl(input) {
   const apiBase = String(API_BASE || '').trim()
   const mediaBase = String(MEDIA_BASE || '').trim()
   const uploadsBase = String(UPLOADS_BASE || MEDIA_BASE_EXPLICIT || '').trim() || apiBase || mediaBase
+  // Only use /uploads directly when there is NO apiBase at all (truly same-origin root).
+  // When apiBase is a path prefix like '/api', route uploads through /api/uploads/ so
+  // that the request is forwarded by the reverse proxy (Plesk/nginx only proxies /api/*).
   const preferDirectUploads =
     !UPLOADS_BASE &&
     !MEDIA_BASE_EXPLICIT &&
-    (!apiBase || !/^https?:\/\//i.test(apiBase))
+    !apiBase
 
   if (u.startsWith('/api/uploads/')) {
     if (preferDirectUploads) return `/uploads/${u.slice(13)}`
