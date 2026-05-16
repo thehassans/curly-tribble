@@ -469,15 +469,15 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
 
       <style>{`
         .ecommerce-header {
-          background: rgba(255, 255, 255, 0.98);
-          border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+          background: rgba(255, 255, 255, 0.96);
+          border-bottom: 1px solid rgba(0, 0, 0, 0.06);
           position: sticky;
           top: 0;
           z-index: 100;
-          box-shadow: 0 4px 28px rgba(0, 0, 0, 0.07), 0 1px 0 rgba(0, 0, 0, 0.04);
+          box-shadow: 0 1px 12px rgba(0, 0, 0, 0.05);
           padding-top: env(safe-area-inset-top, 0px);
-          backdrop-filter: blur(24px) saturate(200%);
-          -webkit-backdrop-filter: blur(24px) saturate(200%);
+          backdrop-filter: blur(24px) saturate(180%);
+          -webkit-backdrop-filter: blur(24px) saturate(180%);
         }
 
         .ecommerce-header::after {
@@ -486,9 +486,8 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
           bottom: 0;
           left: 0;
           right: 0;
-          height: 2px;
-          background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 45%, #ec4899 100%);
-          opacity: 0.7;
+          height: 1px;
+          background: rgba(0,0,0,0.06);
         }
 
         .header-container {
@@ -1114,26 +1113,30 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
         }
 
         @media (max-width: 768px) {
+          .ecommerce-header::after {
+            display: none;
+          }
+
           .header-container {
             padding: 0 12px;
-            min-height: 64px;
+            min-height: 52px;
             height: auto;
             display: grid;
             grid-template-columns: auto minmax(0, 1fr) auto;
-            gap: 10px;
+            gap: 8px;
           }
 
           .header-left {
-            gap: 10px;
+            gap: 8px;
           }
 
           .logo-img {
-            height: 34px;
-            max-width: min(40vw, 148px);
+            height: 30px;
+            max-width: min(38vw, 140px);
           }
 
           .mobile-logo {
-            height: 28px;
+            height: 26px;
           }
 
           .mobile-menu-btn {
@@ -1178,13 +1181,13 @@ export default function Header({ onCartClick, editMode = false, editState = {}, 
         @media (max-width: 480px) {
           .header-container {
             padding: 0 10px;
-            min-height: 60px;
-            gap: 8px;
+            min-height: 50px;
+            gap: 6px;
           }
 
           .logo-img {
-            height: 32px;
-            max-width: min(38vw, 132px);
+            height: 28px;
+            max-width: min(36vw, 120px);
           }
 
           .mobile-menu-content {
