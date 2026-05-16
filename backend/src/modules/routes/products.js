@@ -883,8 +883,22 @@ router.post('/', auth, allowRoles('admin','user','manager'), upload.any(), async
     })()
     
     // Validate baseCurrency
-    const validCurrencies = ['SAR', 'AED', 'OMR', 'BHD', 'KWD', 'QAR', 'USD', 'EUR', 'GBP', 'INR', 'CNY', 'PKR', 'CAD', 'AUD', 'JOD']
+    const validCurrencies = ['BDT', 'SAR', 'AED', 'OMR', 'BHD', 'KWD', 'QAR', 'USD', 'EUR', 'GBP', 'INR', 'CNY', 'PKR', 'CAD', 'AUD', 'JOD']
     const baseCurrency = validCurrencies.includes(req.body?.baseCurrency) ? req.body.baseCurrency : 'SAR'
+
+    // Parse country-wise price overrides (sent as JSON string from FormData)
+    let priceByCountry = {}
+    let dropshippingPriceByCountry = {}
+    try {
+      const rawPBC = req.body?.priceByCountry
+      if (typeof rawPBC === 'string' && rawPBC) priceByCountry = JSON.parse(rawPBC)
+      else if (rawPBC && typeof rawPBC === 'object') priceByCountry = rawPBC
+    } catch {}
+    try {
+      const rawDBC = req.body?.dropshippingPriceByCountry
+      if (typeof rawDBC === 'string' && rawDBC) dropshippingPriceByCountry = JSON.parse(rawDBC)
+      else if (rawDBC && typeof rawDBC === 'object') dropshippingPriceByCountry = rawDBC
+    } catch {}
 
     const finalSku = String(sku || '').trim()
     
@@ -896,6 +910,8 @@ router.post('/', auth, allowRoles('admin','user','manager'), upload.any(), async
       dropshippingPrice: safeDropshippingPrice,
       stockQty: finalStockQty || 0,
       stockByCountry: sbc,
+      priceByCountry,
+      dropshippingPriceByCountry,
       totalPurchased: finalStockQty || 0, // Initial inventory purchased
       imagePath: imagePaths[0] || '',
       images: imagePaths,
@@ -1890,10 +1906,25 @@ router.patch('/:id', auth, allowRoles('admin','user','manager'), upload.any(), a
   }
   // Base currency
   if (req.body?.baseCurrency != null) {
-    const validCurrencies = ['SAR', 'AED', 'OMR', 'BHD', 'KWD', 'QAR', 'USD', 'EUR', 'GBP', 'INR', 'CNY', 'PKR', 'CAD', 'AUD', 'JOD']
+    const validCurrencies = ['BDT', 'SAR', 'AED', 'OMR', 'BHD', 'KWD', 'QAR', 'USD', 'EUR', 'GBP', 'INR', 'CNY', 'PKR', 'CAD', 'AUD', 'JOD']
     if (validCurrencies.includes(req.body.baseCurrency)) {
       prod.baseCurrency = req.body.baseCurrency
     }
+  }
+  // Country-wise price overrides
+  if (req.body?.priceByCountry != null) {
+    try {
+      let pbc = req.body.priceByCountry
+      if (typeof pbc === 'string') pbc = JSON.parse(pbc)
+      if (pbc && typeof pbc === 'object') { prod.priceByCountry = pbc; prod.markModified('priceByCountry') }
+    } catch {}
+  }
+  if (req.body?.dropshippingPriceByCountry != null) {
+    try {
+      let dbc = req.body.dropshippingPriceByCountry
+      if (typeof dbc === 'string') dbc = JSON.parse(dbc)
+      if (dbc && typeof dbc === 'object') { prod.dropshippingPriceByCountry = dbc; prod.markModified('dropshippingPriceByCountry') }
+    } catch {}
   }
   // Sale/Discount fields
   if (req.body?.salePrice != null) prod.salePrice = Number(req.body.salePrice) || 0

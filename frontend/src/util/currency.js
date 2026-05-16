@@ -2,11 +2,12 @@ import { apiGet } from '../api'
 import { COUNTRY_LIST } from '../utils/constants'
 
 // Default config anchored to AED using requested rates:
-// 1 AED = 1 SAR, 1 QAR, 0.10 BHD, 0.10 OMR, 0.083 KWD, 0.27 USD, 1.94 CNY, 24.16 INR, 76.56 PKR
+// 1 AED = 1 SAR, 1 QAR, 0.10 BHD, 0.10 OMR, 0.083 KWD, 0.27 USD, 1.94 CNY, 24.16 INR, 76.56 PKR, 32 BDT
 const DEFAULT = {
   anchor: 'AED',
   perAED: {
     AED: 1,
+    BDT: 32,
     SAR: 1,
     QAR: 1,
     BHD: 0.10,
@@ -21,7 +22,7 @@ const DEFAULT = {
     CAD: 0.37,
     AUD: 0.42,
   },
-  enabled: ['AED','SAR','QAR','BHD','OMR','KWD','USD','CNY','INR','PKR','JOD','GBP','CAD','AUD'],
+  enabled: ['BDT','AED','SAR','QAR','BHD','OMR','KWD','USD','CNY','INR','PKR','JOD','GBP','CAD','AUD'],
   updatedAt: null,
 }
 

@@ -54,6 +54,7 @@ export default function UserProducts() {
       console.error('Failed to load currency rates:', err)
       setCurrencyRates({
         AED: 1,
+        BDT: 0.031,
         SAR: 1,
         OMR: 10,
         BHD: 10,

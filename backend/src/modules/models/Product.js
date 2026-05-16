@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 
 const StockByCountrySchema = new mongoose.Schema(
   {
+    Bangladesh: { type: Number, default: 0 },
     UAE: { type: Number, default: 0 },
     Oman: { type: Number, default: 0 },
     KSA: { type: Number, default: 0 },
@@ -33,6 +34,8 @@ const ProductSchema = new mongoose.Schema(
     inStock: { type: Boolean, default: true },
     stockQty: { type: Number, default: 0 },
     stockByCountry: { type: StockByCountrySchema, default: () => ({}) },
+    priceByCountry: { type: mongoose.Schema.Types.Mixed, default: {} },
+    dropshippingPriceByCountry: { type: mongoose.Schema.Types.Mixed, default: {} },
     totalPurchased: { type: Number, default: 0 }, // Total inventory purchased/added (cumulative)
     imagePath: { type: String, default: "" },
     images: [{ type: String }],

@@ -2959,6 +2959,7 @@ export default function ProductDetail() {
                     onChange={(e) => setEditForm({ ...editForm, baseCurrency: e.target.value })}
                     style={{ width: '100%', padding: 12, borderRadius: 8 }}
                   >
+                    <option value="BDT">BDT - Bangladesh Taka</option>
                     <option value="SAR">SAR - Saudi Riyal</option>
                     <option value="AED">AED - UAE Dirham</option>
                     <option value="OMR">OMR - Omani Rial</option>

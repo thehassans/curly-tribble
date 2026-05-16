@@ -58,6 +58,22 @@ export default function InhouseProducts() {
   const [me, setMe] = useState(null)
   const siteUrl = (branding.websiteUrl || DEFAULT_BRANDING.websiteUrl || '').replace(/\/$/, '')
   const brandName = branding.storeName || branding.companyName || branding.appName || DEFAULT_BRANDING.storeName
+  const COUNTRY_CURRENCY_MAP = {
+    Bangladesh: { code: 'BDT', symbol: '৳' },
+    UAE:        { code: 'AED', symbol: 'AED' },
+    Oman:       { code: 'OMR', symbol: 'OMR' },
+    KSA:        { code: 'SAR', symbol: 'SAR' },
+    Bahrain:    { code: 'BHD', symbol: 'BHD' },
+    India:      { code: 'INR', symbol: '₹' },
+    Kuwait:     { code: 'KWD', symbol: 'KWD' },
+    Qatar:      { code: 'QAR', symbol: 'QAR' },
+    Pakistan:   { code: 'PKR', symbol: 'Rs' },
+    Jordan:     { code: 'JOD', symbol: 'JOD' },
+    USA:        { code: 'USD', symbol: '$' },
+    UK:         { code: 'GBP', symbol: '£' },
+    Canada:     { code: 'CAD', symbol: 'C$' },
+    Australia:  { code: 'AUD', symbol: 'A$' },
+  }
   const COUNTRY_OPTS = [
     { key: 'Bangladesh', name: 'Bangladesh', flag: '🇧🇩' },
     { key: 'UAE', name: 'UAE', flag: '🇦🇪' },
@@ -117,6 +133,8 @@ export default function InhouseProducts() {
     stockUK: 0,
     stockCanada: 0,
     stockAustralia: 0,
+    priceByCountry: {},
+    dropshippingPriceByCountry: {},
     // Premium E-commerce Features
     sellByStore: false,
     salePrice: '',
@@ -1225,6 +1243,14 @@ export default function InhouseProducts() {
     fd.append('stockUK', String(form.stockUK))
     fd.append('stockCanada', String(form.stockCanada))
     fd.append('stockAustralia', String(form.stockAustralia))
+    if (form.priceByCountry && Object.keys(form.priceByCountry).length) {
+      const cleaned = Object.fromEntries(Object.entries(form.priceByCountry).filter(([, v]) => v !== '' && v != null))
+      if (Object.keys(cleaned).length) fd.append('priceByCountry', JSON.stringify(cleaned))
+    }
+    if (form.dropshippingPriceByCountry && Object.keys(form.dropshippingPriceByCountry).length) {
+      const cleaned = Object.fromEntries(Object.entries(form.dropshippingPriceByCountry).filter(([, v]) => v !== '' && v != null))
+      if (Object.keys(cleaned).length) fd.append('dropshippingPriceByCountry', JSON.stringify(cleaned))
+    }
     fd.append('sellByStore', String(!!form.sellByStore))
     fd.append('salePrice', form.salePrice || '')
     fd.append('onSale', String(!!form.onSale))
@@ -1315,6 +1341,14 @@ export default function InhouseProducts() {
       stockIndia: 0,
       stockKuwait: 0,
       stockQatar: 0,
+      stockPakistan: 0,
+      stockJordan: 0,
+      stockUSA: 0,
+      stockUK: 0,
+      stockCanada: 0,
+      stockAustralia: 0,
+      priceByCountry: {},
+      dropshippingPriceByCountry: {},
       sellByStore: false,
       salePrice: '',
       onSale: false,
@@ -2077,6 +2111,7 @@ export default function InhouseProducts() {
                     onChange={onChange}
                     style={{ padding: 12 }}
                   >
+                    <option value="BDT">BDT (Bangladesh Taka)</option>
                     <option value="SAR">SAR (Saudi Riyal)</option>
                     <option value="AED">AED (UAE Dirham)</option>
                     <option value="OMR">OMR (Omani Rial)</option>
@@ -2326,6 +2361,44 @@ export default function InhouseProducts() {
 
               {form.availableCountries.length > 0 && (
                 <div style={{ background: 'var(--panel-2)', padding: 16, borderRadius: 12 }}>
+                  <div className="label" style={{ marginBottom: 4, fontWeight: 600 }}>
+                    Price by Country
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+                    Optional per-country price in local currency. Leave blank to use the base price above.
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(190px, 1fr))', gap: 12, marginBottom: 16 }}>
+                    {form.availableCountries.map((country) => {
+                      const ccy = COUNTRY_CURRENCY_MAP[country]
+                      if (!ccy) return null
+                      const flag = COUNTRY_OPTS.find(c => c.name === country)?.flag || ''
+                      return (
+                        <div key={country}>
+                          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, opacity: 0.8 }}>
+                            {flag} {country} ({ccy.code})
+                          </div>
+                          <div style={{ display: 'grid', gap: 4 }}>
+                            <input
+                              className="input"
+                              type="number" min="0" step="0.01"
+                              placeholder={`Sell (${ccy.symbol})`}
+                              value={form.priceByCountry?.[country] ?? ''}
+                              onChange={(e) => setForm(f => ({ ...f, priceByCountry: { ...f.priceByCountry, [country]: e.target.value } }))}
+                              style={{ padding: 8 }}
+                            />
+                            <input
+                              className="input"
+                              type="number" min="0" step="0.01"
+                              placeholder={`Drop (${ccy.symbol})`}
+                              value={form.dropshippingPriceByCountry?.[country] ?? ''}
+                              onChange={(e) => setForm(f => ({ ...f, dropshippingPriceByCountry: { ...f.dropshippingPriceByCountry, [country]: e.target.value } }))}
+                              style={{ padding: 8 }}
+                            />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
                   <div className="label" style={{ marginBottom: 12, fontWeight: 600 }}>
                     Stock by Country
                   </div>
@@ -3323,7 +3396,7 @@ export default function InhouseProducts() {
                   value={pricePopup.baseCurrency}
                   onChange={(e) => setPricePopup((p) => ({ ...p, baseCurrency: e.target.value }))}
                 >
-                  {['SAR', 'AED', 'OMR', 'BHD', 'KWD', 'QAR', 'USD', 'EUR', 'GBP', 'INR', 'CNY', 'PKR', 'CAD', 'AUD', 'JOD'].map((c) => (
+                  {['BDT', 'SAR', 'AED', 'OMR', 'BHD', 'KWD', 'QAR', 'USD', 'EUR', 'GBP', 'INR', 'CNY', 'PKR', 'CAD', 'AUD', 'JOD'].map((c) => (
                     <option key={c} value={c}>
                       {c}
                     </option>
