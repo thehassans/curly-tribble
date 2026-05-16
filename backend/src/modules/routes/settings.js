@@ -5,6 +5,7 @@ import path from "path";
 import Setting from "../models/Setting.js";
 import User from "../models/User.js";
 import { auth, allowRoles } from "../middleware/auth.js";
+import websiteSettingsRouter from "./websiteSettings.js";
 import mime from "mime-types";
 import googleMapsService from "../services/googleMapsService.js";
 import {
@@ -1605,3 +1606,7 @@ async function migrateLegacyBranding() {
 }
 // Run after a short delay to let DB connection settle
 setTimeout(migrateLegacyBranding, 5000);
+
+// Mount website settings sub-router so /api/settings/website/* is reachable
+// via the primary /api/settings proxy path (avoids proxy sub-path routing issues)
+router.use('/website', websiteSettingsRouter);
