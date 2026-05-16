@@ -1569,3 +1569,39 @@ router.delete("/gsc-key", auth, allowRoles("admin", "user"), async (_req, res) =
     res.status(500).json({ error: e?.message || "failed" });
   }
 });
+
+// One-time migration: replace legacy 'BuySial' branding values with Magnetic E-Commerce defaults
+async function migrateLegacyBranding() {
+  try {
+    const doc = await Setting.findOne({ key: "branding" });
+    if (!doc?.value || typeof doc.value !== "object") return;
+    const val = { ...doc.value };
+    let changed = false;
+    const replacements = {
+      title: DEFAULT_BRANDING.title,
+      appName: DEFAULT_BRANDING.appName,
+      companyName: DEFAULT_BRANDING.companyName,
+      portalName: DEFAULT_BRANDING.portalName,
+      storeName: DEFAULT_BRANDING.storeName,
+      footerText: DEFAULT_BRANDING.footerText,
+      reportSignature: DEFAULT_BRANDING.reportSignature,
+      staffLoginSubtitle: DEFAULT_BRANDING.staffLoginSubtitle,
+    };
+    for (const [key, defaultVal] of Object.entries(replacements)) {
+      if (typeof val[key] === "string" && /buysial/i.test(val[key])) {
+        val[key] = defaultVal;
+        changed = true;
+      }
+    }
+    if (changed) {
+      doc.value = val;
+      doc.markModified("value");
+      await doc.save();
+      console.log("[branding] Migrated legacy BuySial values to Magnetic E-Commerce");
+    }
+  } catch (e) {
+    console.warn("[branding] Migration error:", e?.message);
+  }
+}
+// Run after a short delay to let DB connection settle
+setTimeout(migrateLegacyBranding, 5000);

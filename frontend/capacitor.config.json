@@ -1,6 +1,6 @@
 {
-  "appId": "com.buysial.app",
-  "appName": "Buysial",
+  "appId": "com.magneticcommerce.app",
+  "appName": "Magnetic Commerce",
   "webDir": "dist",
   "plugins": {
     "SplashScreen": {
